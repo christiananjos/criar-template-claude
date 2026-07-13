@@ -12,6 +12,14 @@ A arquitetura ainda não foi escolhida. Ela é decidida na primeira vez que a sk
 - Estilo de código, padrões de commit, estrutura de pastas relevante.
 - `changes/001-*.md` a `NNN-*.md` (bootstrap da arquitetura, criado pela skill de scaffolding na primeira execução — ver acima) são executados via `changes/executar-todas.md`. A primeira feature pós-bootstrap continua a MESMA numeração de 3 dígitos, sequencialmente (não reinicia) — copie `changes/_template-nova-feature/`.
 
+## Princípios de trabalho
+- **Plan mode por padrão**: para tarefas que não sejam triviais (mais de 3 passos, ou que envolvam decisão de arquitetura/design), planeje antes de editar (`Shift+Tab` / `--permission-mode plan`). Se o plano sair do rumo no meio da execução, pare e replaneje em vez de forçar o caminho original.
+- **Subagents para pesquisa**: investigações e buscas que não vão virar edição direta (entender um módulo, mapear onde algo é usado, comparar abordagens) devem rodar em subagente, pra não poluir o contexto principal com leituras intermediárias. Tarefas complexas e independentes entre si podem ser divididas em subagentes paralelos.
+- **Verificação antes de "pronto"**: nenhuma tarefa é considerada concluída sem evidência de que funciona (rodar o teste, exercitar o fluxo, mostrar o output real). Pergunte-se se um engenheiro sênior aprovaria a mudança como está.
+- **Simplicidade em primeiro lugar**: prefira a mudança mais simples que resolve o problema, com o menor impacto possível no resto do código. Correção simples não pede abstração nova; se a solução ficou "remendada", refaça antes de entregar — mas não compense isso com over-engineering em casos triviais.
+- **Correção autônoma de bugs**: ao investigar um bug, vá até a causa raiz (logs, stack trace, teste que falhou) antes de propor a correção, em vez de aplicar um paliativo.
+- **Aprendizado contínuo**: quando o Claude cometer o mesmo erro duas vezes, isso é sinal de que falta uma regra aqui neste `CLAUDE.md` — registre a regra em vez de só corrigir a instância. O Claude Code também mantém memória automática entre sessões (`/memory`); não é preciso manter um `lessons.md` manual à parte.
+
 ## Notas para o Claude
 - Preferências de como trabalhar neste repo (ex: sempre rodar testes antes de finalizar, não usar `any` em TS, etc).
 - Hook de segurança configurado em `.claude/hooks/check-secrets-before-commit.sh` (ver `.claude/settings.json`) bloqueia `git commit` se o diff staged parecer conter segredo — é uma heurística, não substitui revisão manual.

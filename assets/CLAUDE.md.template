@@ -1,0 +1,17 @@
+# <nome do projeto>
+
+## Visão geral
+<tipo de projeto>. Descreva aqui o que este projeto faz e como rodar localmente.
+
+A arquitetura ainda não foi escolhida. Ela é decidida na primeira vez que a skill de scaffolding correspondente rodar (`dotnet-scaffolding` para o backend .NET e/ou `angular-scaffolding` para o frontend Angular): a skill investiga `docs/` em busca de uma decisão já registrada e, se não achar, pergunta ao usuário e registra a escolha em `docs/arquitetura-backend.md` / `docs/arquitetura-frontend.md`.
+
+## Comandos úteis
+<preencher com os comandos reais do stack escolhido — ex: `dotnet build`/`dotnet test` para .NET, `ng serve`/`ng test` para Angular>
+
+## Convenções
+- Estilo de código, padrões de commit, estrutura de pastas relevante.
+- `changes/001-*.md` a `NNN-*.md` (bootstrap da arquitetura, criado pela skill de scaffolding na primeira execução — ver acima) são executados via `changes/executar-todas.md`. A primeira feature pós-bootstrap continua a MESMA numeração de 3 dígitos, sequencialmente (não reinicia) — copie `changes/_template-nova-feature/`.
+
+## Notas para o Claude
+- Preferências de como trabalhar neste repo (ex: sempre rodar testes antes de finalizar, não usar `any` em TS, etc).
+- Hook de segurança configurado em `.claude/hooks/check-secrets-before-commit.sh` (ver `.claude/settings.json`) bloqueia `git commit` se o diff staged parecer conter segredo — é uma heurística, não substitui revisão manual.

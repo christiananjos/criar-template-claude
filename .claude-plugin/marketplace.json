@@ -1,0 +1,15 @@
+{
+  "name": "criar-template-claude",
+  "owner": {
+    "name": "Christian Anjos",
+    "email": "christiananjos@gmail.com"
+  },
+  "description": "Scaffolding padrão de projeto para Claude Code (.NET / Angular / Full-stack), com skills, agents, hooks e sequência de bootstrap em changes/.",
+  "plugins": [
+    {
+      "name": "criar-template-claude",
+      "source": "./",
+      "description": "Gera a estrutura de projeto padrão para usar Claude Code (.claude/agents, commands, skills, hooks, CLAUDE.md, git, hook de segurança, etc.)"
+    }
+  ]
+}

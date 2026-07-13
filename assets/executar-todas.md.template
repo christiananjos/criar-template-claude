@@ -1,0 +1,25 @@
+# Executar todas as especificações
+
+Este arquivo orquestra a construção do projeto <nome do projeto> a partir do zero, executando cada especificação numerada desta pasta (`changes/0NN-*.md`) em um subagente diferente.
+
+Tipo de projeto: <tipo de projeto>. Arquitetura: <arquitetura>.
+
+## Como executar
+
+1. Liste os arquivos `changes/0NN-*.md` em ordem numérica (ignore este arquivo e `_template-nova-feature/`): <lista de fases geradas no passo 8>.
+2. Antes de lançar o subagente de uma fase, verifique se ela já está concluída: se todos os itens de "Critérios de aceite" daquele arquivo já estiverem marcados `[x]`, pule para a próxima (permite retomar a execução depois de uma falha parcial sem refazer trabalho já validado).
+3. Para cada fase pendente, na ordem:
+   - Leia o conteúdo completo da especificação.
+   - Lance um subagente dedicado a essa etapa (tool `Agent`), passando o conteúdo da especificação como prompt, junto com o contexto do projeto (`CLAUDE.md`, arquitetura escolhida, etapas já concluídas).
+   - Aguarde a conclusão do subagente antes de iniciar a próxima especificação, a menos que a especificação declare explicitamente que pode rodar em paralelo com outra (ex: dois módulos/serviços/features independentes).
+4. Ao final de cada etapa, o subagente deve atualizar o `README.md` do projeto (via skill `dotnet-documentation`/`angular-documentation`), marcando o que foi implementado e o que ainda está pendente.
+5. Se um subagente falhar ou deixar algum critério de aceite pendente, pare a sequência e reporte ao usuário antes de continuar para a próxima especificação — não construa a etapa seguinte em cima de uma etapa incompleta.
+6. Se, ao executar uma fase posterior, ficar evidente que uma fase anterior precisa ser revisada (ex: a etapa de API descobre que o domínio modelado na etapa 001 está incompleto), **não corrija silenciosamente**: pare, anote a observação no arquivo da fase anterior (sem desmarcar os critérios já validados, a menos que de fato estejam errados) e reporte ao usuário para decidir se vale reabrir aquela fase.
+
+## Depois do bootstrap: convenção para novas features
+
+As fases numeradas acima existem só para o bootstrap inicial do projeto (construir a arquitetura do zero). A partir da primeira feature de produto criada **depois** desse bootstrap:
+
+- Continue a MESMA numeração de 3 dígitos, sequencialmente (não reinicie em `001` nem mude o padrão de dígitos) — ex: se o bootstrap terminou em `006`, a próxima feature é `changes/007-nome-da-feature/`.
+- Cada pasta contém no mínimo um `README.md` (Objetivo, Critérios de Aceitação, Status) e um `checklist.md` — use `changes/_template-nova-feature/` como ponto de partida (copie e renomeie).
+- Diferente do bootstrap, features novas normalmente não têm a mesma dependência sequencial rígida entre si — podem ser executadas uma de cada vez sob demanda, não em lote.

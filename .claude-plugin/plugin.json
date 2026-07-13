@@ -1,0 +1,8 @@
+{
+  "name": "criar-template-claude",
+  "description": "Gera a estrutura de projeto padrão para usar Claude Code (.claude/agents, commands, skills, hooks, CLAUDE.md, git, hook de segurança, etc.)",
+  "version": "0.1.0",
+  "author": {
+    "name": "Christian Anjos"
+  }
+}

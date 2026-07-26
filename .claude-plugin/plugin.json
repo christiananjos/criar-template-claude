@@ -1,8 +1,8 @@
 {
-  "name": "criar-template-claude",
+  "name": "christian-criar-template-claude",
   "version": "2.0.0",
   "type": "plugin",
-  "displayName": "Criar Template Claude SDD v2.0",
+  "displayName": "SDD Template por Christian Anjos",
   "description": "Plugin profissional para criar projetos com Pipeline SDD completo (9 agentes) + Clean Architecture + automação via API Claude",
   "author": "Christian Anjos",
   "repository": "https://github.com/christiananjos/criar-template-claude",

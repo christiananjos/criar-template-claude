@@ -1,0 +1,57 @@
+{
+  "name": "@christiananjos/criar-template-claude",
+  "version": "2.0.0",
+  "description": "🚀 Plugin para criar projetos com pipeline SDD completo (9 agentes) + Clean Architecture + automação via API Claude",
+  "type": "module",
+  "main": "sdd-pipeline-executor.py",
+  "bin": {
+    "criar-template-claude": "./bin/cli.js",
+    "sdd-executor": "./bin/executor.js"
+  },
+  "scripts": {
+    "test": "echo \"Testes do plugin\"",
+    "build": "echo \"Build do plugin\"",
+    "lint": "echo \"Lint do código\"",
+    "preinstall": "npm install -g anthropic python-dotenv",
+    "postinstall": "pip install -r requirements.txt || echo 'Instale: pip install -r requirements.txt'"
+  },
+  "keywords": [
+    "sdd",
+    "spec-driven-development",
+    "clean-architecture",
+    "claude",
+    "anthropic",
+    "pipeline",
+    "automation",
+    "multi-agent",
+    "typescript",
+    "dotnet",
+    "react",
+    "nextjs"
+  ],
+  "author": "Christian Anjos <christian@seu-dominio.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christiananjos/criar-template-claude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/christiananjos/criar-template-claude/issues"
+  },
+  "homepage": "https://github.com/christiananjos/criar-template-claude#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.8"
+  },
+  "devDependencies": {
+    "eslint": "^8.54.0",
+    "prettier": "^3.11.0"
+  },
+  "dependencies": {
+    "anthropic": "^0.25.0",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "ora": "^8.0.1"
+  }
+}

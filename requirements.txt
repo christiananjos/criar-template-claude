@@ -1,0 +1,17 @@
+# requirements.txt - Dependências do SDD Pipeline Executor
+
+# API do Claude
+anthropic>=0.25.0
+
+# Utilidades
+python-dotenv>=1.0.0
+click>=8.1.0
+rich>=13.0.0  # Para output colorido
+
+# Processamento de documentos (opcional)
+markdown>=3.5.0
+pyyaml>=6.0
+
+# Testing (para CI/CD)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

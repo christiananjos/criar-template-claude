@@ -1,10 +1,10 @@
 {
   "name": "christian-criar-template-claude",
   "version": "2.0.0",
-  "type": "plugin",
-  "displayName": "Criar Template Claude SDD v2.0 - Christian Anjos",
-  "description": "Plugin profissional para criar projetos com Pipeline SDD completo (9 agentes) + Clean Architecture + automação via API Claude",
-  "author": "Christian Anjos",
+  "description": "Cria projetos .NET (Clean Architecture) com Pipeline SDD: agentes especializados que implementam, testam e validam código automaticamente dentro do Claude Code.",
+  "author": {
+    "name": "Christian Anjos"
+  },
   "repository": "https://github.com/christiananjos/criar-template-claude",
   "license": "MIT",
   "keywords": [
@@ -13,56 +13,13 @@
     "clean-architecture",
     "automation",
     "multi-agent",
-    "pipeline",
-    "claude",
-    "template"
+    "dotnet"
   ],
   "commands": [
     {
       "name": "criar-template-claude",
-      "displayName": "Criar Template SDD",
-      "description": "Cria novo projeto .NET com estrutura SDD completa (commands/ + agents/), pronto para rodar o pipeline de 9 agentes",
+      "description": "Cria novo projeto .NET com estrutura SDD completa (commands/ + agents/), pronto para rodar o pipeline de agentes",
       "path": "commands/criar-template-claude.md"
     }
-  ],
-  "features": {
-    "agents": 9,
-    "automatedPipeline": true,
-    "cleanArchitecture": true,
-    "supportedStacks": [
-      ".NET",
-      "React/Next.js",
-      "Full-stack"
-    ]
-  },
-  "requirements": {
-    "bash": "required (scaffolding script)",
-    "anthropicApi": "not required — agents run inside Claude Code itself"
-  },
-  "capabilities": [
-    "project-scaffolding",
-    "pipeline-automation",
-    "code-generation",
-    "architecture-guidance",
-    "quality-validation"
-  ],
-  "links": {
-    "documentation": "https://github.com/christiananjos/criar-template-claude#readme",
-    "issues": "https://github.com/christiananjos/criar-template-claude/issues",
-    "releases": "https://github.com/christiananjos/criar-template-claude/releases"
-  },
-  "changelog": {
-    "2.0.0": {
-      "date": "2026-07-27",
-      "changes": [
-        "🤖 9 subagentes especializados em agents/ (formato oficial Claude Code)",
-        "🎯 Comando /orchestrator invoca os agentes em cascata automaticamente",
-        "📦 Zero dependências externas — sem Python, sem Node.js, sem API key própria",
-        "🏗️ Clean Architecture pronta (.NET + React opcional)",
-        "📊 Portões de qualidade automáticos (compliance, code review, build)",
-        "📝 Commits semânticos gerados automaticamente",
-        "🧪 Workflow de testes de API (Swagger) gerado ao final"
-      ]
-    }
-  }
+  ]
 }

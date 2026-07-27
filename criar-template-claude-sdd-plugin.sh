@@ -61,9 +61,6 @@ mkdir -p "$PROJECT_DIR/src/Application"
 mkdir -p "$PROJECT_DIR/src/Infrastructure"
 mkdir -p "$PROJECT_DIR/src/API"
 mkdir -p "$PROJECT_DIR/src/Tests"
-mkdir -p "$PROJECT_DIR/docs/guides"
-mkdir -p "$PROJECT_DIR/docs/architecture"
-mkdir -p "$PROJECT_DIR/docs/adr"
 
 echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, output/, src/)${NC}"
 

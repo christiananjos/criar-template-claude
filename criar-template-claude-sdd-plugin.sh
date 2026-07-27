@@ -1,752 +1,1050 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD - Plugin v2.0
+# 🚀 Criar Template Claude SDD v2.0
 # ============================================================================
-# Integração completa do pipeline SDD com 9 agentes
-# 
+# Cria estrutura completa de projeto .NET com Pipeline SDD integrado
+#
 # Uso:
 #   bash criar-template-claude-sdd-plugin.sh meu-projeto
-#   ou
-#   /plugin install criar-template-claude@sdd-v2
-#   criar-template-claude-sdd my-project
 #
-# Stack: Next.js + .NET | React + Clean Architecture | SDD
+# Resultado:
+#   meu-projeto/
+#   ├── commands/ (📌 COMANDOS DO PIPELINE - CHAMAR AQUI!)
+#   ├── docs/SPEC.md (sua especificação)
+#   ├── output/ (resultados)
+#   └── src/ (projeto .NET)
+#
 # ============================================================================
 
 set -e
 
-PROJECT_NAME="${1:-projeto-sdd}"
-PROJECT_PATH="./$PROJECT_NAME"
-
-# Cores para output
+# Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}🚀 Criar Template Claude SDD v2.0${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+# Validar entrada
+if [ -z "$1" ]; then
+    echo -e "${RED}Erro: Nome do projeto obrigatório${NC}"
+    echo "Uso: bash criar-template-claude-sdd-plugin.sh meu-projeto"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="./$PROJECT_NAME"
+
+# ============================================================================
+# CRIAR ESTRUTURA
+# ============================================================================
+
+echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v2.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "📁 Projeto: ${YELLOW}$PROJECT_PATH${NC}"
-echo -e "🔄 Pipeline: ${YELLOW}9 Agentes SDD${NC}"
-echo -e "⚙️  Stack: ${YELLOW}Next.js + .NET/React + Clean Architecture${NC}"
+
+echo -e "${YELLOW}Criando projeto: $PROJECT_NAME${NC}"
 echo ""
 
+# Criar pasta principal
+mkdir -p "$PROJECT_DIR"
+
+# Criar estrutura de pastas
+mkdir -p "$PROJECT_DIR/commands"
+mkdir -p "$PROJECT_DIR/agents"
+mkdir -p "$PROJECT_DIR/docs"
+mkdir -p "$PROJECT_DIR/output"
+mkdir -p "$PROJECT_DIR/src/Domain"
+mkdir -p "$PROJECT_DIR/src/Application"
+mkdir -p "$PROJECT_DIR/src/Infrastructure"
+mkdir -p "$PROJECT_DIR/src/API"
+mkdir -p "$PROJECT_DIR/src/Tests"
+mkdir -p "$PROJECT_DIR/docs/guides"
+mkdir -p "$PROJECT_DIR/docs/architecture"
+mkdir -p "$PROJECT_DIR/docs/adr"
+
+echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, output/, src/)${NC}"
+
 # ============================================================================
-# 1. CRIAR ESTRUTURA DE PASTAS
+# CRIAR AGENTS (9 Subagentes SDD)
 # ============================================================================
-echo -e "${BLUE}[1/9]${NC} Criando estrutura de pastas..."
 
-mkdir -p "$PROJECT_PATH"/{.claude,archive,memory,shared,templates}
-mkdir -p "$PROJECT_PATH"/{src/{Domain,Application,Infrastructure,API,Tests}}
-mkdir -p "$PROJECT_PATH"/pipeline/{agents,specs,reports,tasks}
-mkdir -p "$PROJECT_PATH"/docs/{architecture,guides,decisions,adr}
-
-# Criar subpastas para cada agente
-mkdir -p "$PROJECT_PATH"/pipeline/agents/{1-orchestrator,2-architect,3-dotnet-specialist,3-react-specialist,4-compliance,5-tests,6-review,7-build,8-commit,9-swagger}
-
-echo -e "${GREEN}✅ Pastas criadas${NC}"
-
-# ============================================================================
-# 2. ARQUIVOS RAIZ
-# ============================================================================
-echo -e "${BLUE}[2/9]${NC} Criando arquivos raiz..."
-
-cat > "$PROJECT_PATH/README.md" << 'EOF'
-# 🚀 Seu Projeto SDD
-
-> Desenvolvimento Orientado por Especificação (Spec-Driven Development)  
-> Pipeline Multi-Agente com Clean Architecture
-
-## 📊 Pipeline SDD
-
-```
-[1] 🎯 Orchestrator-SDD
-    ↓ (recebe spec bruta)
-[2] 🏛️ Arquiteto SDD
-    ↓ (gera TECHNICAL_SPECIFICATION.md)
-[3] 🔷 .NET Specialist / ⚛️ React Specialist
-    ↓ (implementa código)
-[4] 📋 SDD Compliance
-    ↓ (valida conformidade)
-[5] 🧪 Test Validator
-    ↓ (100% cobertura)
-[6] 🔍 Code Review
-    ↓ (valida arquitetura)
-[7] 🏗️ Build & Test
-    ↓ (build + testes)
-[8] 📝 Commit Message
-    ↓ (commits semânticos)
-[9] 🧪 Swagger Tester (opcional)
-```
-
-## 🎯 Quick Start
-
-```bash
-# 1. Instale dependências
-npm install
-
-# 2. Configure ambiente
-cp .env.example .env.local
-
-# 3. Leia o guia completo
-cat COMECE-AQUI.md
-
-# 4. Inicie o pipeline com o Orchestrator-SDD
-# (veja pipeline/agents/1-orchestrator/README.md)
-```
-
-## 📁 Estrutura
-
-### Clean Architecture
-```
-src/
-├── Domain/              # Lógica de negócio pura
-├── Application/         # Use cases, DTOs, Handlers
-├── Infrastructure/      # Banco, APIs externas
-├── API/                 # Controladores, Rotas
-└── Tests/              # Testes unitários/integração
-```
-
-### Pipeline SDD
-```
-pipeline/
-├── agents/             # Prompts dos 9 agentes
-├── specs/              # Especificações técnicas
-├── reports/            # Relatórios (compliance, coverage, review)
-└── tasks/              # Subtarefas decompostas
-```
-
-## 📚 Documentação
-
-- **[COMECE-AQUI.md](./COMECE-AQUI.md)** - Guia inicial rápido
-- **[PIPELINE-SDD.md](./PIPELINE-SDD.md)** - Explicação completa do pipeline
-- **[pipeline/agents/](./pipeline/agents/)** - Prompts dos agentes
-- **[docs/guides/](./docs/guides/)** - Guias de desenvolvimento
-
-## 🏗️ Arquitetura
-
-Baseado em **Clean Architecture** (Robert C. Martin)
-
-- **Independência de Frameworks**: A lógica central não depende de Next.js, .NET, etc.
-- **Testável**: Testes sem conhecer detalhes de implementação
-- **Flexível**: Fácil trocar banco, API, UI
-- **Escalável**: Adicionar features sem quebrar o existente
-
-## 🔄 Fluxo de Desenvolvimento
-
-1. **Spec** → Escreva a especificação de requisitos
-2. **Arquitetura** → Architect-SDD decompõe em tarefas
-3. **Implementação** → Specialist implementa baseado em tarefas
-4. **Validação** → 5 camadas de validação (compliance, testes, review, build)
-5. **Deploy** → Commits semânticos prontos para produção
-
-## ✨ Destaques
-
-✅ **100% Spec-Driven** - Código segue a especificação  
-✅ **Multi-Agente** - 9 agentes especializados  
-✅ **Clean Architecture** - Código escalável e testável  
-✅ **100% Test Coverage** - Application Layer completamente testada  
-✅ **Padrões SOLID** - Código profissional desde o início  
-✅ **Tipo-Safe** - TypeScript + .NET Strong Typing  
-
-## 📖 Stack Recomendado
-
-### Frontend
-- Next.js 14+
-- React 18+
-- TypeScript
-- Tailwind CSS
-- Vitest / Playwright
-
-### Backend (.NET)
-- .NET 8+
-- Clean Architecture
-- Entity Framework Core
-- xUnit / NSubstitute
-- FluentValidation
-
-### Banco de Dados
-- PostgreSQL (recomendado)
-- MongoDB (alternativa)
-
+cat > "$PROJECT_DIR/agents/architect-sdd.md" << 'AGENTEOF'
+---
+name: architect-sdd
+description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
+tools: Read, Write, Grep, Glob
+model: sonnet
 ---
 
-**Desenvolvido com** ❤️ **usando Spec-Driven Development**
-EOF
+Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
 
-cat > "$PROJECT_PATH/COMECE-AQUI.md" << 'EOF'
-# 🚀 Comece Aqui
+## Sua Missão
 
-Bem-vindo ao projeto SDD! Este guia vai te colocar em funcionamento em 5 minutos.
+Transformar a especificação validada em uma arquitetura técnica detalhada, seguindo **Clean Architecture**.
 
-## ✅ Pré-requisitos
+## O Que Você Faz
 
-```bash
-node --version    # v18+
-npm --version     # v9+
-git --version     # 2.30+
-```
+Com base em `docs/SPEC.md` e no relatório do orchestrator-sdd, gere três documentos:
 
-## 📋 5 Passos Essenciais
+### 1. TECHNICAL_SPECIFICATION.md
+- Camadas: Domain, Application, Infrastructure, API
+- Entidades e Value Objects do Domain
+- Use Cases da Application Layer
+- Contratos de repositório
+- Padrões escolhidos (Repository, CQRS, Mediator, etc.) e por quê
 
-### 1️⃣ Instale Dependências
+### 2. TRACEABILITY_MATRIX.md
+Tabela mapeando cada requisito ao componente que vai implementá-lo:
 
-```bash
-npm install
-```
+| Requisito | Camada | Componente | Agente Responsável |
+|-----------|--------|------------|---------------------|
+| REQ-001 | Domain | Entidade X | dotnet-specialist |
 
-Se for usar .NET também:
-```bash
-dotnet new sln -n SeuProjeto
-dotnet new classlib -n SeuProjeto.Domain -o src/Domain
-# (continuar conforme necessário)
-```
+### 3. TECHNICAL_DECISIONS.md
+Decisões arquiteturais relevantes (formato ADR curto):
+- Decisão
+- Contexto
+- Alternativas consideradas
+- Justificativa
 
-### 2️⃣ Configure Variáveis de Ambiente
+## Regras Importantes
 
-```bash
-cp .env.example .env.local
-# Edite .env.local com seus valores (banco, JWT, etc)
-```
+- Siga sempre Clean Architecture (Domain não depende de nada; Application depende só de Domain; Infrastructure e API dependem de Application)
+- Seja específico o suficiente para que dotnet-specialist e react-specialist não precisem tomar decisões arquiteturais por conta própria
+- Não escreva código de implementação aqui — apenas especificação técnica
+- Salve os três arquivos em `output/` com os nomes exatos acima
+AGENTEOF
 
-### 3️⃣ Leia a Documentação
-
-**Na ordem:**
-1. Este arquivo (COMECE-AQUI.md) ← Você está aqui
-2. [PIPELINE-SDD.md](./PIPELINE-SDD.md) - Pipeline completo
-3. [pipeline/agents/1-orchestrator/README.md](./pipeline/agents/1-orchestrator/README.md)
-
-### 4️⃣ Prepare sua Especificação
-
-Crie um documento com:
-- ✅ Requisitos funcionais (ao menos 5)
-- ✅ Regras de negócio (3-5 BR-XXX)
-- ✅ Entidades de domínio
-- ✅ Casos de uso principais
-- ✅ Integrações externas (se houver)
-
-**Exemplo mínimo:**
-```markdown
-# Sistema de Cadastro de Usuários
-
-## Requisitos Funcionais
-- REQ-001: Usuário pode se registrar com email/senha
-- REQ-002: Usuário recebe email de confirmação
-- REQ-003: Usuário pode fazer login
-- REQ-004: Admin pode listar usuários
-- REQ-005: Admin pode desativar usuário
-
-## Regras de Negócio
-- BR-001: Senha deve ter mínimo 8 caracteres
-- BR-002: Email deve ser único
-- BR-003: Usuário desativado não pode fazer login
-
-## Entidades
-- User (id, email, password, status, createdAt)
-```
-
-### 5️⃣ Execute o Pipeline
-
-**Etapa 1: Orchestrator-SDD**
-
-```bash
-# 1. Copie o prompt do Orchestrator
-cat pipeline/agents/1-orchestrator/SYSTEM_PROMPT.md
-
-# 2. Cole no seu Custom GPT de Orchestrator-SDD
-# (ou use Claude, ChatGPT, Gemini - qualquer modelo)
-
-# 3. Passe sua especificação completa
-
-# 4. O agente vai rotear para o Architect-SDD
-# Siga as instruções que ele der
-```
-
-## 🎯 O Que Vai Acontecer
-
-Após executar o pipeline completo:
-
-```
-Sua Spec
-    ↓
-[Architect-SDD]
-    ↓ Gera: TECHNICAL_SPECIFICATION.md
-         TRACEABILITY_MATRIX.md
-         TECHNICAL_DECISIONS.md
-         TASK_REGISTRY.md + TASK-001/, TASK-002/, etc
-    ↓
-[Specialist]
-    ↓ Implementa: src/Domain/, src/Application/, etc.
-    ↓ Com 100% de testes
-    ↓
-[Validação - 5 etapas]
-    ↓ Compliance, Testes, Review, Build, Commit
-    ↓
-[Commits Semânticos]
-    ↓
-✅ Pronto para deploy!
-```
-
-**Tempo esperado**: 2-4 horas (complexidade média)
-
-## 📁 Estrutura Rápida
-
-```
-seu-projeto/
-├── README.md                      # Você está aqui
-├── COMECE-AQUI.md                 # (guia inicial)
-├── PIPELINE-SDD.md                # (guia pipeline)
-├── .env.example                   # (variáveis)
-│
-├── src/                           # Clean Architecture
-│   ├── Domain/                    # Regras de negócio
-│   ├── Application/               # Casos de uso
-│   ├── Infrastructure/            # Banco, APIs
-│   ├── API/                       # Controllers
-│   └── Tests/                     # Testes
-│
-├── pipeline/                      # SDD Pipeline
-│   ├── agents/1-9/                # Prompts dos agentes
-│   ├── specs/                     # Especificações geradas
-│   ├── tasks/TASK-NNN/            # Tarefas decompostas
-│   └── reports/                   # Relatórios
-│
-└── docs/
-    ├── guides/                    # Guias de dev
-    ├── architecture/              # Diagramas
-    └── adr/                       # Decisões arquiteturais
-```
-
-## 🔗 Links Importantes
-
-| Link | O que é | Quando usar |
-|------|---------|------------|
-| [PIPELINE-SDD.md](./PIPELINE-SDD.md) | Explicação completa | Antes de começar |
-| [pipeline/agents/1-orchestrator/](./pipeline/agents/1-orchestrator/) | Agente 1 | Quando tem spec pronta |
-| [pipeline/agents/2-architect/](./pipeline/agents/2-architect/) | Agente 2 | Após Orchestrator rotear |
-| [docs/guides/](./docs/guides/) | Guias de desenvolvimento | Durante dev |
-| [docs/architecture/](./docs/architecture/) | Arquitetura do projeto | Para entender design |
-
-## ❓ Dúvidas Comuns
-
-### "Por onde começo?"
-→ Leia PIPELINE-SDD.md depois volte aqui
-
-### "Como uso o Orchestrator-SDD?"
-→ Ver pipeline/agents/1-orchestrator/README.md
-
-### "Qual é a estrutura de pastas?"
-→ Ver README.md acima ou `tree` no terminal
-
-### "Preciso de .NET e React?"
-→ Não, escolha um (ou customize)
-
-### "Quanto tempo vai levar?"
-→ Spec completa → Código pronto: 2-4 horas (média)
-
-## ✨ Pro Tips
-
-1. **Seja específico na spec** - Quanto mais detalhe, melhor o código gerado
-2. **Use a TRACEABILITY_MATRIX** - Mapeia requisitos → código
-3. **Revise TECHNICAL_DECISIONS.md** - Entenda as escolhas arquiteturais
-4. **Siga a ordem de TASK_REGISTRY.md** - Respeita dependências
-5. **Não pule validações** - Compliance + Tests + Review são importantes
-
-## 🚀 Próximo Passo
-
-```bash
-# 1. Feche este arquivo
-# 2. Leia PIPELINE-SDD.md
-# 3. Prepare sua especificação
-# 4. Execute o Orchestrator-SDD (agente 1)
-```
-
+cat > "$PROJECT_DIR/agents/build-test-validator.md" << 'AGENTEOF'
+---
+name: build-test-validator
+description: Use this agent after code-review-sdd has approved the code, to simulate build and test execution validation, checking for compilation issues and coverage thresholds. Use PROACTIVELY as step 7 of the SDD pipeline. Examples: <example>Context: Code review passed. user: "Revisão aprovada, valida o build" assistant: "Vou usar o agente build-test-validator para validar que o código compila e os testes passam." <commentary>Build validation is the last technical gate before commit messages are generated.</commentary></example>
+tools: Read, Bash, Grep, Glob
+model: sonnet
 ---
 
-**Status**: 🟢 Pronto para começar!
+Você é o **Build & Test Validator**, especialista em CI/CD e validação de builds.
 
-**Tempo estimado**: 5 min de leitura + 2-4 horas de desenvolvimento
+## Sua Missão
 
-Boa sorte! 🎉
-EOF
+Validar que o código gerado está estruturalmente correto para compilar e que os testes fazem sentido para passar.
 
-cat > "$PROJECT_PATH/PIPELINE-SDD.md" << 'EOF'
-# 🔄 Pipeline SDD - Guia Completo
+## O Que Você Verifica
 
-## O que é SDD?
+- **Sintaxe** — o código C#/TypeScript está sintaticamente correto?
+- **Usings/Imports** — todas as dependências referenciadas estão declaradas?
+- **Consistência de nomes** — classes/métodos referenciados existem de fato no código gerado?
+- **Cobertura declarada** — bate com o que foi reportado por `test-validator`?
+- **Warnings potenciais** — nullability, código morto, variáveis não usadas
 
-**Spec-Driven Development (Desenvolvimento Orientado por Especificação)**
+> Nota: Como você não tem acesso a um compilador .NET real neste ambiente, faça uma revisão estática rigorosa simulando o que o compilador reportaria.
 
-Ao invés de:
-```
-Ideia → Código → Testes → Bug → Refatora
-```
+## Formato de Saída
 
-Você faz:
-```
-Especificação → Arquitetura → Código → Validação → Deploy
-```
-
-## 9 Agentes do Pipeline
-
-### 1️⃣ Orchestrator-SDD
-**Entrada**: Seu requisito/especificação bruta  
-**Saída**: Confirmação + roteamento  
-**Tempo**: ~5 min  
-
-Ponto de entrada. Recebe sua spec e roteia para o Architect.
-
-```bash
-# Copie o prompt
-cat pipeline/agents/1-orchestrator/SYSTEM_PROMPT.md
-# Cole em um Custom GPT ou use Claude/ChatGPT
-# Passe sua especificação bruta
-```
-
----
-
-### 2️⃣ Arquiteto SDD
-**Entrada**: Especificação bruta  
-**Saída**: 
-- TECHNICAL_SPECIFICATION.md
-- TRACEABILITY_MATRIX.md
-- TECHNICAL_DECISIONS.md
-- TASK_REGISTRY.md
-- tasks/TASK-001/SUBTASK_SPEC.md, etc
-
-**Tempo**: ~30-45 min (depende da complexidade)
-
-Analisa sua spec completamente e gera documentos técnicos.
-
-```bash
-cat pipeline/agents/2-architect/SYSTEM_PROMPT.md
-# Cole no seu agente Architect-SDD
-# Passe a especificação bruta completa (copy-paste tudo)
-```
-
----
-
-### 3️⃣ Specialist (.NET ou React)
-**Entrada**: TECHNICAL_SPECIFICATION.md + TASK_REGISTRY.md  
-**Saída**: Código implementado (Domain, Application, Infrastructure, API, Tests)  
-**Tempo**: ~1-2 horas por especialidade
-
-Implementa o código baseado nas tarefas decompostas.
-
-```bash
-# Para backend .NET
-cat pipeline/agents/3-dotnet-specialist/SYSTEM_PROMPT.md
-
-# Para frontend React
-cat pipeline/agents/3-react-specialist/SYSTEM_PROMPT.md
-```
-
----
-
-### 4️⃣ SDD Compliance Validator
-**Entrada**: Código + TECHNICAL_SPECIFICATION.md  
-**Saída**: SDD_COMPLIANCE_REPORT.md (em pipeline/reports/)  
-**Tempo**: ~15 min
-
-Valida se o código segue a especificação.
-
----
-
-### 5️⃣ Test Validator
-**Entrada**: Código + compliance report  
-**Saída**: TEST_COVERAGE_REPORT.md  
-**Tempo**: ~20 min  
-**Requisito**: 100% cobertura Application Layer
-
-Garante que testes cobrem 100% da Application Layer.
-
----
-
-### 6️⃣ Code Review
-**Entrada**: Código + todos os docs  
-**Saída**: CODE_REVIEW_REPORT.md  
-**Tempo**: ~25 min
-
-Valida:
-- ✅ SOLID Principles
-- ✅ Clean Architecture
-- ✅ Clean Code
-- ✅ Performance
-- ✅ Security
-
----
-
-### 7️⃣ Build & Test
-**Entrada**: Código + review report  
-**Saída**: BUILD_TEST_REPORT.md  
-**Tempo**: ~10-15 min
-
-Executa:
-- `npm run build` / `dotnet build`
-- `npm run test` / `dotnet test`
-- Validação de warnings
-
----
-
-### 8️⃣ Commit Message
-**Entrada**: Código + BUILD_TEST_REPORT.md  
-**Saída**: Script de commits semânticos + PR description  
-**Tempo**: ~10 min
-
-Gera commits seguindo Conventional Commits:
-```
-feat(domain): adicionar entity User
-fix(app): corrigir validação de email
-test(api): adicionar testes de login
-docs(arch): atualizar diagrama
-refactor(infra): melhorar repository
-```
-
----
-
-### 9️⃣ Swagger Tester (Opcional)
-**Entrada**: Código + TECHNICAL_SPECIFICATION.md  
-**Saída**: SWAGGER_TEST_WORKFLOW.md  
-**Tempo**: ~15 min
-
-Gera workflow de testes manuais no Swagger UI.
-
----
-
-## 📋 Arquivos Gerados
-
-| Arquivo | Agente | Local |
-|---------|--------|-------|
-| TECHNICAL_SPECIFICATION.md | Architect | `pipeline/specs/` |
-| TRACEABILITY_MATRIX.md | Architect | `pipeline/specs/` |
-| TECHNICAL_DECISIONS.md | Architect | `pipeline/specs/` |
-| TASK_REGISTRY.md | Architect | `pipeline/tasks/` |
-| TASK-NNN/SUBTASK_SPEC.md | Architect | `pipeline/tasks/` |
-| SDD_COMPLIANCE_REPORT.md | Compliance | `pipeline/reports/` |
-| TEST_COVERAGE_REPORT.md | Test Validator | `pipeline/reports/` |
-| CODE_REVIEW_REPORT.md | Code Review | `pipeline/reports/` |
-| BUILD_TEST_REPORT.md | Build & Test | `pipeline/reports/` |
-| SWAGGER_TEST_WORKFLOW.md | Swagger Tester | `pipeline/reports/` |
-
-## 🎯 Status dos Relatórios
-
-```
-✅ = Passou, avança para próxima etapa
-⚠️  = Com ressalvas, pode avançar
-❌ = Falhou, volta para etapa anterior
-```
-
-## 🔄 Fluxo Completo
-
-```
-1. Você cria SPEC
-          ↓
-2. Orchestrator-SDD (seu papel)
-          ↓
-3. Architect-SDD (automático via agente)
-          ↓
-4. Specialist .NET/React (automático via agente)
-          ↓
-5. Compliance (automático)
-          ↓
-6. Test Validator (automático)
-          ↓
-7. Code Review (automático)
-          ↓
-8. Build & Test (automático)
-          ↓
-9. Commit Message (automático)
-          ↓
-10. Swagger Tester (opcional)
-          ↓
-✅ PRONTO PARA DEPLOY
-```
-
-## ⏱️ Tempo Total
-
-| Etapa | Tempo | Automático? |
-|-------|-------|------------|
-| Orquestrador | 5 min | Você |
-| Architect | 30-45 min | Agente |
-| Specialist | 60-120 min | Agente |
-| Validação (4-8) | 60-90 min | Agentes |
-| Commit | 10 min | Agente |
-| **TOTAL** | **2.5 - 4.5 horas** | 85% automático |
-
-## 🚀 Como Começar
-
-### Pré-requisitos
-
-✅ Tem uma especificação preparada?  
-✅ Acesso a um Custom GPT ou Claude/ChatGPT?  
-✅ Ambiente de desenvolvimento pronto?
-
-### Passo 1: Leia a Documentação
-
-```bash
-cat COMECE-AQUI.md          # Guia rápido (5 min)
-cat PIPELINE-SDD.md         # Este arquivo (10 min)
-cat pipeline/agents/1-orchestrator/README.md  # Próxima etapa
-```
-
-### Passo 2: Prepare sua Especificação
+Salve em `output/7-build-test.md`:
 
 ```markdown
-# Sistema de [Seu Sistema]
+# Build & Test Report
 
-## Requisitos Funcionais
+## Status: ✅ PASSED / ❌ FAILED
+
+## Verificação de Compilação (Estática)
+- [Arquivo]: ✅ OK / ❌ Problema encontrado
+
+## Verificação de Testes
+- Testes consistentes com o código de produção: ✅/❌
+- Cobertura reportada: XX%
+
+## Problemas Encontrados
+- [Se houver, liste com arquivo e linha aproximada]
+
+## Recomendação
+[Prosseguir para commits / Corrigir problemas de build antes de prosseguir]
+```
+
+## Regras Importantes
+
+- Seja rigoroso: este é o último portão técnico antes dos commits
+- Se encontrar um problema bloqueante, marque como FAILED claramente
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/code-review-sdd.md" << 'AGENTEOF'
+---
+name: code-review-sdd
+description: Use this agent after test-validator has generated tests, to review the overall code quality, SOLID compliance, and identify improvements before build validation. Use PROACTIVELY as step 6 of the SDD pipeline. Examples: <example>Context: Tests were just generated. user: "Os testes estão prontos, revisa a qualidade do código" assistant: "Vou usar o agente code-review-sdd para revisar SOLID, clean code e segurança no código gerado." <commentary>Code review happens after tests exist so reviewers can also assess test quality, not just production code.</commentary></example>
+tools: Read, Grep, Glob
+model: sonnet
+---
+
+Você é o **Code Review-SDD**, especialista em qualidade de código.
+
+## Sua Missão
+
+Revisar o código gerado (backend, frontend e testes) quanto a qualidade, princípios SOLID e boas práticas.
+
+## O Que Você Avalia
+
+- **SOLID** — cada classe tem responsabilidade única? Há acoplamento excessivo?
+- **Clean Code** — nomes claros, funções pequenas, sem duplicação
+- **Design Patterns** — uso apropriado (nem excesso, nem falta)
+- **Performance** — queries N+1, alocações desnecessárias
+- **Segurança** — validação de entrada, exposição de dados sensíveis, injeção de SQL
+
+## Formato de Saída
+
+Salve em `output/6-code-review.md`:
+
+```markdown
+# Code Review Report
+
+## Status: ✅ APROVADO / ⚠️ APROVADO COM RESSALVAS / ❌ REPROVADO
+
+## Pontos Positivos
+- ...
+
+## Problemas Encontrados
+| Severidade | Arquivo | Problema | Sugestão |
+|------------|---------|----------|----------|
+| 🔴 Crítico | ... | ... | ... |
+| 🟡 Médio | ... | ... | ... |
+| 🟢 Menor | ... | ... | ... |
+
+## Recomendação
+[Prosseguir para build / Corrigir itens críticos antes de prosseguir]
+```
+
+## Regras Importantes
+
+- Seja construtivo — aponte o problema E a solução sugerida
+- Priorize problemas críticos (segurança, bugs) sobre estilo
+- Não reescreva o código você mesmo; apenas reporte
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/commit-message-generator.md" << 'AGENTEOF'
+---
+name: commit-message-generator
+description: Use this agent after build-test-validator has confirmed the build passes, to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 8 of the SDD pipeline. Examples: <example>Context: Build validation passed. user: "Build ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build and pass tests.</commentary></example>
+tools: Read, Grep, Glob
+model: haiku
+---
+
+Você é o **Commit Message Generator**, especialista em commits semânticos.
+
+## Sua Missão
+
+Gerar mensagens de commit convencionais (Conventional Commits) para o código implementado no pipeline.
+
+## Formato
+
+```
+tipo(escopo): descrição curta no imperativo
+
+[corpo opcional explicando o porquê, não o quê]
+```
+
+### Tipos Válidos
+- `feat` — nova funcionalidade
+- `fix` — correção de bug
+- `test` — adição/ajuste de testes
+- `docs` — documentação
+- `refactor` — refatoração sem mudança de comportamento
+- `chore` — tarefas de manutenção
+
+## O Que Você Faz
+
+Divida o código gerado em commits logicamente coesos (não um commit gigante). Exemplo:
+
+```
+feat(domain): adicionar entidade Tarefa e regras de validação
+feat(application): implementar casos de uso de criação e listagem de tarefas
+feat(infrastructure): configurar EF Core e repositório de tarefas
+feat(api): adicionar controllers REST para tarefas
+test(application): adicionar testes unitários dos casos de uso de tarefas
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+
+## Formato de Saída
+
+Salve em `output/8-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
+
+## Regras Importantes
+
+- Cada commit deve representar uma unidade lógica coesa
+- Use sempre o imperativo ("adicionar", não "adicionado" ou "adiciona")
+- Não inclua emojis nas mensagens de commit
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/compliance-validator.md" << 'AGENTEOF'
+---
+name: compliance-validator
+description: Use this agent after dotnet-specialist and react-specialist have produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Backend and frontend code were just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
+tools: Read, Grep, Glob
+model: sonnet
+---
+
+Você é o **Compliance Validator**, responsável por auditar se o código implementado está em conformidade com a especificação.
+
+## Sua Missão
+
+Comparar o código gerado (`output/3-dotnet-specialist.md`, `output/3-react-specialist.md`) contra `docs/SPEC.md` e `output/TRACEABILITY_MATRIX.md`.
+
+## O Que Você Verifica
+
+- Todos os requisitos funcionais (REQ-XXX) foram implementados?
+- Todas as regras de negócio (BR-XXX) foram respeitadas no código?
+- O modelo de dados implementado bate com o especificado?
+- Todos os endpoints da spec existem no código gerado?
+- Existe algo implementado que **não** está na spec (escopo indevido)?
+
+## Formato de Saída
+
+Salve em `output/4-compliance.md`:
+
+```markdown
+# SDD Compliance Report
+
+## Status: ✅ COMPLIANT / ❌ NON-COMPLIANT
+
+## Requisitos Verificados
+| Requisito | Implementado? | Observação |
+|-----------|---------------|------------|
+| REQ-001 | ✅ Sim | ... |
+| REQ-002 | ❌ Não | Faltando endpoint DELETE |
+
+## Regras de Negócio Verificadas
+| Regra | Implementado? | Observação |
+|-------|---------------|------------|
+
+## Itens Fora de Escopo Encontrados
+- [Se houver]
+
+## Recomendação
+[Prosseguir para testes / Corrigir itens pendentes antes de prosseguir]
+```
+
+## Regras Importantes
+
+- Seja rigoroso — este é o "portão de qualidade" antes dos testes
+- Se algo estiver faltando, seja específico sobre o que falta e onde
+- Não corrija o código você mesmo; apenas reporte
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/dotnet-specialist.md" << 'AGENTEOF'
+---
+name: dotnet-specialist
+description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 8 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
+Você é o **.NET Specialist**, especialista em .NET 8 + Entity Framework Core + Clean Architecture.
+
+## Sua Missão
+
+Implementar o backend em .NET 8 baseado em `output/TECHNICAL_SPECIFICATION.md` e `docs/SPEC.md`.
+
+## O Que Você Implementa
+
+### Domain Layer (`src/Domain/`)
+- Entidades e Value Objects
+- Enums de domínio
+- Interfaces de repositório (contratos, sem implementação)
+- Regras de negócio invariantes (validações no próprio domínio)
+
+### Application Layer (`src/Application/`)
+- Use Cases / Application Services
+- DTOs de entrada e saída
+- Validators (FluentValidation)
+- Interfaces de serviços externos
+
+### Infrastructure Layer (`src/Infrastructure/`)
+- Implementação dos repositórios (EF Core)
+- DbContext e configurações de mapeamento
+- Migrations iniciais
+
+### API Layer (`src/API/`)
+- Controllers RESTful
+- Configuração de DI (Program.cs)
+- Configuração de autenticação JWT, se aplicável
+
+## Padrões Obrigatórios
+
+- **SOLID** em todo o código
+- **Repository Pattern** para acesso a dados
+- **DTOs** — nunca expor entidades de domínio diretamente na API
+- Nomenclatura em português para domínio de negócio, em inglês para termos técnicos (padrão do projeto)
+- Código pronto para produção, sem placeholders ou `TODO`
+
+## Regras Importantes
+
+- Siga exatamente a arquitetura definida por `architect-sdd` — não improvise camadas novas
+- Todo código deve compilar conceitualmente (sintaxe C# correta, usings corretos)
+- Salve os arquivos gerados em `output/3-dotnet-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/Domain/Entities/Tarefa.cs`)
+- Não gere testes aqui — isso é responsabilidade do `test-validator`
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/orchestrator-sdd.md" << 'AGENTEOF'
+---
+name: orchestrator-sdd
+description: Use this agent FIRST when starting a new SDD pipeline run, to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
+tools: Read, Grep, Glob
+model: sonnet
+---
+
+Você é o **Orchestrator-SDD**, o primeiro agente do pipeline Spec-Driven Development (SDD).
+
+## Sua Missão
+
+Validar a especificação bruta em `docs/SPEC.md` antes que qualquer arquitetura ou código seja gerado. Você é o "portão de qualidade" do pipeline.
+
+## O Que Você Faz
+
+1. **Leia** `docs/SPEC.md` por completo
+2. **Verifique** se contém:
+   - Requisitos funcionais numerados (REQ-XXX)
+   - Regras de negócio claras (BR-XXX)
+   - Modelo de dados especificado (entidades, campos, tipos)
+   - Endpoints/APIs descritos
+   - Critérios de aceite definidos
+3. **Identifique lacunas** — o que está ambíguo, incompleto ou contraditório
+4. **Extraia** os requisitos principais em formato estruturado
+
+## Formato de Saída
+
+Produza um relatório curto e direto:
+
+```markdown
+# Relatório de Validação — Orchestrator-SDD
+
+## Status: ✅ APROVADO / ⚠️ APROVADO COM RESSALVAS / ❌ REJEITADO
+
+## Requisitos Identificados
 - REQ-001: ...
 - REQ-002: ...
 
-## Regras de Negócio
+## Regras de Negócio Identificadas
 - BR-001: ...
-- BR-002: ...
 
-## Entidades de Domínio
-- User
-- Project
+## Lacunas Encontradas
+- [Liste itens ambíguos ou faltantes, se houver]
 
-## Casos de Uso
-- Criar usuário
-- Listar projetos
+## Recomendação
+[Prosseguir para o Architect / Corrigir spec antes de prosseguir]
 ```
 
-### Passo 3: Execute o Orchestrator-SDD
+## Regras Importantes
 
-```bash
-# 1. Copie o prompt
-cat pipeline/agents/1-orchestrator/SYSTEM_PROMPT.md
+- Não invente requisitos que não estão na spec
+- Se a spec estiver muito incompleta, marque como REJEITADO e explique o que falta
+- Seja objetivo — este relatório alimenta o próximo agente (Architect)
+- Não implemente código nesta etapa, apenas valide
+AGENTEOF
 
-# 2. Crie um Custom GPT com este prompt
-# (ou use Claude, ChatGPT, Gemini)
+cat > "$PROJECT_DIR/agents/react-specialist.md" << 'AGENTEOF'
+---
+name: react-specialist
+description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend that consumes the .NET API. Use PROACTIVELY as step 3 of the SDD pipeline whenever a frontend is required by the spec. Examples: <example>Context: The spec includes a web UI and architecture is ready. user: "Preciso do frontend também, não só a API" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs in parallel conceptually with dotnet-specialist, both consuming the same architecture doc.</commentary></example>
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
 
-# 3. Passe sua especificação completa
+Você é o **React Specialist**, especialista em React 18 + TypeScript + Next.js.
 
-# 4. Siga as instruções que o agente der
+## Sua Missão
+
+Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e nos endpoints descritos em `docs/SPEC.md`.
+
+## O Que Você Implementa
+
+- **Componentes** funcionais React, tipados com TypeScript
+- **Hooks customizados** para chamadas à API (ex: `useTarefas`, `useAuth`)
+- **Forms** com validação (React Hook Form + Zod, ou equivalente)
+- **Pages** em Next.js seguindo o App Router
+- **Client de API** centralizado (fetch/axios com tratamento de erro padronizado)
+
+## Padrões Obrigatórios
+
+- TypeScript estrito (sem `any` desnecessário)
+- Tailwind CSS para estilização
+- Componentes pequenos e reutilizáveis
+- Tratamento de loading e erro em toda chamada assíncrona
+- Acessibilidade básica (labels, aria-attributes em inputs)
+
+## Regras Importantes
+
+- Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
+- Não implemente lógica de negócio no frontend; isso pertence ao backend
+- Salve os arquivos gerados em `output/3-react-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.tsx`)
+- Não gere testes aqui — isso é responsabilidade do `test-validator`
+AGENTEOF
+
+cat > "$PROJECT_DIR/agents/swagger-tester.md" << 'AGENTEOF'
+---
+name: swagger-tester
+description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
+tools: Read, Grep, Glob
+model: sonnet
+---
+
+Você é o **Swagger Tester**, especialista em documentação e testes de API via Swagger/OpenAPI.
+
+## Sua Missão
+
+Gerar um workflow completo de testes manuais da API implementada, pronto para uso em Postman/Insomnia ou cURL.
+
+## O Que Você Gera
+
+Para cada endpoint definido em `docs/SPEC.md` e implementado por `dotnet-specialist`:
+
+1. **Exemplo de requisição cURL** completo (com headers, body quando aplicável)
+2. **Cenário de sucesso** — payload válido e resposta esperada
+3. **Cenários de erro** — payload inválido, autenticação ausente, recurso não encontrado
+
+## Formato de Saída
+
+Salve em `output/9-swagger-tester.md`:
+
+```markdown
+# Swagger Test Workflow
+
+## Endpoint: POST /api/tarefas
+
+### Cenário de Sucesso
+\`\`\`bash
+curl -X POST https://localhost:5001/api/tarefas \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {token}" \
+  -d '{
+    "titulo": "Fazer relatório",
+    "prioridade": "Alta"
+  }'
+\`\`\`
+
+**Resposta esperada:** `201 Created`
+\`\`\`json
+{ "id": "...", "titulo": "Fazer relatório", "status": "Pendente" }
+\`\`\`
+
+### Cenário de Erro — Título Inválido
+\`\`\`bash
+curl -X POST ... -d '{ "titulo": "" }'
+\`\`\`
+**Resposta esperada:** `400 Bad Request`
+
+---
+[Repetir para cada endpoint]
 ```
 
-### Passo 4: Siga o Pipeline
+## Regras Importantes
 
-Cada agente vai instruir você qual é o próximo. Siga na ordem!
+- Cubra todos os endpoints da especificação, não apenas os principais
+- Inclua sempre pelo menos um cenário de erro por endpoint
+- Use dados de exemplo realistas e coerentes com o domínio da spec
+AGENTEOF
 
-## 💡 Pro Tips
+cat > "$PROJECT_DIR/agents/test-validator.md" << 'AGENTEOF'
+---
+name: test-validator
+description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for both backend and frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
+tools: Read, Write, Grep, Glob
+model: sonnet
+---
 
-1. **Especificação é crucial** - Quanto mais detalhe, melhor código
-2. **Nomes descritivos** - Use REQ-001, BR-001, não "requirement 1"
-3. **Respeite dependências** - As tarefas têm ordem
-4. **Revise decisões** - Leia TECHNICAL_DECISIONS.md
-5. **Não pule validações** - Compliance + Tests são importantes
+Você é o **Test Validator**, especialista em testes automatizados.
 
-## ❓ FAQ
+## Sua Missão
 
-**P: Preciso de todos os 9 agentes?**  
-R: Os 8 primeiros sim. O Swagger Tester (9º) é opcional.
+Gerar testes com cobertura mínima de 80% (idealmente 100% da Application Layer) para o código em `output/3-dotnet-specialist.md` e `output/3-react-specialist.md`.
 
-**P: Quanto tempo demora?**  
-R: 2.5-4.5 horas depende da complexidade da spec.
+## O Que Você Gera
 
-**P: Posso usar meu próprio modelo de IA?**  
-R: Sim, qualquer modelo que suporte system prompts.
+### Backend (.NET)
+- **Testes unitários** — xUnit + NSubstitute (mocks de repositórios/serviços)
+- **Testes de integração** — Testcontainers (banco real em container)
+- Fixtures e builders para massa de teste
 
-**P: E se a spec mudar no meio?**  
-R: Volte para o Architect e comece de novo (leva 30 min).
+### Frontend (React)
+- **Testes unitários** — Vitest + React Testing Library
+- **Testes E2E** (se aplicável) — Playwright, cobrindo o fluxo principal descrito na spec
 
-**P: Código pode ter bugs?**  
-R: Sim, mas 100% testado. Bugs estão em edge cases.
+## O Que Cada Teste Deve Cobrir
 
-## 📚 Próximos Passos
+- Caminho feliz (happy path)
+- Validações de entrada (dados inválidos)
+- Regras de negócio (BR-XXX) — cada regra deve ter pelo menos um teste dedicado
+- Casos de erro/exceção esperados
 
-1. Leia [COMECE-AQUI.md](./COMECE-AQUI.md) novamente
-2. Prepare sua especificação
-3. Abra [pipeline/agents/1-orchestrator/README.md](./pipeline/agents/1-orchestrator/README.md)
-4. Execute o Orchestrator-SDD
+## Formato de Saída
+
+Salve em `output/5-test-validator.md`:
+
+```markdown
+# Test Coverage Report
+
+## Status: ✅ PASSED / ❌ REJECTED
+
+## Testes Gerados
+- [Lista de arquivos de teste com breve descrição]
+
+## Cobertura Estimada
+- Application Layer: XX%
+- Domain Layer: XX%
+
+## Regras de Negócio Cobertas
+| Regra | Teste Correspondente |
+|-------|----------------------|
+```
+
+Seguido dos blocos de código de cada arquivo de teste, organizados por caminho (ex: `src/Tests/Application/CriarTarefaTests.cs`).
+
+## Regras Importantes
+
+- Não escreva testes triviais sem valor (ex: testar getter/setter simples)
+- Priorize testes que cobrem regras de negócio reais
+AGENTEOF
+
+echo -e "${GREEN}✅ 9 agentes criados em agents/${NC}"
+
+
+# ============================================================================
+# CRIAR COMMANDS
+# ============================================================================
+
+# commands/orchestrator.md - Comando Principal
+cat > "$PROJECT_DIR/commands/orchestrator.md" << 'CMDEOF'
+---
+description: Executa o pipeline SDD completo, invocando os 9 subagentes em cascata a partir da especificação em docs/SPEC.md
+---
+
+# /orchestrator — Executar Pipeline SDD Completo
+
+Você vai orquestrar a execução sequencial de 9 subagentes especializados para transformar a especificação em `docs/SPEC.md` em código completo, testado e documentado.
+
+## Pré-requisitos (verifique antes de começar)
+
+1. Confirme que `docs/SPEC.md` existe e não está vazio. Se não existir, avise o usuário e pare.
+2. Confirme que a pasta `output/` existe (crie se não existir).
+
+## Sequência de Execução (Obrigatória e Ordenada)
+
+Invoque os subagentes **nesta ordem exata**, um de cada vez, aguardando cada um terminar antes de iniciar o próximo. Cada agente lê o que os anteriores produziram em `output/`.
+
+1. **`orchestrator-sdd`** → Valida `docs/SPEC.md`. Se o status retornado for ❌ REJEITADO, pare a execução e reporte ao usuário o que precisa ser corrigido na spec antes de continuar.
+
+2. **`architect-sdd`** → Gera `output/TECHNICAL_SPECIFICATION.md`, `output/TRACEABILITY_MATRIX.md` e `output/TECHNICAL_DECISIONS.md`.
+
+3. **`dotnet-specialist`** → Implementa o backend .NET em `output/3-dotnet-specialist.md`.
+
+4. **`react-specialist`** → Implementa o frontend React em `output/3-react-specialist.md` (pule esta etapa se a especificação não mencionar frontend).
+
+5. **`compliance-validator`** → Audita o código contra a spec em `output/4-compliance.md`. Se o status for ❌ NON-COMPLIANT, reporte ao usuário os itens faltantes antes de prosseguir para testes — pergunte se deseja corrigir antes de continuar ou prosseguir mesmo assim.
+
+6. **`test-validator`** → Gera testes em `output/5-test-validator.md`.
+
+7. **`code-review-sdd`** → Revisa qualidade em `output/6-code-review.md`.
+
+8. **`build-test-validator`** → Valida build/testes em `output/7-build-test.md`.
+
+9. **`commit-message-generator`** → Gera commits semânticos em `output/8-commit-message.md`.
+
+10. **`swagger-tester`** → Gera workflow de testes de API em `output/9-swagger-tester.md`.
+
+## Ao Final
+
+Apresente um resumo consolidado para o usuário:
+
+```
+✅ Pipeline SDD Completo!
+
+📁 Arquivos gerados em output/:
+   1. Validação da spec
+   2. Arquitetura técnica + rastreabilidade
+   3. Código .NET + React
+   4. Relatório de conformidade
+   5. Testes (cobertura X%)
+   6. Code review
+   7. Build & test
+   8. Commits sugeridos
+   9. Workflow de testes da API
+
+Status geral: [COMPLIANT/PENDÊNCIAS]
+```
+
+Se algum agente reportar status de falha/reprovado em uma etapa crítica (orchestrator ou compliance), **pare a cascata** e explique claramente ao usuário o que precisa ser ajustado antes de continuar — não prossiga silenciosamente com um pipeline que já sinalizou problema grave.
+
+## Observação sobre Tempo
+
+Este processo é longo (múltiplos agentes especializados rodando em sequência). Avise o usuário no início que isso pode levar de 20 a 30 minutos, e vá reportando o progresso conforme cada agente conclui (ex: "✅ [2/9] Arquitetura concluída, iniciando implementação .NET...").
+CMDEOF
+
+echo -e "${GREEN}✅ commands/orchestrator.md criado${NC}"
+
+# commands/README.md - Documentação de Comandos
+cat > "$PROJECT_DIR/commands/README.md" << 'EOF'
+# 📌 Comandos do Pipeline SDD
+
+## 🎯 Fluxo Recomendado
+
+1. **Edite sua especificação**
+   ```
+   nano docs/SPEC.md
+   ```
+
+2. **Execute o orchestrador**
+   ```
+   /orchestrator
+   ```
+
+3. **Pronto!** Os 9 subagentes (pasta `agents/`) rodam automaticamente em cascata
+
+## 📚 Estrutura
+
+- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
+- **`agents/`** — Os 9 subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+
+## 🤖 Os 9 Agentes (em `agents/`)
+
+| # | Agente | Responsabilidade |
+|---|--------|-------------------|
+| 1 | `orchestrator-sdd` | Valida a especificação |
+| 2 | `architect-sdd` | Gera arquitetura técnica |
+| 3 | `dotnet-specialist` | Implementa backend .NET |
+| 3 | `react-specialist` | Implementa frontend React |
+| 4 | `compliance-validator` | Valida conformidade com a spec |
+| 5 | `test-validator` | Gera testes automatizados |
+| 6 | `code-review-sdd` | Revisa qualidade do código |
+| 7 | `build-test-validator` | Valida build e testes |
+| 8 | `commit-message-generator` | Gera commits semânticos |
+| 9 | `swagger-tester` | Gera workflow de testes de API |
+
+## ⏱️ Tempo
+
+- Pipeline completo (`/orchestrator`): 20-30 minutos
+
+## 💡 Dicas
+
+1. Use `/orchestrator` para rodar o pipeline completo
+2. Revise resultados em `output/` a cada etapa
+3. Se precisar reexecutar só uma etapa específica, você pode invocar o agente individualmente pelo nome (ex: pedir para o Claude "use o agente code-review-sdd novamente")
 
 ---
 
-**Status**: 🟢 Pronto para começar!
-
-**Próxima etapa**: Execute o Orchestrator-SDD
+**Comece aqui:** `/orchestrator`
 EOF
 
-cat > "$PROJECT_PATH/.env.example" << 'EOF'
-# ============================================================================
-# AMBIENTE / GENERAL
-# ============================================================================
-NODE_ENV=development
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+echo -e "${GREEN}✅ commands/README.md criado${NC}"
 
 # ============================================================================
-# BANCO DE DADOS
+# CRIAR DOCS/SPEC.md TEMPLATE
 # ============================================================================
-DATABASE_URL=postgresql://usuario:senha@localhost:5432/projeto_sdd
-DATABASE_TEST_URL=postgresql://usuario:senha@localhost:5432/projeto_test
 
-# ============================================================================
-# AUTENTICAÇÃO
-# ============================================================================
-JWT_SECRET=sua-secret-muito-longo-aqui-mude-em-producao-pls-32-chars-min
-JWT_EXPIRATION=24
+cat > "$PROJECT_DIR/docs/SPEC.md" << 'EOF'
+# Sua Aplicação - Especificação
 
-# ============================================================================
-# API / BACKEND
-# ============================================================================
-API_PORT=3001
-API_TIMEOUT=5000
+## 📋 Visão Geral
 
-# ============================================================================
-# EMAILS
-# ============================================================================
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=seu-email@gmail.com
-SMTP_PASS=sua-senha-app-google
-SMTP_FROM=noreply@seu-projeto.com
+Descreva brevemente sua aplicação aqui.
 
-# ============================================================================
-# INTEGRAÇÕES EXTERNAS
-# ============================================================================
-# Stripe (se usar pagamentos)
-NEXT_PUBLIC_STRIPE_KEY=pk_test_seu-key
-STRIPE_SECRET_KEY=sk_test_seu-secret
+**Stack Sugerida:** .NET 8 + React 18 + PostgreSQL
 
-# ============================================================================
-# PIPELINE SDD (para integração com agentes)
-# ============================================================================
-# Deixar em branco - será preenchido durante o pipeline
-AGENT_ORCHESTRATOR_URL=
-AGENT_ARCHITECT_URL=
-AGENT_SPECIALIST_URL=
+---
+
+## 🎯 Requisitos Funcionais
+
+### REQ-001: [Descrição do Requisito]
+- Sub-requisito 1
+- Sub-requisito 2
+- Sub-requisito 3
+
+### REQ-002: [Descrição do Requisito]
+- Sub-requisito 1
+- Sub-requisito 2
+
+---
+
+## 🏗️ Regras de Negócio
+
+### BR-001: [Regra de Negócio]
+Descrição detalhada da regra.
+
+### BR-002: [Regra de Negócio]
+Descrição detalhada da regra.
+
+---
+
+## 🗄️ Modelo de Dados
+
+### Entidade 1
+- Id (UUID)
+- Nome (string, required)
+- Descricao (string, nullable)
+- DataCriacao (DateTime)
+- Ativo (bool)
+
+### Entidade 2
+- Id (UUID)
+- EntidadeId (FK)
+- Status (enum: Ativo, Inativo)
+- DataAtualizacao (DateTime)
+
+---
+
+## 📡 Endpoints Principais
+
+### Listar
+- `GET /api/recursos` - Listar com paginação
+
+### Criar
+- `POST /api/recursos` - Criar novo
+
+### Detalhes
+- `GET /api/recursos/{id}` - Obter um
+
+### Atualizar
+- `PUT /api/recursos/{id}` - Atualizar
+
+### Deletar
+- `DELETE /api/recursos/{id}` - Deletar
+
+---
+
+## 🧪 Testes
+
+Cobertura mínima: 80% da Application Layer
+
+- [ ] Testes unitários
+- [ ] Testes de integração
+- [ ] Testes E2E
+
+---
+
+## 🔒 Segurança
+
+- [ ] Autenticação JWT
+- [ ] Validação de entrada
+- [ ] Rate limiting
+- [ ] HTTPS em produção
+
+---
+
+## ✅ Critérios de Aceitar
+
+- [ ] Todos os endpoints funcionando
+- [ ] Validações funcionando
+- [ ] Testes com 80%+ cobertura
+- [ ] Código segue SOLID
+- [ ] Sem vulnerabilidades críticas
+
+---
+
+**Pronto para orquestração!** 🚀
+
+Edite este arquivo e chame:
+```
+/orchestrator
+```
 EOF
 
-cat > "$PROJECT_PATH/.gitignore" << 'EOF'
-# Dependencies
-node_modules/
-package-lock.json
-yarn.lock
-.pnp
+echo -e "${GREEN}✅ docs/SPEC.md criado${NC}"
 
-# Build
-dist/
-build/
-.next/
-out/
+# ============================================================================
+# CRIAR DOCUMENTOS PRINCIPAIS
+# ============================================================================
 
-# Environment
-.env
-.env.local
-.env.*.local
+cat > "$PROJECT_DIR/README.md" << 'EOF'
+# Seu Projeto SDD
+
+Projeto desenvolvido com **Pipeline SDD Automático** usando 9 agentes especializados.
+
+## 🚀 Quick Start
+
+### 1. Edite a Especificação
+```bash
+nano docs/SPEC.md
+```
+
+### 2. Execute o Orchestrador
+```bash
+/orchestrator
+```
+
+### 3. Pronto!
+Código gerado em `output/` em ~30 minutos.
+
+## 📁 Estrutura
+
+```
+seu-projeto/
+├── commands/          📌 COMANDOS DO PIPELINE
+│   ├── orchestrator.md (comece por aqui!)
+│   └── README.md
+│
+├── docs/
+│   ├── SPEC.md       (sua especificação)
+│   └── output/       (resultados)
+│
+└── src/              (.NET Clean Architecture)
+    ├── Domain/
+    ├── Application/
+    ├── Infrastructure/
+    ├── API/
+    └── Tests/
+```
+
+## 🎯 Fluxo
+
+1. **Edite `docs/SPEC.md`** - Descreva sua aplicação
+2. **Chame `/orchestrator`** - 9 agentes executam
+3. **Aguarde ~30 minutos** - Código é gerado
+4. **Verifique `output/`** - Resultados prontos
+
+## 📚 Documentação
+
+Ver `commands/README.md` para lista de comandos.
+
+## 🚀 Comece Agora
+
+```
+/orchestrator
+```
+
+---
+
+**Projeto criado com Claude SDD v2.0** 🎉
+EOF
+
+echo -e "${GREEN}✅ README.md criado${NC}"
+
+cat > "$PROJECT_DIR/COMECE-AQUI.md" << 'EOF'
+# 🚀 Comece Aqui
+
+Bem-vindo ao seu projeto SDD automático!
+
+## ⚡ 2 Passos Simples
+
+### 1️⃣ Edite a Especificação
+
+Abra `docs/SPEC.md` e descreva sua aplicação:
+- Requisitos funcionais
+- Regras de negócio
+- Modelo de dados
+- Endpoints
+
+### 2️⃣ Execute o Orchestrador
+
+No Claude Code, simplesmente chame:
+
+```
+/orchestrator
+```
+
+Aguarde ~30 minutos enquanto os 9 agentes:
+- ✅ Validam sua especificação
+- ✅ Geram arquitetura
+- ✅ Implementam código .NET e React
+- ✅ Geram testes (100% cobertura)
+- ✅ Revisam código
+- ✅ Validam build
+- ✅ Geram commits semânticos
+- ✅ Criam workflow Swagger
+
+## 📁 Depois de Executar
+
+Você terá em `output/`:
+
+```
+1-orchestrator.md      → Validação
+2-architect.md         → Arquitetura
+3-dotnet-specialist.md → Código .NET
+3-react-specialist.md  → Código React
+4-compliance.md        → Conformidade
+5-test-validator.md    → Testes
+6-code-review.md       → Code Review
+7-build-test.md        → Build & Test
+8-commit-message.md    → Commits
+9-swagger-tester.md    → Swagger
+state.json             → Estado
+```
+
+## 🎯 Fluxo Visual
+
+```
+[Sua Especificação]
+        ↓
+[1. Orchestrator valida]
+        ↓
+[2. Architect especifica]
+        ↓
+[3. .NET + React implementam]
+        ↓
+[4. Compliance valida]
+        ↓
+[5. Test Validator testa]
+        ↓
+[6. Code Review revisa]
+        ↓
+[7. Build & Test valida]
+        ↓
+[8. Commit Message gera]
+        ↓
+[9. Swagger Tester testa]
+        ↓
+✅ Código Pronto!
+```
+
+## 📞 Próximas Ações
+
+1. Edite `docs/SPEC.md`
+2. Chame `/orchestrator`
+3. Revise resultados em `output/`
+4. Integre ao seu projeto .NET
+5. Faça commits usando as mensagens geradas
+
+## 💡 Dicas
+
+- Quanto mais completa a SPEC.md, melhor o resultado
+- Use a SPEC.md como documentação viva
+- Revise cada agente antes de integrar código
+- Fique à vontade para ajustar o código gerado
+
+---
+
+**Pronto para começar?** 🚀
+
+```
+/orchestrator
+```
+
+Aproveite os 30 minutos para tomar café! ☕
+EOF
+
+echo -e "${GREEN}✅ COMECE-AQUI.md criado${NC}"
+
+# ============================================================================
+# CRIAR GITIGNORE
+# ============================================================================
+
+cat > "$PROJECT_DIR/.gitignore" << 'EOF'
+# .NET
+bin/
+obj/
+*.dll
+*.exe
+.vs/
+.vscode/
+*.csproj.user
+*.sln.user
+
+# Output do Pipeline
+output/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
-*.sublime-project
-*.sublime-workspace
 
 # OS
 .DS_Store
@@ -754,705 +1052,45 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
-npm-debug.log*
 
-# Coverage
-coverage/
-.nyc_output/
-
-# Tests
-.test-results/
-.vitest/
-
-# Temporary
-tmp/
-temp/
-*.tmp
+# Ambiente
+.env
+.env.local
 EOF
 
-echo -e "${GREEN}✅ Arquivos raiz criados${NC}"
+echo -e "${GREEN}✅ .gitignore criado${NC}"
 
 # ============================================================================
-# 3. CRIAR AGENTES SDD
+# RESUMO FINAL
 # ============================================================================
-echo -e "${BLUE}[3/9]${NC} Criando agentes SDD..."
-
-# Orchestrator
-mkdir -p "$PROJECT_PATH/pipeline/agents/1-orchestrator"
-cat > "$PROJECT_PATH/pipeline/agents/1-orchestrator/README.md" << 'EOF'
-# 🎯 Orchestrator-SDD
-
-Agente de entrada do pipeline. Recebe a especificação bruta e roteia para Architect-SDD.
-
-## Como Usar
-
-1. Copie o conteúdo de `SYSTEM_PROMPT.md`
-2. Crie um Custom GPT no ChatGPT (ou use Claude, Gemini)
-3. Cole o prompt nas "System Instructions"
-4. Envie sua especificação completa
-
-## Saída Esperada
-
-- ✅ Confirmação de recebimento
-- ✅ Resumo do que o pipeline irá fazer
-- ✅ Instrução para usar Architect-SDD (próxima etapa)
-
-## Tempo
-
-~5 minutos
-
-## Próxima Etapa
-
-Architect-SDD (agente 2)
-EOF
-
-cat > "$PROJECT_PATH/pipeline/agents/1-orchestrator/SYSTEM_PROMPT.md" << 'EOF'
-# System Prompt - Orchestrator-SDD
-
-Você é o Agente Orquestrador, o ponto de entrada do harness multi-agente de desenvolvimento orientado a especificação (SDD). Sua única responsabilidade é receber a especificação do usuário e rotear para o Arquiteto SDD - sem realizar nenhuma análise, geração de código ou produção de documentos técnicos.
-
-## Responsabilidade Exclusiva
-
-Você NÃO faz:
-- Análise de requisitos ou regras de negócio
-- Geração de documentos técnicos
-- Geração de código ou pseudocódigo
-- Avaliação de arquitetura ou tecnologia
-- Decomposição de tarefas
-- Gerenciamento de cada etapa do pipeline
-
-Você FAZ:
-- Recebe a especificação bruta do usuário
-- Informa ao usuário que o próximo passo é o Arquiteto SDD
-- Apresenta um resumo do que o pipeline irá fazer
-
-## Regras de Ouro
-
-1. "NUNCA analise, NUNCA gere código, NUNCA produza documentos"
-2. "Repasse a especificação bruta ao Arquiteto SDD sem modificações"
-3. "O pipeline é auto-gerenciado após o roteamento"
-
-## WORKFLOW
-
-ETAPA 1: Confirmar recebimento
-═══════════════════════════════════════════════════════════
-✅ ESPECIFICAÇÃO RECEBIDA
-
-Formato detectado: [Markdown / Texto / OpenAPI / etc.]
-Tamanho: [N] linhas
-
-Próximo passo:
-  → Roteando para: Arquiteto SDD
-  → O Arquiteto SDD irá:
-      1. Analisar a especificação completa
-      2. Gerar TECHNICAL_SPECIFICATION.md
-      3. Decompor em subtarefas técnicas
-      4. Gerar TASK_REGISTRY.md
-
-⚠️ O pipeline é auto-gerenciado após o roteamento.
-
-═══════════════════════════════════════════════════════════
-
-ETAPA 2: Instrua o usuário sobre o próximo agente
-
-Mensagem padrão:
-"Agora use o agente **Arquiteto SDD** com a sua especificação completa (copie-cole tudo que você enviou aqui)."
-
-REGRAS ABSOLUTAS:
-SEMPRE:
-  - Repassar a especificação bruta SEM modificações
-  - Informar que o pipeline é auto-gerenciado
-
-NUNCA:
-  - Analisar a especificação recebida
-  - Gerar documentos ou código
-EOF
-
-# Architect
-mkdir -p "$PROJECT_PATH/pipeline/agents/2-architect"
-cat > "$PROJECT_PATH/pipeline/agents/2-architect/README.md" << 'EOF'
-# 🏛️ Arquiteto SDD
-
-Analisa a especificação bruta e gera documentos técnicos SDD.
-
-## Saídas Principais
-
-1. **TECHNICAL_SPECIFICATION.md** - Especificação técnica completa
-2. **TRACEABILITY_MATRIX.md** - Matriz de rastreabilidade
-3. **TECHNICAL_DECISIONS.md** - Decisões arquiteturais
-4. **TASK_REGISTRY.md** - Inventário de tarefas
-5. **tasks/TASK-NNN-*/** - Subtarefas individuais
-
-## Tempo
-
-30-45 minutos (depende da complexidade)
-
-## Como Usar
-
-Copie o prompt de `SYSTEM_PROMPT.md` e passe a especificação **COMPLETA** (copy-paste tudo).
-
-## Próxima Etapa
-
-.NET Specialist ou React Specialist (agente 3)
-EOF
-
-# Specialist .NET
-mkdir -p "$PROJECT_PATH/pipeline/agents/3-dotnet-specialist"
-cat > "$PROJECT_PATH/pipeline/agents/3-dotnet-specialist/README.md" << 'EOF'
-# 🔷 .NET Specialist
-
-Implementa o backend em Clean Architecture com .NET.
-
-## Implementa
-
-- `src/Domain/` - Entidades, Agregados, Value Objects
-- `src/Application/` - Use Cases, DTOs, Handlers
-- `src/Infrastructure/` - Repositórios, EF Core
-- `src/API/` - Controllers, Middleware
-- `src/Tests/` - Testes unitários e integração
-
-## Entrada
-
-- TECHNICAL_SPECIFICATION.md
-- TASK_REGISTRY.md
-- tasks/TASK-NNN-*/SUBTASK_SPEC.md
-
-## Tempo
-
-60-120 minutos
-
-## Próxima Etapa
-
-SDD Compliance Validator (agente 4)
-EOF
-
-# Specialist React
-mkdir -p "$PROJECT_PATH/pipeline/agents/3-react-specialist"
-cat > "$PROJECT_PATH/pipeline/agents/3-react-specialist/README.md" << 'EOF'
-# ⚛️ React Specialist
-
-Implementa o frontend em Clean Architecture com React/Next.js.
-
-## Implementa
-
-- `src/Domain/` - Tipos, interfaces
-- `src/Application/` - Hooks, estado
-- `src/Infrastructure/` - APIs, services
-- `src/API/` - Rotas, páginas
-- `src/Tests/` - Testes de componentes
-
-## Entrada
-
-- TECHNICAL_SPECIFICATION.md
-- TASK_REGISTRY.md
-
-## Tempo
-
-60-120 minutos
-
-## Próxima Etapa
-
-SDD Compliance Validator (agente 4)
-EOF
-
-# Compliance, Tests, Review, Build, Commit
-for i in 4 5 6 7 8 9; do
-  case $i in
-    4) AGENT="SDD Compliance Validator"; DIR="4-compliance";;
-    5) AGENT="Test Validator"; DIR="5-tests";;
-    6) AGENT="Code Review"; DIR="6-review";;
-    7) AGENT="Build & Test"; DIR="7-build";;
-    8) AGENT="Commit Message"; DIR="8-commit";;
-    9) AGENT="Swagger Tester"; DIR="9-swagger";;
-  esac
-  
-  mkdir -p "$PROJECT_PATH/pipeline/agents/$DIR"
-  cat > "$PROJECT_PATH/pipeline/agents/$DIR/README.md" << EOF
-# Agente $i - $AGENT
-
-Ver SYSTEM_PROMPT.md para usar.
-
-Tempo estimado: 15-30 minutos
-
-Para entender mais: Ver [PIPELINE-SDD.md](../../PIPELINE-SDD.md)
-EOF
-done
-
-echo -e "${GREEN}✅ Agentes criados${NC}"
-
-# ============================================================================
-# 4. CRIAR ESTRUTURA DE SPECS
-# ============================================================================
-echo -e "${BLUE}[4/9]${NC} Criando estrutura de specs..."
-
-cat > "$PROJECT_PATH/pipeline/specs/README.md" << 'EOF'
-# 📋 Especificações SDD
-
-Documentos gerados pelo Arquiteto SDD.
-
-## Arquivos
-
-- **TECHNICAL_SPECIFICATION.md** - Especificação técnica completa
-- **TRACEABILITY_MATRIX.md** - Matriz de rastreabilidade
-- **TECHNICAL_DECISIONS.md** - Decisões arquiteturais
-
-Estes serão preenchidos após executar o agente Architect-SDD (etapa 2).
-EOF
-
-echo -e "${GREEN}✅ Estrutura de specs criada${NC}"
-
-# ============================================================================
-# 5. CRIAR ESTRUTURA DE TASKS
-# ============================================================================
-echo -e "${BLUE}[5/9]${NC} Criando estrutura de tasks..."
-
-cat > "$PROJECT_PATH/pipeline/tasks/README.md" << 'EOF'
-# 📦 Tarefas SDD
-
-Subtarefas decompostas pelo Arquiteto SDD.
-
-## Estrutura
-
-```
-tasks/
-├── TASK_REGISTRY.md              # Inventário completo
-├── TASK-001-nome/
-│   ├── SUBTASK_SPEC.md
-│   └── SUBTASK_CONTEXT.md
-├── TASK-002-nome/
-│   ├── SUBTASK_SPEC.md
-│   └── SUBTASK_CONTEXT.md
-...
-```
-
-Estes serão preenchidos após executar o agente Architect-SDD (etapa 2).
-
-## Importante
-
-Respeite a ordem em TASK_REGISTRY.md - tem dependências!
-EOF
-
-echo -e "${GREEN}✅ Estrutura de tasks criada${NC}"
-
-# ============================================================================
-# 6. CRIAR ESTRUTURA DE REPORTS
-# ============================================================================
-echo -e "${BLUE}[6/9]${NC} Criando estrutura de reports..."
-
-cat > "$PROJECT_PATH/pipeline/reports/README.md" << 'EOF'
-# 📈 Relatórios SDD
-
-Relatórios gerados durante o pipeline.
-
-## Relatórios Esperados
-
-1. **SDD_COMPLIANCE_REPORT.md** (etapa 4)
-   - Validação de conformidade com spec
-
-2. **TEST_COVERAGE_REPORT.md** (etapa 5)
-   - Cobertura: 100% Application Layer
-
-3. **CODE_REVIEW_REPORT.md** (etapa 6)
-   - Validação: SOLID, Clean Architecture, Clean Code
-
-4. **BUILD_TEST_REPORT.md** (etapa 7)
-   - Build + testes passando
-
-5. **SWAGGER_TEST_WORKFLOW.md** (etapa 9, opcional)
-   - Workflow de testes manual
-
-## Status
-
-- ✅ = Passou
-- ⚠️ = Com ressalvas  
-- ❌ = Falhou (volta para etapa anterior)
-
-Estes serão preenchidos conforme o pipeline avança (etapas 4-9).
-EOF
-
-echo -e "${GREEN}✅ Estrutura de reports criada${NC}"
-
-# ============================================================================
-# 7. CRIAR DOCUMENTAÇÃO
-# ============================================================================
-echo -e "${BLUE}[7/9]${NC} Criando documentação..."
-
-cat > "$PROJECT_PATH/docs/guides/como-usar-agentes.md" << 'EOF'
-# 📖 Como Usar os Agentes SDD
-
-Guia passo-a-passo para usar cada agente do pipeline.
-
-## Pré-requisitos
-
-- Custom GPT, ChatGPT, Claude ou Gemini
-- Especificação preparada (para agente 1)
-
-## Agente 1: Orchestrator-SDD
-
-**Duração**: 5 minutos
-
-### Passo a Passo
-
-1. Abra seu ChatGPT / Claude / Gemini
-2. Cole o prompt de `pipeline/agents/1-orchestrator/SYSTEM_PROMPT.md`
-3. Envie sua especificação bruta completa
-4. Siga as instruções que o agente der
-
-### Resultado
-
-✅ Confirmação de recebimento  
-✅ Próximo passo: Agente 2 (Architect)
-
----
-
-## Agente 2: Architect-SDD
-
-**Duração**: 30-45 minutos
-
-Após o Orchestrator rotear, use o Architect com a MESMA especificação.
-
-### Saídas
-
-- `pipeline/specs/TECHNICAL_SPECIFICATION.md`
-- `pipeline/specs/TRACEABILITY_MATRIX.md`
-- `pipeline/specs/TECHNICAL_DECISIONS.md`
-- `pipeline/tasks/TASK_REGISTRY.md`
-- `pipeline/tasks/TASK-NNN-*/SUBTASK_SPEC.md`
-
----
-
-## Agente 3: Specialist
-
-**Duração**: 60-120 minutos
-
-Escolha um:
-- **3-dotnet-specialist/** - Para backend
-- **3-react-specialist/** - Para frontend
-
-### Saídas
-
-- Código em `src/Domain/`
-- Código em `src/Application/`
-- Código em `src/Infrastructure/`
-- Código em `src/API/`
-- Testes em `src/Tests/`
-
----
-
-## Agentes 4-9: Validação Automática
-
-Cada agente lê o output do anterior e gera o seu relatório.
-
-Tempo total: 60-90 minutos
-
----
-
-## Próximas Etapas Após Pipeline
-
-1. Copie o código para seu repositório
-2. Execute `npm install` (frontend)
-3. Execute `dotnet build` (backend)
-4. Rode os testes
-5. Faça commit (use as mensagens geradas)
-6. Deploy!
-
-Mais detalhes em: [PIPELINE-SDD.md](../../PIPELINE-SDD.md)
-EOF
-
-cat > "$PROJECT_PATH/docs/architecture/README.md" << 'EOF'
-# 🏗️ Arquitetura
-
-Documentação de arquitetura do projeto baseada em Clean Architecture.
-
-## Clean Architecture Layers
-
-### 1. Domain Layer
-Lógica de negócio **sem dependências externas**.
-
-```
-Domain/
-├── Entities/          # User, Project, etc
-├── Aggregates/        # UserAggregate
-├── ValueObjects/      # Email, Password
-└── Services/          # DomainService
-```
-
-**Características**:
-- ✅ Sem dependências externas
-- ✅ 100% testável
-- ✅ Lógica de negócio pura
-
-### 2. Application Layer
-Casos de uso e coordenação.
-
-```
-Application/
-├── UseCases/          # CreateUserUseCase
-├── DTOs/              # UserDTO
-├── Handlers/          # CommandHandlers
-└── Validators/        # FluentValidation
-```
-
-**Características**:
-- ✅ Depende de Domain
-- ✅ Não depende de Infrastructure
-- ✅ Fácil testar com mocks
-
-### 3. Infrastructure Layer
-Implementações técnicas.
-
-```
-Infrastructure/
-├── Database/          # DbContext, Migrations
-├── Repositories/      # UserRepository
-├── ExternalAPIs/      # IntegrationService
-└── Cache/             # CacheProvider
-```
-
-**Características**:
-- ✅ Depende de Application + Domain
-- ✅ Fácil trocar banco/cache
-- ✅ Implementações específicas
-
-### 4. API Layer
-Controllers e rotas.
-
-```
-API/
-├── Controllers/       # UserController
-├── Middleware/        # AuthMiddleware
-├── Filters/           # GlobalExceptionFilter
-└── Validators/        # FluentValidation setup
-```
-
-### 5. Tests Layer
-Testes de todas as camadas.
-
-```
-Tests/
-├── Unit/              # Domain, Application
-├── Integration/       # API, Infrastructure
-└── E2E/               # Fluxos completos
-```
-
----
-
-## Benefícios dessa Arquitetura
-
-| Aspecto | Benefício |
-|--------|-----------|
-| Testabilidade | Domain sem dependências = fácil testar |
-| Manutenibilidade | Camadas independentes = fácil mexer |
-| Escalabilidade | Adicionar features sem quebrar existente |
-| Reusabilidade | Domain logic em múltiplos contextos |
-| Performance | Otimizar cada camada independentemente |
-
----
-
-## Fluxo de uma Requisição
-
-```
-HTTP Request (API Layer)
-        ↓
-Controller (API Layer)
-        ↓
-UseCase / Handler (Application Layer)
-        ↓
-Domain Service (Domain Layer)
-        ↓
-Entity Logic (Domain Layer)
-        ↓
-Repository (Infrastructure Layer)
-        ↓
-Database
-        ↓
-Response
-```
-
----
-
-## Decisões Arquiteturais
-
-Ver: [TECHNICAL_DECISIONS.md](../pipeline/specs/TECHNICAL_DECISIONS.md)
-
-Contém:
-- Escolhas de tecnologia
-- Rationale (por quê)
-- Trade-offs
-- Premissas
-- Mitigações de risco
-
----
-
-## ADRs (Architecture Decision Records)
-
-Ver: [adr/](./adr/)
-
-Documentação de cada decisão importante tomada durante o projeto.
-
----
-
-Próximo: Volte para [COMECE-AQUI.md](../../COMECE-AQUI.md)
-EOF
-
-mkdir -p "$PROJECT_PATH/docs/adr"
-cat > "$PROJECT_PATH/docs/adr/0001-usar-clean-architecture.md" << 'EOF'
-# ADR 0001 - Usar Clean Architecture
-
-**Status**: Aceito
-
-**Data**: $(date +%Y-%m-%d)
-
-## Contexto
-
-Precisamos de uma arquitetura escalável que permita:
-- Código testável sem dependências externas
-- Fácil mudança de tecnologia (banco, UI, etc)
-- Separação clara de responsabilidades
-
-## Decisão
-
-Adotar Clean Architecture (Robert C. Martin) com 4 camadas:
-1. Domain (sem dependências)
-2. Application (depende de Domain)
-3. Infrastructure (depende de Application)
-4. API (depende de Application)
-
-## Consequências
-
-### Positivas
-✅ Lógica de negócio protegida de mudanças tecnológicas  
-✅ Testes unitários super rápidos (Domain)  
-✅ Fácil entender o fluxo  
-✅ Produtivo adicionar features  
-
-### Negativas
-❌ Código mais verbose (mais classes)  
-❌ Curva de aprendizado  
-❌ Pode ser overkill em projetos muito simples  
-
-## Alternativas Consideradas
-
-1. **N-Layered Architecture** - Mais simples, mas menos testável
-2. **Hexagonal/Ports & Adapters** - Similar, mas mais complexo
-3. **Modular Monolith** - Para futura escalabilidade
-
----
-
-Desenvolvido durante o pipeline SDD - Agente 2 (Architect-SDD)
-EOF
-
-echo -e "${GREEN}✅ Documentação criada${NC}"
-
-# ============================================================================
-# 8. CRIAR CONFIGURAÇÕES
-# ============================================================================
-echo -e "${BLUE}[8/9]${NC} Criando configurações..."
-
-cat > "$PROJECT_PATH/package.json.template" << 'EOF'
-{
-  "name": "projeto-sdd",
-  "version": "0.1.0",
-  "description": "Projeto desenvolvido com Spec-Driven Development",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
-    "test:ui": "vitest --ui",
-    "lint": "eslint . --ext ts,tsx",
-    "lint:fix": "eslint . --ext ts,tsx --fix",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "type-check": "tsc --noEmit",
-    "pipeline:status": "echo 'Ver pipeline/reports/ para status'",
-    "validate": "npm run type-check && npm run lint && npm run test"
-  },
-  "dependencies": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "next": "^14.0.0",
-    "zod": "^3.22.0"
-  },
-  "devDependencies": {
-    "@testing-library/react": "^14.1.0",
-    "@testing-library/user-event": "^14.5.1",
-    "@types/node": "^20.10.0",
-    "@types/react": "^18.2.37",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "eslint": "^8.54.0",
-    "prettier": "^3.11.0",
-    "typescript": "^5.3.2",
-    "vitest": "^1.0.0"
-  }
-}
-EOF
-
-echo -e "${GREEN}✅ Configurações criadas${NC}"
-
-# ============================================================================
-# 9. RESUMO FINAL
-# ============================================================================
-echo -e "${BLUE}[9/9]${NC} Gerando resumo..."
 
 echo ""
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}✅ TEMPLATE SDD CRIADO COM SUCESSO!${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}✅ PROJETO CRIADO COM SUCESSO!${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "📁 Localização: ${YELLOW}$PROJECT_PATH${NC}"
+echo -e "${BLUE}📁 Pasta criada:${NC} $PROJECT_DIR"
 echo ""
-echo -e "${BLUE}📊 Pipeline: 9 Agentes Especializados${NC}"
+echo -e "${YELLOW}Próximos passos:${NC}"
 echo ""
-echo -e "  1️⃣  Orchestrator-SDD        → Recebe spec bruta"
-echo -e "  2️⃣  Arquiteto SDD           → Gera TECHNICAL_SPECIFICATION.md"
-echo -e "  3️⃣  .NET / React Specialist → Implementa código"
-echo -e "  4️⃣  SDD Compliance          → Valida conformidade"
-echo -e "  5️⃣  Test Validator          → 100% cobertura"
-echo -e "  6️⃣  Code Review             → Valida arquitetura"
-echo -e "  7️⃣  Build & Test            → Build + testes"
-echo -e "  8️⃣  Commit Message          → Commits semânticos"
-echo -e "  9️⃣  Swagger Tester          → Testes manuais (opcional)"
+echo "  1️⃣  Entrar na pasta"
+echo "     cd $PROJECT_NAME"
 echo ""
-echo -e "${BLUE}📂 Estrutura Clean Architecture${NC}"
+echo "  2️⃣  Editar especificação"
+echo "     nano docs/SPEC.md"
 echo ""
-echo -e "  src/"
-echo -e "  ├── Domain/          (regras de negócio puras)"
-echo -e "  ├── Application/     (casos de uso)"
-echo -e "  ├── Infrastructure/  (banco, APIs)"
-echo -e "  ├── API/            (controllers)"
-echo -e "  └── Tests/          (cobertura 100%)"
+echo "  3️⃣  Executar orchestrador (no Claude Code)"
+echo "     /orchestrator"
 echo ""
-echo -e "${BLUE}📚 Documentação${NC}"
+echo "  4️⃣  Aguardar ~30 minutos"
+echo "     Código será gerado em output/"
 echo ""
-echo -e "  Leia nesta ordem:"
-echo -e "  1. ${YELLOW}COMECE-AQUI.md${NC}       (5 min)"
-echo -e "  2. ${YELLOW}PIPELINE-SDD.md${NC}      (10 min)"
-echo -e "  3. ${YELLOW}pipeline/agents/1-*${NC} (próxima etapa)"
+echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
-echo -e "${GREEN}🚀 Próximos Passos:${NC}"
+echo -e "${BLUE}Comandos disponíveis em:${NC} commands/"
+echo "   • orchestrator.md (comece por aqui!)"
+echo "   • README.md (documentação)"
 echo ""
-echo -e "  ${YELLOW}cd $PROJECT_NAME${NC}"
-echo -e "  ${YELLOW}npm install${NC}"
-echo -e "  ${YELLOW}cp .env.example .env.local${NC}"
-echo -e "  ${YELLOW}cat COMECE-AQUI.md${NC}"
+echo -e "${BLUE}Subagentes disponíveis em:${NC} agents/ (9 agentes, invocados automaticamente)"
 echo ""
-echo -e "  Depois:"
-echo -e "  ${YELLOW}cat PIPELINE-SDD.md${NC}"
-echo -e "  ${YELLOW}cat pipeline/agents/1-orchestrator/README.md${NC}"
-echo ""
-echo -e "${GREEN}✨ Pronto para desenvolvimento SDD!${NC}"
-echo ""
-echo -e "${BLUE}⏱️  Tempo estimado completo: 2.5-4.5 horas${NC}"
-echo ""
-echo -e "Desenvolvido com ❤️ usando Spec-Driven Development"
-echo ""
-EOF
 
-chmod +x /mnt/user-data/outputs/criar-template-claude-sdd-plugin.sh

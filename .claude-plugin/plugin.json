@@ -14,12 +14,5 @@
     "automation",
     "multi-agent",
     "dotnet"
-  ],
-  "commands": [
-    {
-      "name": "criar-template-claude",
-      "description": "Cria novo projeto .NET com estrutura SDD completa (commands/ + agents/), pronto para rodar o pipeline de agentes",
-      "path": "commands/criar-template-claude.md"
-    }
   ]
 }

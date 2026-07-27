@@ -1,133 +1,28 @@
 {
   "name": "christian-criar-template-claude",
-  "displayName": "Criar Template Claude SDD v2.0 - Christian Anjos",
-  "version": "2.0.0",
-  "repository": "https://github.com/christiananjos/criar-template-claude",
-  "author": "Christian Anjos",
-  "category": "project-scaffolding",
-  "tags": [
-    "sdd",
-    "spec-driven-development",
-    "clean-architecture",
-    "automation",
-    "pipeline",
-    "multi-agent",
-    "template",
-    "scaffold",
-    ".net",
-    "react"
-  ],
-  "description": "Plugin para criar projetos .NET com Pipeline SDD completo (9 subagentes especializados) + Clean Architecture, executado nativamente pelo Claude Code — sem dependências externas.",
-  "longDescription": "Criar Template Claude v2.0 é um plugin que oferece:\n\n🎯 Estrutura de projeto .NET pronta com Clean Architecture\n🤖 9 subagentes especializados no pipeline SDD (agents/)\n📌 Comando /orchestrator que dispara o pipeline em cascata\n✅ Portões de qualidade automáticos (compliance, code review, build)\n📦 Zero dependências externas — sem Python, sem Node.js, sem API key própria\n📊 Rastreabilidade entre requisitos e código gerado\n📈 Relatórios detalhados a cada etapa\n\nCaracterísticas principais:\n- Backend .NET 8 (Clean Architecture) e frontend React 18 opcional\n- 9 agentes: Orchestrator, Architect, .NET Specialist, React Specialist, Compliance, Test Validator, Code Review, Build & Test, Commit Message, Swagger Tester\n- Agentes rodam nativamente no Claude Code, invocados pelo comando /orchestrator\n- Padrões SOLID e Clean Architecture aplicados\n- Testes com alta cobertura (xUnit, NSubstitute, Testcontainers, Vitest, Playwright)\n- Commits semânticos gerados automaticamente\n- Workflow de testes de API (Swagger/cURL) gerado ao final",
-  "featured": false,
-  "features": [
-    {
-      "name": "Pipeline SDD Automático",
-      "description": "9 subagentes em cascata, invocados pelo comando /orchestrator dentro do Claude Code"
-    },
-    {
-      "name": "Clean Architecture",
-      "description": "Estrutura pronta seguindo padrões Domain-Driven Design e SOLID"
-    },
-    {
-      "name": "Documentação Completa",
-      "description": "7 arquivos markdown com guias, exemplos e comparativos"
-    },
-    {
-      "name": "Validação Automática",
-      "description": "Conformidade, testes, code review em cascata"
-    },
-    {
-      "name": "Multi-Stack",
-      "description": "Suporte a .NET, React, Angular e Full-stack"
-    },
-    {
-      "name": "Relatórios Detalhados",
-      "description": "Geração automática de relatórios de qualidade"
-    }
-  ],
-  "requirements": {
-    "bash": "required (scaffolding script — funciona em macOS, Linux e WSL/Git Bash no Windows)",
-    "anthropicApi": "não requerido — os 9 agentes rodam nativamente dentro do Claude Code"
+  "owner": {
+    "name": "Christian Anjos"
   },
-  "installation": {
-    "cli": "/plugin marketplace add christiananjos/criar-template-claude",
-    "alternative": "/plugin install christian-criar-template-claude@christian-criar-template-claude"
-  },
-  "usage": {
-    "step1": "/christian-criar-template-claude:criar-template-claude meu-projeto",
-    "step2": "cd meu-projeto && editar docs/SPEC.md",
-    "step3": "/orchestrator (dentro do projeto, dispara os 9 agentes em cascata)",
-    "advanced": "Ver documentação em https://github.com/christiananjos/criar-template-claude#readme"
-  },
-  "links": {
-    "homepage": "https://github.com/christiananjos/criar-template-claude",
-    "documentation": "https://github.com/christiananjos/criar-template-claude#readme",
-    "github": "https://github.com/christiananjos/criar-template-claude",
-    "issues": "https://github.com/christiananjos/criar-template-claude/issues",
-    "releases": "https://github.com/christiananjos/criar-template-claude/releases",
-    "discussions": "https://github.com/christiananjos/criar-template-claude/discussions"
-  },
-  "stack": {
-    "backend": [
-      ".NET 8",
-      "Entity Framework Core"
-    ],
-    "frontend": [
-      "React 18",
-      "Next.js",
-      "TypeScript"
-    ],
-    "testing": [
-      "xUnit",
-      "NSubstitute",
-      "Testcontainers",
-      "Vitest",
-      "Playwright"
-    ],
-    "architecture": [
-      "Clean Architecture",
-      "SOLID",
-      "Repository Pattern"
-    ]
-  },
-  "stats": {
-    "contributors": 1,
-    "lastUpdated": "2026-07-27"
-  },
-  "testimonials": [],
-  "faq": [
+  "plugins": [
     {
-      "question": "Como instalar o plugin?",
-      "answer": "Use /plugin marketplace add christiananjos/criar-template-claude e depois /plugin install christian-criar-template-claude@christian-criar-template-claude"
-    },
-    {
-      "question": "Preciso ter tudo instalado localmente?",
-      "answer": "Não. Só precisa de bash (já vem em macOS/Linux; no Windows use Git Bash ou WSL). Os 9 agentes rodam nativamente dentro do Claude Code, sem API key separada."
-    },
-    {
-      "question": "Posso usar com meu stack atual?",
-      "answer": "O template gera .NET 8 (Clean Architecture) e opcionalmente React 18. Você pode adaptar os agentes em agents/ para outras stacks se precisar."
-    },
-    {
-      "question": "Como funciona o pipeline automático?",
-      "answer": "O sdd-pipeline-executor.py orquestra 9 agentes via API Claude, cada um responsável por uma fase específica."
-    }
-  ],
-  "changelog": [
-    {
+      "name": "christian-criar-template-claude",
+      "source": "./",
+      "description": "Cria projetos .NET (Clean Architecture) com Pipeline SDD: agentes especializados que implementam, testam e validam código automaticamente dentro do Claude Code.",
       "version": "2.0.0",
-      "date": "2026-07-25",
-      "type": "major",
-      "changes": [
-        "✨ Adicionar sdd-pipeline-executor.py para automação completa",
-        "📚 Incluir 7 arquivos markdown com documentação completa",
-        "🏗️ Integrar Clean Architecture pronta",
-        "✅ Suportar 9 agentes especializados",
-        "⚡ Melhorar performance em 87%",
-        "📊 Adicionar validação automática em cascata",
-        "🔄 Integrar completamente com API Claude",
-        "📈 Gerar relatórios detalhados em markdown"
+      "author": {
+        "name": "Christian Anjos"
+      },
+      "category": "project-scaffolding",
+      "tags": [
+        "sdd",
+        "spec-driven-development",
+        "clean-architecture",
+        "automation",
+        "multi-agent",
+        "dotnet",
+        "react",
+        "angular",
+        "vue"
       ]
     }
   ]

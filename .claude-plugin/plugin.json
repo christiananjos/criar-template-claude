@@ -2,7 +2,7 @@
   "name": "christian-criar-template-claude",
   "version": "2.0.0",
   "type": "plugin",
-  "displayName": "SDD Template por Christian Anjos",
+  "displayName": "Criar Template Claude SDD v2.0 - Christian Anjos",
   "description": "Plugin profissional para criar projetos com Pipeline SDD completo (9 agentes) + Clean Architecture + automação via API Claude",
   "author": "Christian Anjos",
   "repository": "https://github.com/christiananjos/criar-template-claude",
@@ -20,28 +20,24 @@
   "commands": [
     {
       "name": "criar-template-claude",
-      "displayName": "Criar Template Claude v2.0",
-      "description": "Cria estrutura completa de projeto com Pipeline SDD (9 agentes), Clean Architecture e automação",
+      "displayName": "Criar Template SDD",
+      "description": "Cria novo projeto .NET com estrutura SDD completa (commands/ + agents/), pronto para rodar o pipeline de 9 agentes",
       "path": "commands/criar-template-claude.md"
-    },
-    {
-      "name": "run-pipeline",
-      "displayName": "Executar Pipeline SDD Automático",
-      "description": "Executa o pipeline SDD automático com 9 agentes via API Claude",
-      "path": "commands/run-pipeline.md"
     }
   ],
   "features": {
     "agents": 9,
-    "documentation": 7,
     "automatedPipeline": true,
     "cleanArchitecture": true,
-    "supportedStacks": [".NET", "React/Next.js", "Angular", "Full-stack"]
+    "supportedStacks": [
+      ".NET",
+      "React/Next.js",
+      "Full-stack"
+    ]
   },
   "requirements": {
-    "python": ">=3.8",
-    "node": ">=18.0.0",
-    "anthropicApi": "required"
+    "bash": "required (scaffolding script)",
+    "anthropicApi": "not required — agents run inside Claude Code itself"
   },
   "capabilities": [
     "project-scaffolding",
@@ -57,16 +53,15 @@
   },
   "changelog": {
     "2.0.0": {
-      "date": "2026-07-25",
+      "date": "2026-07-27",
       "changes": [
-        "🤖 Adicionar sdd-pipeline-executor.py (orquestrador automático)",
-        "📚 Documentação completa integrada (7 arquivos)",
-        "🏗️ Clean Architecture pronta",
-        "✅ 9 agentes especializados",
-        "⚡ 87% mais rápido que versão anterior",
-        "📊 Validação automática em cascata",
-        "🔄 Totalmente integrado com API Claude",
-        "📈 Relatórios detalhados"
+        "🤖 9 subagentes especializados em agents/ (formato oficial Claude Code)",
+        "🎯 Comando /orchestrator invoca os agentes em cascata automaticamente",
+        "📦 Zero dependências externas — sem Python, sem Node.js, sem API key própria",
+        "🏗️ Clean Architecture pronta (.NET + React opcional)",
+        "📊 Portões de qualidade automáticos (compliance, code review, build)",
+        "📝 Commits semânticos gerados automaticamente",
+        "🧪 Workflow de testes de API (Swagger) gerado ao final"
       ]
     }
   }

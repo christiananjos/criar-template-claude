@@ -32,16 +32,24 @@ nano docs/SPEC.md
 /orchestrator
 ```
 
-Aguarde 20-30 minutos. Resultados aparecem em `output/`.
+Ao chamar `/criar-template-claude`, você será perguntado:
+1. **Nome/pasta do projeto**
+2. **Frontend**: React, Angular, Vue, ou nenhum (somente backend .NET)
 
-## 🤖 Os 9 Agentes
+A escolha do frontend muda de verdade o que é gerado — o agente especializado correto (`react-specialist`, `angular-specialist` ou `vue-specialist`) é incluído em `agents/`, e o `orchestrator.md`, `commands/README.md` e `docs/SPEC.md` já vêm ajustados para a stack escolhida.
+
+Aguarde 20-30 minutos após chamar `/orchestrator`. Resultados aparecem em `output/`.
+
+## 🤖 Os Agentes
+
+9 agentes fixos + 1 de frontend condicional (conforme escolha na criação):
 
 | # | Agente | Responsabilidade |
 |---|--------|-------------------|
 | 1 | `orchestrator-sdd` | Valida a especificação |
 | 2 | `architect-sdd` | Gera arquitetura técnica e rastreabilidade |
 | 3 | `dotnet-specialist` | Implementa backend .NET 8 |
-| 3 | `react-specialist` | Implementa frontend React 18 (opcional) |
+| 3 | `react-specialist` **ou** `angular-specialist` **ou** `vue-specialist` | Implementa frontend (conforme escolhido; ausente se "somente backend") |
 | 4 | `compliance-validator` | Audita conformidade com a spec |
 | 5 | `test-validator` | Gera testes automatizados |
 | 6 | `code-review-sdd` | Revisa qualidade e SOLID |

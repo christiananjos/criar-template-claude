@@ -769,6 +769,11 @@ docs/SPEC.md
 ✅ output/ Pronto!
 ```
 
+## ⚠️ Regras de Execução
+
+- **Paralelize quando possível**: `.NET Specialist` e `react-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
+- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
+
 ## 📁 Resultados
 
 Após execução, em `output/`:
@@ -845,6 +850,11 @@ docs/SPEC.md
     ↓
 ✅ output/ Pronto!
 ```
+
+## ⚠️ Regras de Execução
+
+- **Paralelize quando possível**: `.NET Specialist` e `angular-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
+- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -923,6 +933,11 @@ docs/SPEC.md
 ✅ output/ Pronto!
 ```
 
+## ⚠️ Regras de Execução
+
+- **Paralelize quando possível**: `.NET Specialist` e `vue-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
+- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
+
 ## 📁 Resultados
 
 Após execução, em `output/`:
@@ -998,6 +1013,11 @@ docs/SPEC.md
     ↓
 ✅ output/ Pronto!
 ```
+
+## ⚠️ Regras de Execução
+
+- **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Build & Test` já ter passado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
+- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
 
 ## 📁 Resultados
 

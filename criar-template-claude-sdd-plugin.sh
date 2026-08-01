@@ -527,7 +527,7 @@ cat > ""$PROJECT_DIR/agents/swagger-tester.md"" << 'AGENTEOF'
 name: swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
 tools: Read, Grep, Glob
-model: sonnet
+model: haiku
 ---
 
 Você é o **Swagger Tester**, especialista em documentação e testes de API via Swagger/OpenAPI.

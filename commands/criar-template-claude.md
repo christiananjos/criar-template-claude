@@ -72,6 +72,6 @@ O conteúdo de `commands/orchestrator.md`, `commands/README.md` e `docs/SPEC.md`
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. E o `/orchestrator`, por sua vez, também não deve parar para pedir confirmações extras no meio da cascata — só interrompe se um agente crítico (orchestrator-sdd ou compliance-validator) reportar falha.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. E o `/orchestrator`, por sua vez, também não deve parar para pedir confirmações extras no meio da cascata — só interrompe se um dos gates de qualidade (orchestrator-sdd, compliance-validator, code-review-sdd ou build-test-validator) reportar falha.
 
 

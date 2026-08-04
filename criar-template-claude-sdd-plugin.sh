@@ -77,6 +77,7 @@ mkdir -p "$PROJECT_DIR/commands"
 mkdir -p "$PROJECT_DIR/agents"
 mkdir -p "$PROJECT_DIR/docs"
 mkdir -p "$PROJECT_DIR/output"
+mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/src/Domain"
 mkdir -p "$PROJECT_DIR/src/Application"
 mkdir -p "$PROJECT_DIR/src/Infrastructure"
@@ -789,6 +790,7 @@ Após execução, em `output/`:
 7-build-test.md                (Build & Test)
 8-commit-message.md           (Commits)
 9-swagger-tester.md           (Swagger)
+token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
@@ -871,6 +873,7 @@ Após execução, em `output/`:
 7-build-test.md                (Build & Test)
 8-commit-message.md           (Commits)
 9-swagger-tester.md           (Swagger)
+token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
@@ -953,6 +956,7 @@ Após execução, em `output/`:
 7-build-test.md                (Build & Test)
 8-commit-message.md           (Commits)
 9-swagger-tester.md           (Swagger)
+token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
@@ -1033,6 +1037,7 @@ Após execução, em `output/`:
 7-build-test.md                (Build & Test)
 8-commit-message.md           (Commits)
 9-swagger-tester.md           (Swagger)
+token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
@@ -1751,7 +1756,9 @@ seu-projeto/
 ├── docs/
 │   └── SPEC.md       (sua especificação)
 │
-├── output/           (resultados)
+├── .claude/          (hook automático de relatório de tokens)
+│
+├── output/           (resultados + token-report.md)
 │
 └── src/              (.NET Clean Architecture)
     ├── Domain/
@@ -1816,6 +1823,294 @@ COMECEEOF
 echo -e "${GREEN}✅ COMECE-AQUI.md criado${NC}"
 
 # ============================================================================
+# CRIAR .claude/hooks/generate-token-report.cjs + .claude/settings.json
+# Hook "Stop": ao final de cada resposta, verifica se output/ mudou nesta
+# rodada (ou seja, se o /orchestrator realmente rodou) e, se sim, gera/
+# atualiza output/token-report.md com o uso de tokens (total + por agente),
+# lendo os transcripts reais da sessão. Nunca falha o pipeline.
+# ============================================================================
+
+cat > ""$PROJECT_DIR/.claude/hooks/generate-token-report.cjs"" << 'TOKENHOOKEOF'
+#!/usr/bin/env node
+// Hook "Stop" — gera/atualiza output/token-report.md com o uso de tokens do pipeline /orchestrator.
+// Nunca deve falhar o pipeline: qualquer erro é engolido e, na pior hipótese, o script simplesmente não escreve nada.
+
+const fs = require("fs");
+const path = require("path");
+
+function readStdinJson() {
+  const raw = fs.readFileSync(0, "utf-8");
+  return JSON.parse(raw);
+}
+
+function fmt(n) {
+  if (typeof n !== "number" || Number.isNaN(n)) return "n/d";
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+// Soma o uso (dedup por message.id) de todas as linhas "assistant" de um transcript .jsonl,
+// opcionalmente só considerando mensagens com timestamp > sinceMs.
+function sumTranscriptUsage(filePath, sinceMs) {
+  const totals = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  const seen = new Set();
+  let content;
+  try {
+    content = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return null; // arquivo indisponível
+  }
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue; // linha corrompida/truncada — ignora e segue
+    }
+    if (obj.type !== "assistant") continue;
+    if (sinceMs && obj.timestamp) {
+      const ts = Date.parse(obj.timestamp);
+      if (!Number.isNaN(ts) && ts <= sinceMs) continue;
+    }
+    const msg = obj.message || {};
+    const usage = msg.usage;
+    if (!usage || !msg.id) continue;
+    if (seen.has(msg.id)) continue;
+    seen.add(msg.id);
+    for (const k of Object.keys(totals)) totals[k] += usage[k] || 0;
+  }
+  return totals;
+}
+
+function totalOf(u) {
+  if (!u) return 0;
+  return (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+}
+
+function addInto(acc, u) {
+  if (!u) return;
+  for (const k of Object.keys(acc)) acc[k] += u[k] || 0;
+}
+
+function main() {
+  let payload;
+  try {
+    payload = readStdinJson();
+  } catch {
+    return; // sem payload legível, não há o que fazer
+  }
+
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd();
+  const outputDir = path.join(projectDir, "output");
+  const hooksDir = path.join(projectDir, ".claude", "hooks");
+  const statePath = path.join(hooksDir, ".token-report-state.json");
+  const reportPath = path.join(outputDir, "token-report.md");
+
+  let outputFiles = [];
+  try {
+    outputFiles = fs
+      .readdirSync(outputDir)
+      .filter((f) => f.toLowerCase().endsWith(".md") && f !== "token-report.md")
+      .map((f) => {
+        try {
+          return { name: f, mtimeMs: fs.statSync(path.join(outputDir, f)).mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return; // sem pasta output/, não houve pipeline ainda
+  }
+  if (outputFiles.length === 0) return;
+
+  const maxOutputMtime = Math.max(...outputFiles.map((f) => f.mtimeMs));
+
+  let state = {};
+  try {
+    state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+  } catch {
+    state = {};
+  }
+
+  let checkpoint = state.lastRunTimestampMs;
+  if (typeof checkpoint !== "number") {
+    // Primeira vez que o hook roda nesta sessão/projeto: usa o início do transcript
+    // principal como baseline, pra não perder a primeira rodada do pipeline.
+    checkpoint = 0;
+    try {
+      const firstLine = fs.readFileSync(payload.transcript_path, "utf-8").split("\n").find((l) => l.trim());
+      if (firstLine) {
+        const first = JSON.parse(firstLine);
+        const ts = Date.parse(first.timestamp);
+        if (!Number.isNaN(ts)) checkpoint = ts;
+      }
+    } catch {
+      // segue com checkpoint = 0
+    }
+  }
+
+  // Nada mudou em output/ desde a última rodada processada -> este Stop não é do /orchestrator, ignora.
+  if (maxOutputMtime <= checkpoint) return;
+
+  // ---- Uso do agente principal (transcript da conversa) ----
+  let mainUsage = null;
+  try {
+    mainUsage = sumTranscriptUsage(payload.transcript_path, checkpoint);
+  } catch {
+    mainUsage = null;
+  }
+
+  // ---- Uso dos subagentes desta rodada ----
+  const subagentsDir = path.join(path.dirname(payload.transcript_path), payload.session_id, "subagents");
+  const perAgent = []; // { label, usage, ok }
+  let subagentsOk = true;
+  try {
+    const files = fs.readdirSync(subagentsDir);
+    const jsonlFiles = files.filter((f) => f.startsWith("agent-") && f.endsWith(".jsonl"));
+    for (const f of jsonlFiles) {
+      const full = path.join(subagentsDir, f);
+      let mtimeMs = 0;
+      try {
+        mtimeMs = fs.statSync(full).mtimeMs;
+      } catch {
+        continue;
+      }
+      if (mtimeMs <= checkpoint) continue; // agente de uma rodada anterior, não desta
+
+      const id = f.slice("agent-".length, -".jsonl".length);
+      let label = id;
+      try {
+        const meta = JSON.parse(fs.readFileSync(path.join(subagentsDir, `agent-${id}.meta.json`), "utf-8"));
+        label = meta.agentType || meta.description || id;
+      } catch {
+        // sem meta.json, usa o id mesmo
+      }
+
+      const usage = sumTranscriptUsage(full, 0);
+      perAgent.push({ label, usage, ok: usage !== null });
+      if (usage === null) subagentsOk = false;
+    }
+  } catch {
+    subagentsOk = false; // pasta subagents/ não encontrada/ilegível
+  }
+
+  // Agrupa por label (caso o mesmo agente tenha rodado mais de uma vez nesta rodada)
+  const grouped = new Map();
+  for (const { label, usage } of perAgent) {
+    if (!grouped.has(label)) grouped.set(label, { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 });
+    addInto(grouped.get(label), usage);
+  }
+
+  const grandTotalAcc = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  addInto(grandTotalAcc, mainUsage);
+  for (const u of grouped.values()) addInto(grandTotalAcc, u);
+  const grandTotal = totalOf(grandTotalAcc);
+
+  // ---- Monta o relatório ----
+  const now = new Date();
+  const stamp = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+
+  const lines = [];
+  lines.push("# Relatório de Uso de Tokens");
+  lines.push("");
+  lines.push("_Gerado e atualizado automaticamente pelo hook `Stop` após cada execução completa do pipeline `/orchestrator`. Números vêm diretamente dos transcripts da sessão — não são estimados pelo modelo._");
+  lines.push("");
+  lines.push(`## Última rodada — ${stamp}`);
+  lines.push("");
+  lines.push("| Métrica | Tokens |");
+  lines.push("|---|---|");
+  lines.push(`| Entrada (input) | ${fmt(grandTotalAcc.input_tokens)} |`);
+  lines.push(`| Saída (output) | ${fmt(grandTotalAcc.output_tokens)} |`);
+  lines.push(`| Cache — criação | ${fmt(grandTotalAcc.cache_creation_input_tokens)} |`);
+  lines.push(`| Cache — leitura | ${fmt(grandTotalAcc.cache_read_input_tokens)} |`);
+  lines.push(`| **Total** | **${fmt(grandTotal)}** |`);
+  lines.push("");
+  const mainOk = mainUsage !== null;
+  if (!mainOk || !subagentsOk) {
+    const parts = [];
+    if (!mainOk) parts.push("uso do agente principal");
+    if (!subagentsOk) parts.push("uso de um ou mais subagentes");
+    lines.push(`> ⚠️ Não foi possível ler o ${parts.join(" e o ")} desta rodada (arquivo indisponível ou formato mudou). O total acima pode estar subestimado.`);
+    lines.push("");
+  }
+  lines.push("### Por agente");
+  lines.push("");
+  lines.push("| Agente | Tokens |");
+  lines.push("|---|---|");
+  lines.push(`| orchestrator (agente principal) | ${mainUsage ? fmt(totalOf(mainUsage)) : "n/d"} |`);
+  const sortedAgents = [...grouped.entries()].sort((a, b) => totalOf(b[1]) - totalOf(a[1]));
+  for (const [label, usage] of sortedAgents) {
+    lines.push(`| ${label} | ${fmt(totalOf(usage))} |`);
+  }
+  lines.push("");
+
+  // ---- Histórico: preserva linhas já existentes no relatório anterior ----
+  let historyRows = [];
+  try {
+    const prev = fs.readFileSync(reportPath, "utf-8");
+    const marker = "| Data | Total de tokens |";
+    const idx = prev.indexOf(marker);
+    if (idx !== -1) {
+      const after = prev.slice(idx + marker.length);
+      historyRows = after
+        .split("\n")
+        .filter((l) => l.trim().startsWith("|") && !l.includes("---"))
+        .slice(0, 29); // mantém só as últimas rodadas junto com a nova
+    }
+  } catch {
+    historyRows = [];
+  }
+
+  lines.push("## Histórico de rodadas");
+  lines.push("");
+  lines.push("| Data | Total de tokens |");
+  lines.push("|---|---|");
+  lines.push(`| ${stamp} | ${fmt(grandTotal)} |`);
+  for (const row of historyRows) lines.push(row);
+  lines.push("");
+
+  try {
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(reportPath, lines.join("\n"), "utf-8");
+  } catch {
+    return; // não conseguiu escrever o relatório — não falha o hook por isso
+  }
+
+  try {
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(statePath, JSON.stringify({ lastRunTimestampMs: maxOutputMtime }), "utf-8");
+  } catch {
+    // se não salvar o checkpoint, a próxima rodada recalcula um período maior — não é grave
+  }
+}
+
+try {
+  main();
+} catch {
+  // hook nunca deve derrubar o pipeline
+}
+TOKENHOOKEOF
+
+echo -e "${GREEN}✅ .claude/hooks/generate-token-report.cjs criado${NC}"
+
+cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"",
+        "timeout": 15
+      }
+    ]
+  }
+}
+SETTINGSEOF
+
+echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens)${NC}"
+
+# ============================================================================
 # CRIAR .gitignore
 # ============================================================================
 
@@ -1836,6 +2131,9 @@ dist/
 
 # Output do Pipeline
 output/
+
+# Estado interno do hook de relatório de tokens (não é útil versionar)
+.claude/hooks/.token-report-state.json
 
 # IDE
 .idea/
@@ -1883,4 +2181,5 @@ echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
 echo -e "${BLUE}Comandos disponíveis em:${NC} commands/"
 echo -e "${BLUE}Subagentes disponíveis em:${NC} agents/"
+echo -e "${BLUE}Relatório de tokens:${NC} gerado automaticamente em output/token-report.md a cada rodada do /orchestrator"
 echo ""

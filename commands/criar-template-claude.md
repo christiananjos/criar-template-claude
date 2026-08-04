@@ -64,11 +64,16 @@ NOME_DO_PROJETO/
 │   └── README.md
 ├── agents/                 ← 9 agentes fixos + 1 de frontend (se escolhido)
 ├── docs/SPEC.md            ← template para o usuário preencher
-├── output/
+├── .claude/
+│   ├── settings.json       ← registra o hook Stop de relatório de tokens
+│   └── hooks/generate-token-report.cjs
+├── output/                 ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
 └── src/ (Domain, Application, Infrastructure, API, Tests)
 ```
 
 O conteúdo de `commands/orchestrator.md`, `commands/README.md` e `docs/SPEC.md` já vem ajustado automaticamente para refletir a stack escolhida — não é preciso editar nada manualmente depois.
+
+Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
 
 ## Observação
 

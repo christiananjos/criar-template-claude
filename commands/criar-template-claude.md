@@ -47,9 +47,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO
 Onde `FRONTEND_ESCOLHIDO` é um de: `react`, `angular`, `vue`, `none`.
 
 E então:
-1. Confirme que o projeto foi criado, mencionando a stack final (ex: ".NET 8 + React 18" ou ".NET 8 somente backend")
+1. Confirme que o projeto foi criado, mencionando a stack final (ex: ".NET 10 + React 18" ou ".NET 10 somente backend")
 2. Explique os próximos passos, sem esperar resposta:
    - Entrar na pasta do projeto criado
+   - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `.docs/`
    - Editar `docs/SPEC.md` com a especificação da aplicação
    - Rodar `/orchestrator` dentro do projeto para disparar os agentes automaticamente
 
@@ -62,16 +63,27 @@ NOME_DO_PROJETO/
 ├── commands/
 │   ├── orchestrator.md    ← comando que o usuário vai chamar depois
 │   └── README.md
-├── agents/                 ← 9 agentes fixos + 1 de frontend (se escolhido)
+├── agents/                 ← knowledge-bootstrap (Fase 0) + 9 agentes fixos + 1 de frontend (se escolhido)
+├── .docs/                  ← opcional: documentação bruta de entrada (README.md explica o uso)
 ├── docs/SPEC.md            ← template para o usuário preencher
+├── knowledge/
+│   └── templates/          ← templates Obsidian prontos (Feature, API, ADR, Bug, TestCase);
+│                              o resto (vault/, graph/, embeddings/, cache/, index.json) é gerado
+│                              pelo agente knowledge-bootstrap na primeira vez que .docs/ tiver arquivos
 ├── .claude/
 │   ├── settings.json       ← registra o hook Stop de relatório de tokens
-│   └── hooks/generate-token-report.cjs
+│   ├── hooks/generate-token-report.cjs
+│   └── scripts/knowledge-engine-build.cjs  ← reconstrói grafo/embeddings a partir de knowledge/vault/
 ├── output/                 ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
 └── src/ (Domain, Application, Infrastructure, API, Tests)
 ```
 
 O conteúdo de `commands/orchestrator.md`, `commands/README.md` e `docs/SPEC.md` já vem ajustado automaticamente para refletir a stack escolhida — não é preciso editar nada manualmente depois.
+
+Se o usuário colocar arquivos em `.docs/`, a primeira etapa do `/orchestrator` (Fase 0 — `knowledge-bootstrap`)
+transforma tudo numa Base de Conhecimento estruturada em `knowledge/vault/`, compatível com Obsidian, que
+os demais agentes passam a consultar como fonte única de verdade. Se `.docs/` ficar vazia, essa fase é pulada
+automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
 
 Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
 

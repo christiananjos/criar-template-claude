@@ -3,16 +3,17 @@
 # ============================================================================
 # 🚀 Criar Template Claude SDD v2.0
 # ============================================================================
-# Cria estrutura completa de projeto .NET com Pipeline SDD integrado
+# Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
+# stack por vez (sem misturar backend e frontend no mesmo projeto).
 #
 # Uso:
-#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <react|angular|vue|none>
+#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>
 #
 # Exemplos:
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto react
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto angular
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto vue
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto none    # só backend
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet   # só backend .NET
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto react    # só frontend React
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto angular  # só frontend Angular
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto vue      # só frontend Vue
 # ============================================================================
 
 set -e
@@ -29,36 +30,39 @@ NC='\033[0m'
 
 if [ -z "$1" ]; then
     echo -e "${RED}Erro: Nome do projeto obrigatório${NC}"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <react|angular|vue|none>"
+    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>"
     exit 1
 fi
 
 PROJECT_NAME="$1"
 PROJECT_DIR="./$PROJECT_NAME"
-FRONTEND="$2"
+STACK="$2"
 
-if [ -z "$FRONTEND" ]; then
-    echo -e "${RED}Erro: informe o frontend${NC}"
-    echo "Opções válidas: react, angular, vue, none (somente backend)"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <react|angular|vue|none>"
+if [ -z "$STACK" ]; then
+    echo -e "${RED}Erro: informe a stack${NC}"
+    echo "Opções válidas: dotnet, angular, react, vue (uma única stack por projeto)"
+    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>"
     exit 1
 fi
 
-case "$FRONTEND" in
-    react|angular|vue|none) ;;
+case "$STACK" in
+    dotnet|react|angular|vue) ;;
     *)
-        echo -e "${RED}Erro: frontend \"$FRONTEND\" inválido${NC}"
-        echo "Opções válidas: react, angular, vue, none"
+        echo -e "${RED}Erro: stack \"$STACK\" inválida${NC}"
+        echo "Opções válidas: dotnet, angular, react, vue"
         exit 1
         ;;
 esac
 
-case "$FRONTEND" in
-    react)   STACK_LABEL=".NET 10 + React 18" ;;
-    angular) STACK_LABEL=".NET 10 + Angular" ;;
-    vue)     STACK_LABEL=".NET 10 + Vue 3" ;;
-    none)    STACK_LABEL=".NET 10 (somente backend, Clean Architecture)" ;;
+case "$STACK" in
+    dotnet)  STACK_LABEL=".NET 10 (Clean Architecture, somente backend)"; SPECIALIST_AGENT="dotnet-specialist" ;;
+    react)   STACK_LABEL="React 18 + TypeScript (somente frontend)"; SPECIALIST_AGENT="react-specialist" ;;
+    angular) STACK_LABEL="Angular (somente frontend)"; SPECIALIST_AGENT="angular-specialist" ;;
+    vue)     STACK_LABEL="Vue 3 (somente frontend)"; SPECIALIST_AGENT="vue-specialist" ;;
 esac
+
+SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
+SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 
 # ============================================================================
 # CRIAR ESTRUTURA
@@ -81,11 +85,16 @@ mkdir -p "$PROJECT_DIR/output"
 mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/.claude/scripts"
 mkdir -p "$PROJECT_DIR/knowledge/templates"
-mkdir -p "$PROJECT_DIR/src/Domain"
-mkdir -p "$PROJECT_DIR/src/Application"
-mkdir -p "$PROJECT_DIR/src/Infrastructure"
-mkdir -p "$PROJECT_DIR/src/API"
-mkdir -p "$PROJECT_DIR/src/Tests"
+
+if [ "$STACK" = "dotnet" ]; then
+    mkdir -p "$PROJECT_DIR/src/Domain"
+    mkdir -p "$PROJECT_DIR/src/Application"
+    mkdir -p "$PROJECT_DIR/src/Infrastructure"
+    mkdir -p "$PROJECT_DIR/src/API"
+    mkdir -p "$PROJECT_DIR/src/Tests"
+else
+    mkdir -p "$PROJECT_DIR/src"
+fi
 
 echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
 
@@ -702,7 +711,8 @@ Produza um relatório curto e direto:
 - Não implemente código nesta etapa, apenas valide
 AGENTEOF
 
-cat > ""$PROJECT_DIR/agents/architect-sdd.md"" << 'AGENTEOF'
+if [ "$STACK" = "dotnet" ]; then
+    cat > ""$PROJECT_DIR/agents/architect-sdd.md"" << 'AGENTEOF'
 ---
 name: architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
@@ -740,7 +750,7 @@ Tabela mapeando cada requisito ao componente que vai implementá-lo:
 
 | Requisito | Camada | Componente | Agente Responsável |
 |-----------|--------|------------|---------------------|
-| REQ-001 | Domain | Entidade X | dotnet-specialist |
+| REQ-001 | Domain | Entidade X | __SPECIALIST__ |
 
 ### 3. TECHNICAL_DECISIONS.md
 Decisões arquiteturais relevantes (formato ADR curto):
@@ -752,11 +762,70 @@ Decisões arquiteturais relevantes (formato ADR curto):
 ## Regras Importantes
 
 - Siga sempre Clean Architecture (Domain não depende de nada; Application depende só de Domain; Infrastructure e API dependem de Application)
-- Seja específico o suficiente para que dotnet-specialist e react-specialist não precisem tomar decisões arquiteturais por conta própria
+- Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
+else
+    cat > ""$PROJECT_DIR/agents/architect-sdd.md"" << 'AGENTEOF'
+---
+name: architect-sdd
+description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
+tools: Read, Write, Grep, Glob
+model: sonnet
+---
 
+Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
+
+## Sua Missão
+
+Transformar a especificação validada em uma arquitetura técnica detalhada para uma aplicação **100% frontend** (este projeto não tem backend próprio — se precisar consumir uma API, ela é externa/de outro projeto e deve estar descrita em `docs/SPEC.md`).
+
+## Knowledge Engine
+
+Se existir `knowledge/cache/architect.json`, leia-o primeiro — é um resumo já filtrado de arquitetura,
+integrações e decisões (ADRs) relevantes. Complemente lendo `knowledge/vault/06 - Arquitetura/` e
+`knowledge/vault/07 - Integrações/` se precisar de mais detalhe. Nunca decida algo com conhecimento próprio se
+a informação já existir no Knowledge Engine. Depois de gerar a arquitetura, se `knowledge/` existir, crie um
+arquivo por decisão relevante em `knowledge/vault/10 - ADR/` usando `knowledge/templates/ADR.md` como base.
+
+## O Que Você Faz
+
+Com base em `docs/SPEC.md` e no relatório do orchestrator-sdd, gere três documentos:
+
+### 1. TECHNICAL_SPECIFICATION.md
+- Estrutura de pastas do projeto (componentes, páginas/rotas, serviços/composables/hooks, estado)
+- Arquitetura de componentes (composição, reutilização, granularidade)
+- Gestão de estado (local vs. global, e qual biblioteca, se necessário)
+- Camada de acesso a API — cliente HTTP centralizado, tratamento de erro e loading, se a spec descrever endpoints externos a consumir
+- Roteamento das páginas principais
+- Padrões escolhidos e por quê
+
+### 2. TRACEABILITY_MATRIX.md
+Tabela mapeando cada requisito ao componente que vai implementá-lo:
+
+| Requisito | Camada | Componente | Agente Responsável |
+|-----------|--------|------------|---------------------|
+| REQ-001 | UI | TarefaList | __SPECIALIST__ |
+
+### 3. TECHNICAL_DECISIONS.md
+Decisões arquiteturais relevantes (formato ADR curto):
+- Decisão
+- Contexto
+- Alternativas consideradas
+- Justificativa
+
+## Regras Importantes
+
+- Separe claramente componentes de apresentação (UI) de lógica de estado/negócio (hooks, services ou composables, conforme a stack escolhida)
+- Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
+- Não escreva código de implementação aqui — apenas especificação técnica
+- Salve os três arquivos em `output/` com os nomes exatos acima
+AGENTEOF
+fi
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/agents/architect-sdd.md""
+
+if [ "$STACK" = "dotnet" ]; then
 cat > ""$PROJECT_DIR/agents/dotnet-specialist.md"" << 'AGENTEOF'
 ---
 name: dotnet-specialist
@@ -818,11 +887,12 @@ o que foi implementado de fato — isso mantém o Knowledge Engine sincronizado 
 - Salve os arquivos gerados em `output/3-dotnet-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/Domain/Entities/Tarefa.cs`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
+fi
 
 cat > ""$PROJECT_DIR/agents/compliance-validator.md"" << 'AGENTEOF'
 ---
 name: compliance-validator
-description: Use this agent after dotnet-specialist and react-specialist have produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Backend and frontend code were just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
+description: Use this agent after __SPECIALIST__ has produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Code was just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -831,7 +901,7 @@ Você é o **Compliance Validator**, responsável por auditar se o código imple
 
 ## Sua Missão
 
-Comparar o código gerado (`output/3-dotnet-specialist.md`, `output/3-react-specialist.md`) contra `docs/SPEC.md` e `output/TRACEABILITY_MATRIX.md`.
+Comparar o código gerado (`__SPECIALIST_OUTPUT__`) contra `docs/SPEC.md` e `output/TRACEABILITY_MATRIX.md`.
 
 ## Knowledge Engine
 
@@ -880,11 +950,14 @@ Salve em `output/4-compliance.md`:
 - Se algo estiver faltando, seja específico sobre o que falta e onde
 - Não corrija o código você mesmo; apenas reporte
 AGENTEOF
+sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/agents/compliance-validator.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/agents/compliance-validator.md""
 
-cat > ""$PROJECT_DIR/agents/test-validator.md"" << 'AGENTEOF'
+if [ "$STACK" = "dotnet" ]; then
+    cat > ""$PROJECT_DIR/agents/test-validator.md"" << 'AGENTEOF'
 ---
 name: test-validator
-description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for both backend and frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
+description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the backend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
 tools: Read, Write, Grep, Glob
 model: sonnet
 ---
@@ -893,7 +966,7 @@ Você é o **Test Validator**, especialista em testes automatizados.
 
 ## Sua Missão
 
-Gerar testes com cobertura mínima de 80% (idealmente 100% da Application Layer) para o código em `output/3-dotnet-specialist.md` e `output/3-react-specialist.md`.
+Gerar testes com cobertura mínima de 80% (idealmente 100% da Application Layer) para o código em `output/3-dotnet-specialist.md`.
 
 ## Knowledge Engine
 
@@ -904,14 +977,9 @@ Depois de gerar os testes, se `knowledge/` existir, crie um arquivo por caso de 
 
 ## O Que Você Gera
 
-### Backend (.NET)
 - **Testes unitários** — xUnit + NSubstitute (mocks de repositórios/serviços)
 - **Testes de integração** — Testcontainers (banco real em container)
 - Fixtures e builders para massa de teste
-
-### Frontend (React)
-- **Testes unitários** — Vitest + React Testing Library
-- **Testes E2E** (se aplicável) — Playwright, cobrindo o fluxo principal descrito na spec
 
 ## O Que Cada Teste Deve Cobrir
 
@@ -948,6 +1016,69 @@ Seguido dos blocos de código de cada arquivo de teste, organizados por caminho 
 - Não escreva testes triviais sem valor (ex: testar getter/setter simples)
 - Priorize testes que cobrem regras de negócio reais
 AGENTEOF
+else
+    cat > ""$PROJECT_DIR/agents/test-validator.md"" << 'AGENTEOF'
+---
+name: test-validator
+description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
+tools: Read, Write, Grep, Glob
+model: sonnet
+---
+
+Você é o **Test Validator**, especialista em testes automatizados.
+
+## Sua Missão
+
+Gerar testes com cobertura mínima de 80% para o código em `__SPECIALIST_OUTPUT__`.
+
+## Knowledge Engine
+
+Se existir `knowledge/cache/qa.json`, leia-o primeiro — traz casos de teste, regras de negócio e bugs
+conhecidos já filtrados. Complemente com `knowledge/vault/09 - Casos de Teste/` se precisar de mais contexto.
+Depois de gerar os testes, se `knowledge/` existir, crie um arquivo por caso de teste relevante em
+`knowledge/vault/09 - Casos de Teste/` usando `knowledge/templates/TestCase.md` como base.
+
+## O Que Você Gera
+
+- **Testes unitários** — Vitest + Testing Library (ou equivalente da stack)
+- **Testes E2E** (se aplicável) — Playwright, cobrindo o fluxo principal descrito na spec
+
+## O Que Cada Teste Deve Cobrir
+
+- Caminho feliz (happy path)
+- Validações de entrada (dados inválidos)
+- Regras de negócio (BR-XXX) — cada regra deve ter pelo menos um teste dedicado
+- Estados de loading e erro
+
+## Formato de Saída
+
+Salve em `output/5-test-validator.md`:
+
+```markdown
+# Test Coverage Report
+
+## Status: ✅ PASSED / ❌ REJECTED
+
+## Testes Gerados
+- [Lista de arquivos de teste com breve descrição]
+
+## Cobertura Estimada
+- XX%
+
+## Regras de Negócio Cobertas
+| Regra | Teste Correspondente |
+|-------|----------------------|
+```
+
+Seguido dos blocos de código de cada arquivo de teste, organizados por caminho.
+
+## Regras Importantes
+
+- Não escreva testes triviais sem valor (ex: testar getter/setter simples)
+- Priorize testes que cobrem regras de negócio reais
+AGENTEOF
+    sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/agents/test-validator.md""
+fi
 
 cat > ""$PROJECT_DIR/agents/code-review-sdd.md"" << 'AGENTEOF'
 ---
@@ -961,7 +1092,7 @@ Você é o **Code Review-SDD**, especialista em qualidade de código.
 
 ## Sua Missão
 
-Revisar o código gerado (backend, frontend e testes) quanto a qualidade, princípios SOLID e boas práticas.
+Revisar o código gerado (produção e testes) quanto a qualidade, princípios SOLID e boas práticas.
 
 ## Knowledge Engine
 
@@ -1027,13 +1158,13 @@ possam afetar build/deploy. Isso é secundário aqui — sua fonte principal con
 
 ## O Que Você Verifica
 
-- **Sintaxe** — o código C#/TypeScript está sintaticamente correto?
+- **Sintaxe** — o código está sintaticamente correto na linguagem/stack do projeto?
 - **Usings/Imports** — todas as dependências referenciadas estão declaradas?
-- **Consistência de nomes** — classes/métodos referenciados existem de fato no código gerado?
+- **Consistência de nomes** — classes/métodos/componentes referenciados existem de fato no código gerado?
 - **Cobertura declarada** — bate com o que foi reportado por `test-validator`?
-- **Warnings potenciais** — nullability, código morto, variáveis não usadas
+- **Warnings potenciais** — tipagem, código morto, variáveis não usadas
 
-> Nota: Como você não tem acesso a um compilador .NET real neste ambiente, faça uma revisão estática rigorosa simulando o que o compilador reportaria.
+> Nota: Como você não tem acesso a um compilador/bundler real neste ambiente, faça uma revisão estática rigorosa simulando o que a ferramenta de build reportaria.
 
 ## Formato de Saída
 
@@ -1118,7 +1249,8 @@ Salve em `output/8-commit-message.md` a lista de commits sugeridos, na ordem em 
 - Não inclua emojis nas mensagens de commit
 AGENTEOF
 
-cat > ""$PROJECT_DIR/agents/swagger-tester.md"" << 'AGENTEOF'
+if [ "$STACK" = "dotnet" ]; then
+    cat > ""$PROJECT_DIR/agents/swagger-tester.md"" << 'AGENTEOF'
 ---
 name: swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
@@ -1181,18 +1313,21 @@ curl -X POST ... -d '{ "titulo": "" }'
 - Inclua sempre pelo menos um cenário de erro por endpoint
 - Use dados de exemplo realistas e coerentes com o domínio da spec
 AGENTEOF
+fi
 
 echo -e "${GREEN}✅ Agentes fixos criados em agents/${NC}"
 
 # ============================================================================
-# CRIAR AGENT DE FRONTEND — condicional, conforme escolha do usuário
+# CRIAR AGENT DE FRONTEND — só para stacks de frontend (react/angular/vue).
+# Este projeto não tem backend próprio: se a spec exigir uma API, ela é
+# externa (outro projeto/time) — o specialist só a consome, não a implementa.
 # ============================================================================
 
-if [ "$FRONTEND" = "react" ]; then
+if [ "$STACK" = "react" ]; then
     cat > ""$PROJECT_DIR/agents/react-specialist.md"" << 'AGENTEOF'
 ---
 name: react-specialist
-description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend that consumes the .NET API. Use PROACTIVELY as step 3 of the SDD pipeline whenever a frontend is required by the spec. Examples: <example>Context: The spec includes a web UI and architecture is ready. user: "Preciso do frontend também, não só a API" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs in parallel conceptually with dotnet-specialist, both consuming the same architecture doc.</commentary></example>
+description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 ---
@@ -1201,7 +1336,7 @@ Você é o **React Specialist**, especialista em React 18 + TypeScript + Next.js
 
 ## Sua Missão
 
-Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e nos endpoints descritos em `docs/SPEC.md`.
+Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs/SPEC.md`. Este projeto é **somente frontend** — não há backend .NET neste repositório; se a spec descrever endpoints de uma API externa, consuma-os, mas não os implemente.
 
 ## Knowledge Engine
 
@@ -1228,18 +1363,18 @@ mais contexto (fluxos de tela, wireframes descritos, textos de interface).
 ## Regras Importantes
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
-- Não implemente lógica de negócio no frontend; isso pertence ao backend
+- Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Salve os arquivos gerados em `output/3-react-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.tsx`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente react-specialist adicionado (React 18)${NC}"
 fi
 
-if [ "$FRONTEND" = "angular" ]; then
+if [ "$STACK" = "angular" ]; then
     cat > ""$PROJECT_DIR/agents/angular-specialist.md"" << 'AGENTEOF'
 ---
 name: angular-specialist
-description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend that consumes the .NET API. Use PROACTIVELY as step 3 of the SDD pipeline whenever the project was scaffolded with Angular as the chosen frontend. Examples: <example>Context: Project was created with Angular as frontend choice and architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs after architecture, using whichever frontend specialist matches the stack chosen at project creation.</commentary></example>
+description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 ---
@@ -1248,7 +1383,7 @@ Você é o **Angular Specialist**, especialista em Angular (versão mais recente
 
 ## Sua Missão
 
-Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e nos endpoints descritos em `docs/SPEC.md`.
+Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs/SPEC.md`. Este projeto é **somente frontend** — não há backend .NET neste repositório; se a spec descrever endpoints de uma API externa, consuma-os, mas não os implemente.
 
 ## Knowledge Engine
 
@@ -1275,18 +1410,18 @@ mais contexto (fluxos de tela, wireframes descritos, textos de interface).
 ## Regras Importantes
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
-- Não implemente lógica de negócio no frontend; isso pertence ao backend
+- Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Salve os arquivos gerados em `output/3-angular-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/app/tarefas/tarefa-list.component.ts`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente angular-specialist adicionado (Angular)${NC}"
 fi
 
-if [ "$FRONTEND" = "vue" ]; then
+if [ "$STACK" = "vue" ]; then
     cat > ""$PROJECT_DIR/agents/vue-specialist.md"" << 'AGENTEOF'
 ---
 name: vue-specialist
-description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend that consumes the .NET API. Use PROACTIVELY as step 3 of the SDD pipeline whenever the project was scaffolded with Vue as the chosen frontend. Examples: <example>Context: Project was created with Vue as frontend choice and architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs after architecture, using whichever frontend specialist matches the stack chosen at project creation.</commentary></example>
+description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 ---
@@ -1295,7 +1430,7 @@ Você é o **Vue Specialist**, especialista em Vue 3 (Composition API) + TypeScr
 
 ## Sua Missão
 
-Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e nos endpoints descritos em `docs/SPEC.md`.
+Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs/SPEC.md`. Este projeto é **somente frontend** — não há backend .NET neste repositório; se a spec descrever endpoints de uma API externa, consuma-os, mas não os implemente.
 
 ## Knowledge Engine
 
@@ -1321,14 +1456,14 @@ mais contexto (fluxos de tela, wireframes descritos, textos de interface).
 ## Regras Importantes
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
-- Não implemente lógica de negócio no frontend; isso pertence ao backend
+- Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Salve os arquivos gerados em `output/3-vue-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.vue`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente vue-specialist adicionado (Vue 3)${NC}"
 fi
 
-if [ "$FRONTEND" = "none" ]; then
+if [ "$STACK" = "dotnet" ]; then
     echo -e "${GREEN}✅ Nenhum agente de frontend adicionado (somente backend)${NC}"
 fi
 
@@ -1336,301 +1471,7 @@ fi
 # CRIAR commands/orchestrator.md — conteúdo específico por stack
 # ============================================================================
 
-if [ "$FRONTEND" = "react" ]; then
-    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
-# /orchestrator - Executar Pipeline SDD
-
-> Execute os agentes automaticamente para gerar código baseado em sua especificação.
-
-## 📋 Como Usar
-
-1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
-   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
-   transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
-
-2. **Prepare sua especificação**
-   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
-     você revisar)
-
-3. **Chame o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Aguarde ~20-30 minutos**
-   - Os agentes executam em cascata
-   - Resultados salvos em `output/`
-
-## 🎯 O que Acontece
-
-```
-.docs/ (opcional)
-    ↓
-📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
-    ↓
-docs/SPEC.md
-    ↓
-🎯 Orchestrator     → Valida especificação
-    ↓
-🏛️ Architect        → Gera arquitetura
-    ↓
-🔷 .NET Specialist  → Implementa código .NET backend
-    ⚛️ react-specialist     → Implementa código React 18
-    ↓
-📋 Compliance       → Valida conformidade
-    ↓
-🧪 Test Validator   → Gera testes
-    ↓
-🔍 Code Review      → Revisa qualidade
-    ↓
-🏗️ Build & Test     → Valida build
-    ↓
-📝 Commit Message   → Gera commits semânticos
-    ↓
-🧪 Swagger Tester   → Testa API
-    ↓
-✅ output/ Pronto!
-```
-
-## ⚠️ Regras de Execução
-
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
-  Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `.NET Specialist` e `react-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
-- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
-
-## 📁 Resultados
-
-Após execução, em `output/`:
-
-```
-0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
-1-orchestrator.md            (Validação)
-2-architect.md                (Arquitetura)
-3-dotnet-specialist.md        (Código .NET)
-3-react-specialist.md          (Código React 18)
-4-compliance.md               (Conformidade)
-5-test-validator.md           (Testes)
-6-code-review.md              (Code Review)
-7-build-test.md                (Build & Test)
-8-commit-message.md           (Commits)
-9-swagger-tester.md           (Swagger)
-token-report.md               (Uso de tokens do pipeline)
-state.json                    (Estado)
-```
-
-E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
-projeto (diferente de `output/`, que é por rodada).
-
-## ✅ Pré-requisitos
-
-- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
-- ✅ Conexão com internet
-
-## 🚀 Comece Agora
-
-```
-/orchestrator
-```
-ORCHEOF
-
-elif [ "$FRONTEND" = "angular" ]; then
-    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
-# /orchestrator - Executar Pipeline SDD
-
-> Execute os agentes automaticamente para gerar código baseado em sua especificação.
-
-## 📋 Como Usar
-
-1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
-   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
-   transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
-
-2. **Prepare sua especificação**
-   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
-     você revisar)
-
-3. **Chame o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Aguarde ~20-30 minutos**
-   - Os agentes executam em cascata
-   - Resultados salvos em `output/`
-
-## 🎯 O que Acontece
-
-```
-.docs/ (opcional)
-    ↓
-📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
-    ↓
-docs/SPEC.md
-    ↓
-🎯 Orchestrator     → Valida especificação
-    ↓
-🏛️ Architect        → Gera arquitetura
-    ↓
-🔷 .NET Specialist  → Implementa código .NET backend
-    🅰️ angular-specialist     → Implementa código Angular
-    ↓
-📋 Compliance       → Valida conformidade
-    ↓
-🧪 Test Validator   → Gera testes
-    ↓
-🔍 Code Review      → Revisa qualidade
-    ↓
-🏗️ Build & Test     → Valida build
-    ↓
-📝 Commit Message   → Gera commits semânticos
-    ↓
-🧪 Swagger Tester   → Testa API
-    ↓
-✅ output/ Pronto!
-```
-
-## ⚠️ Regras de Execução
-
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
-  Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `.NET Specialist` e `angular-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
-- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
-
-## 📁 Resultados
-
-Após execução, em `output/`:
-
-```
-0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
-1-orchestrator.md            (Validação)
-2-architect.md                (Arquitetura)
-3-dotnet-specialist.md        (Código .NET)
-3-angular-specialist.md          (Código Angular)
-4-compliance.md               (Conformidade)
-5-test-validator.md           (Testes)
-6-code-review.md              (Code Review)
-7-build-test.md                (Build & Test)
-8-commit-message.md           (Commits)
-9-swagger-tester.md           (Swagger)
-token-report.md               (Uso de tokens do pipeline)
-state.json                    (Estado)
-```
-
-E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
-projeto (diferente de `output/`, que é por rodada).
-
-## ✅ Pré-requisitos
-
-- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
-- ✅ Conexão com internet
-
-## 🚀 Comece Agora
-
-```
-/orchestrator
-```
-ORCHEOF
-
-elif [ "$FRONTEND" = "vue" ]; then
-    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
-# /orchestrator - Executar Pipeline SDD
-
-> Execute os agentes automaticamente para gerar código baseado em sua especificação.
-
-## 📋 Como Usar
-
-1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
-   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
-   transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
-
-2. **Prepare sua especificação**
-   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
-     você revisar)
-
-3. **Chame o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Aguarde ~20-30 minutos**
-   - Os agentes executam em cascata
-   - Resultados salvos em `output/`
-
-## 🎯 O que Acontece
-
-```
-.docs/ (opcional)
-    ↓
-📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
-    ↓
-docs/SPEC.md
-    ↓
-🎯 Orchestrator     → Valida especificação
-    ↓
-🏛️ Architect        → Gera arquitetura
-    ↓
-🔷 .NET Specialist  → Implementa código .NET backend
-    💚 vue-specialist     → Implementa código Vue 3
-    ↓
-📋 Compliance       → Valida conformidade
-    ↓
-🧪 Test Validator   → Gera testes
-    ↓
-🔍 Code Review      → Revisa qualidade
-    ↓
-🏗️ Build & Test     → Valida build
-    ↓
-📝 Commit Message   → Gera commits semânticos
-    ↓
-🧪 Swagger Tester   → Testa API
-    ↓
-✅ output/ Pronto!
-```
-
-## ⚠️ Regras de Execução
-
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
-  Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `.NET Specialist` e `vue-specialist` dependem só do `Architect`, não um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool). O mesmo vale para `Commit Message` e `Swagger Tester`, que só dependem do `Build & Test` já ter passado.
-- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
-
-## 📁 Resultados
-
-Após execução, em `output/`:
-
-```
-0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
-1-orchestrator.md            (Validação)
-2-architect.md                (Arquitetura)
-3-dotnet-specialist.md        (Código .NET)
-3-vue-specialist.md          (Código Vue 3)
-4-compliance.md               (Conformidade)
-5-test-validator.md           (Testes)
-6-code-review.md              (Code Review)
-7-build-test.md                (Build & Test)
-8-commit-message.md           (Commits)
-9-swagger-tester.md           (Swagger)
-token-report.md               (Uso de tokens do pipeline)
-state.json                    (Estado)
-```
-
-E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
-projeto (diferente de `output/`, que é por rodada).
-
-## ✅ Pré-requisitos
-
-- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
-- ✅ Conexão com internet
-
-## 🚀 Comece Agora
-
-```
-/orchestrator
-```
-ORCHEOF
-
-elif [ "$FRONTEND" = "none" ]; then
+if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
 # /orchestrator - Executar Pipeline SDD
 
@@ -1726,6 +1567,103 @@ projeto (diferente de `output/`, que é por rodada).
 ```
 ORCHEOF
 
+else
+    case "$STACK" in
+        react)   FE_EMOJI="⚛️" ;;
+        angular) FE_EMOJI="🅰️" ;;
+        vue)     FE_EMOJI="💚" ;;
+    esac
+    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
+# /orchestrator - Executar Pipeline SDD
+
+> Execute os agentes automaticamente para gerar código baseado em sua especificação. Este projeto é **somente frontend** (não tem backend próprio).
+
+## 📋 Como Usar
+
+1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
+   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
+   transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
+
+2. **Prepare sua especificação**
+   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
+     você revisar). Se o frontend consome uma API externa, descreva os endpoints nela.
+
+3. **Chame o orchestrador**
+   ```
+   /orchestrator
+   ```
+
+4. **Aguarde ~15-25 minutos**
+   - Os agentes executam em cascata
+   - Resultados salvos em `output/`
+
+## 🎯 O que Acontece
+
+```
+.docs/ (opcional)
+    ↓
+📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
+    ↓
+docs/SPEC.md
+    ↓
+🎯 Orchestrator          → Valida especificação
+    ↓
+🏛️ Architect             → Gera arquitetura (componentes, estado, rotas)
+    ↓
+FE_EMOJI __SPECIALIST__   → Implementa o frontend
+    ↓
+📋 Compliance            → Valida conformidade
+    ↓
+🧪 Test Validator        → Gera testes
+    ↓
+🔍 Code Review           → Revisa qualidade
+    ↓
+🏗️ Build & Test          → Valida build
+    ↓
+📝 Commit Message        → Gera commits semânticos
+    ↓
+✅ output/ Pronto!
+```
+
+## ⚠️ Regras de Execução
+
+- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
+  Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
+- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
+
+## 📁 Resultados
+
+Após execução, em `output/`:
+
+```
+0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
+1-orchestrator.md            (Validação)
+2-architect.md                (Arquitetura)
+__SPECIALIST_OUTPUT_FILE__      (Código frontend)
+4-compliance.md               (Conformidade)
+5-test-validator.md           (Testes)
+6-code-review.md              (Code Review)
+7-build-test.md                (Build & Test)
+8-commit-message.md           (Commits)
+token-report.md               (Uso de tokens do pipeline)
+state.json                    (Estado)
+```
+
+E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
+projeto (diferente de `output/`, que é por rodada).
+
+## ✅ Pré-requisitos
+
+- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
+- ✅ Conexão com internet
+
+## 🚀 Comece Agora
+
+```
+/orchestrator
+```
+ORCHEOF
+    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/commands/orchestrator.md""
 fi
 echo -e "${GREEN}✅ commands/orchestrator.md criado${NC}"
 
@@ -1733,199 +1671,7 @@ echo -e "${GREEN}✅ commands/orchestrator.md criado${NC}"
 # CRIAR commands/README.md — conteúdo específico por stack
 # ============================================================================
 
-if [ "$FRONTEND" = "react" ]; then
-    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
-# 📌 Comandos do Pipeline SDD
-
-Stack deste projeto: **.NET 10 + React 18**
-
-## 🎯 Fluxo Recomendado
-
-1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
-   ```
-   cp suas-especificacoes.docx .docs/
-   ```
-   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
-
-2. **Edite sua especificação**
-   ```
-   nano docs/SPEC.md
-   ```
-
-3. **Execute o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `.docs/` tiver arquivos
-
-## 📚 Estrutura
-
-- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
-- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
-
-## 🤖 Os Agentes (em `agents/`)
-
-| # | Agente | Responsabilidade |
-|---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
-| 1 | `orchestrator-sdd` | Valida a especificação |
-| 2 | `architect-sdd` | Gera arquitetura técnica |
-| 3 | `dotnet-specialist` | Implementa backend .NET |
-| 3 | `react-specialist` | Implementa frontend React 18 |
-| 4 | `compliance-validator` | Valida conformidade com a spec |
-| 5 | `test-validator` | Gera testes automatizados |
-| 6 | `code-review-sdd` | Revisa qualidade do código |
-| 7 | `build-test-validator` | Valida build e testes |
-| 8 | `commit-message-generator` | Gera commits semânticos |
-| 9 | `swagger-tester` | Gera workflow de testes de API |
-
-## ⏱️ Tempo
-
-- Pipeline completo (`/orchestrator`): 20-30 minutos
-
-## 💡 Dicas
-
-1. Use `/orchestrator` para rodar o pipeline completo
-2. Revise resultados em `output/` a cada etapa
-3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
-
----
-
-**Comece aqui:** `/orchestrator`
-CMDREADMEEOF
-
-elif [ "$FRONTEND" = "angular" ]; then
-    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
-# 📌 Comandos do Pipeline SDD
-
-Stack deste projeto: **.NET 10 + Angular**
-
-## 🎯 Fluxo Recomendado
-
-1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
-   ```
-   cp suas-especificacoes.docx .docs/
-   ```
-   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
-
-2. **Edite sua especificação**
-   ```
-   nano docs/SPEC.md
-   ```
-
-3. **Execute o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `.docs/` tiver arquivos
-
-## 📚 Estrutura
-
-- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
-- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
-
-## 🤖 Os Agentes (em `agents/`)
-
-| # | Agente | Responsabilidade |
-|---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
-| 1 | `orchestrator-sdd` | Valida a especificação |
-| 2 | `architect-sdd` | Gera arquitetura técnica |
-| 3 | `dotnet-specialist` | Implementa backend .NET |
-| 3 | `angular-specialist` | Implementa frontend Angular |
-| 4 | `compliance-validator` | Valida conformidade com a spec |
-| 5 | `test-validator` | Gera testes automatizados |
-| 6 | `code-review-sdd` | Revisa qualidade do código |
-| 7 | `build-test-validator` | Valida build e testes |
-| 8 | `commit-message-generator` | Gera commits semânticos |
-| 9 | `swagger-tester` | Gera workflow de testes de API |
-
-## ⏱️ Tempo
-
-- Pipeline completo (`/orchestrator`): 20-30 minutos
-
-## 💡 Dicas
-
-1. Use `/orchestrator` para rodar o pipeline completo
-2. Revise resultados em `output/` a cada etapa
-3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
-
----
-
-**Comece aqui:** `/orchestrator`
-CMDREADMEEOF
-
-elif [ "$FRONTEND" = "vue" ]; then
-    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
-# 📌 Comandos do Pipeline SDD
-
-Stack deste projeto: **.NET 10 + Vue 3**
-
-## 🎯 Fluxo Recomendado
-
-1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
-   ```
-   cp suas-especificacoes.docx .docs/
-   ```
-   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
-
-2. **Edite sua especificação**
-   ```
-   nano docs/SPEC.md
-   ```
-
-3. **Execute o orchestrador**
-   ```
-   /orchestrator
-   ```
-
-4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `.docs/` tiver arquivos
-
-## 📚 Estrutura
-
-- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
-- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
-
-## 🤖 Os Agentes (em `agents/`)
-
-| # | Agente | Responsabilidade |
-|---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
-| 1 | `orchestrator-sdd` | Valida a especificação |
-| 2 | `architect-sdd` | Gera arquitetura técnica |
-| 3 | `dotnet-specialist` | Implementa backend .NET |
-| 3 | `vue-specialist` | Implementa frontend Vue 3 |
-| 4 | `compliance-validator` | Valida conformidade com a spec |
-| 5 | `test-validator` | Gera testes automatizados |
-| 6 | `code-review-sdd` | Revisa qualidade do código |
-| 7 | `build-test-validator` | Valida build e testes |
-| 8 | `commit-message-generator` | Gera commits semânticos |
-| 9 | `swagger-tester` | Gera workflow de testes de API |
-
-## ⏱️ Tempo
-
-- Pipeline completo (`/orchestrator`): 20-30 minutos
-
-## 💡 Dicas
-
-1. Use `/orchestrator` para rodar o pipeline completo
-2. Revise resultados em `output/` a cada etapa
-3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
-
----
-
-**Comece aqui:** `/orchestrator`
-CMDREADMEEOF
-
-elif [ "$FRONTEND" = "none" ]; then
+if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
 # 📌 Comandos do Pipeline SDD
 
@@ -1988,6 +1734,70 @@ Stack deste projeto: **.NET 10 (somente backend)**
 **Comece aqui:** `/orchestrator`
 CMDREADMEEOF
 
+else
+    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
+# 📌 Comandos do Pipeline SDD
+
+Stack deste projeto: **__STACK_LABEL__**
+
+## 🎯 Fluxo Recomendado
+
+1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
+   ```
+   cp suas-especificacoes.docx .docs/
+   ```
+   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
+
+2. **Edite sua especificação**
+   ```
+   nano docs/SPEC.md
+   ```
+
+3. **Execute o orchestrador**
+   ```
+   /orchestrator
+   ```
+
+4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
+   `knowledge-bootstrap`, se `.docs/` tiver arquivos
+
+## 📚 Estrutura
+
+- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
+- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
+
+## 🤖 Os Agentes (em `agents/`)
+
+Este projeto é **somente frontend** — não há agente de backend .NET nem de teste de API (`swagger-tester`).
+
+| # | Agente | Responsabilidade |
+|---|--------|-------------------|
+| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
+| 1 | `orchestrator-sdd` | Valida a especificação |
+| 2 | `architect-sdd` | Gera arquitetura técnica |
+| 3 | `__SPECIALIST__` | Implementa o frontend |
+| 4 | `compliance-validator` | Valida conformidade com a spec |
+| 5 | `test-validator` | Gera testes automatizados |
+| 6 | `code-review-sdd` | Revisa qualidade do código |
+| 7 | `build-test-validator` | Valida build e testes |
+| 8 | `commit-message-generator` | Gera commits semânticos |
+
+## ⏱️ Tempo
+
+- Pipeline completo (`/orchestrator`): 15-25 minutos
+
+## 💡 Dicas
+
+1. Use `/orchestrator` para rodar o pipeline completo
+2. Revise resultados em `output/` a cada etapa
+3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
+
+---
+
+**Comece aqui:** `/orchestrator`
+CMDREADMEEOF
+    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/commands/README.md""
 fi
 echo -e "${GREEN}✅ commands/README.md criado${NC}"
 
@@ -1995,331 +1805,7 @@ echo -e "${GREEN}✅ commands/README.md criado${NC}"
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha
 # ============================================================================
 
-if [ "$FRONTEND" = "react" ]; then
-    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
-# Sua Aplicação - Especificação
-
-## 📋 Visão Geral
-
-Descreva brevemente sua aplicação aqui.
-
-**Stack:** .NET 10 + React 18
-
----
-
-## 🎯 Requisitos Funcionais
-
-### REQ-001: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-- Sub-requisito 3
-
-### REQ-002: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-
----
-
-## 🏗️ Regras de Negócio
-
-### BR-001: [Regra de Negócio]
-Descrição detalhada da regra.
-
-### BR-002: [Regra de Negócio]
-Descrição detalhada da regra.
-
----
-
-## 🗄️ Modelo de Dados
-
-### Entidade 1
-- Id (UUID)
-- Nome (string, required)
-- Descricao (string, nullable)
-- DataCriacao (DateTime)
-- Ativo (bool)
-
-### Entidade 2
-- Id (UUID)
-- EntidadeId (FK)
-- Status (enum: Ativo, Inativo)
-- DataAtualizacao (DateTime)
-
----
-
-## 📡 Endpoints Principais
-
-### Listar
-- `GET /api/recursos` - Listar com paginação
-
-### Criar
-- `POST /api/recursos` - Criar novo
-
-### Detalhes
-- `GET /api/recursos/{id}` - Obter um
-
-### Atualizar
-- `PUT /api/recursos/{id}` - Atualizar
-
-### Deletar
-- `DELETE /api/recursos/{id}` - Deletar
-
----
-
-## 🧪 Testes
-
-Cobertura mínima: 80% da Application Layer
-
-- [ ] Testes unitários
-- [ ] Testes de integração
-- [ ] Testes E2E
-
----
-
-## 🔒 Segurança
-
-- [ ] Autenticação JWT
-- [ ] Validação de entrada
-- [ ] Rate limiting
-- [ ] HTTPS em produção
-
----
-
-## ✅ Critérios de Aceitar
-
-- [ ] Todos os endpoints funcionando
-- [ ] Validações funcionando
-- [ ] Testes com 80%+ cobertura
-- [ ] Código segue SOLID
-- [ ] Sem vulnerabilidades críticas
-
----
-
-**Pronto para orquestração!** 🚀
-
-Edite este arquivo e chame:
-```
-/orchestrator
-```
-SPECEOF
-
-elif [ "$FRONTEND" = "angular" ]; then
-    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
-# Sua Aplicação - Especificação
-
-## 📋 Visão Geral
-
-Descreva brevemente sua aplicação aqui.
-
-**Stack:** .NET 10 + Angular
-
----
-
-## 🎯 Requisitos Funcionais
-
-### REQ-001: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-- Sub-requisito 3
-
-### REQ-002: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-
----
-
-## 🏗️ Regras de Negócio
-
-### BR-001: [Regra de Negócio]
-Descrição detalhada da regra.
-
-### BR-002: [Regra de Negócio]
-Descrição detalhada da regra.
-
----
-
-## 🗄️ Modelo de Dados
-
-### Entidade 1
-- Id (UUID)
-- Nome (string, required)
-- Descricao (string, nullable)
-- DataCriacao (DateTime)
-- Ativo (bool)
-
-### Entidade 2
-- Id (UUID)
-- EntidadeId (FK)
-- Status (enum: Ativo, Inativo)
-- DataAtualizacao (DateTime)
-
----
-
-## 📡 Endpoints Principais
-
-### Listar
-- `GET /api/recursos` - Listar com paginação
-
-### Criar
-- `POST /api/recursos` - Criar novo
-
-### Detalhes
-- `GET /api/recursos/{id}` - Obter um
-
-### Atualizar
-- `PUT /api/recursos/{id}` - Atualizar
-
-### Deletar
-- `DELETE /api/recursos/{id}` - Deletar
-
----
-
-## 🧪 Testes
-
-Cobertura mínima: 80% da Application Layer
-
-- [ ] Testes unitários
-- [ ] Testes de integração
-- [ ] Testes E2E
-
----
-
-## 🔒 Segurança
-
-- [ ] Autenticação JWT
-- [ ] Validação de entrada
-- [ ] Rate limiting
-- [ ] HTTPS em produção
-
----
-
-## ✅ Critérios de Aceitar
-
-- [ ] Todos os endpoints funcionando
-- [ ] Validações funcionando
-- [ ] Testes com 80%+ cobertura
-- [ ] Código segue SOLID
-- [ ] Sem vulnerabilidades críticas
-
----
-
-**Pronto para orquestração!** 🚀
-
-Edite este arquivo e chame:
-```
-/orchestrator
-```
-SPECEOF
-
-elif [ "$FRONTEND" = "vue" ]; then
-    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
-# Sua Aplicação - Especificação
-
-## 📋 Visão Geral
-
-Descreva brevemente sua aplicação aqui.
-
-**Stack:** .NET 10 + Vue 3
-
----
-
-## 🎯 Requisitos Funcionais
-
-### REQ-001: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-- Sub-requisito 3
-
-### REQ-002: [Descrição do Requisito]
-- Sub-requisito 1
-- Sub-requisito 2
-
----
-
-## 🏗️ Regras de Negócio
-
-### BR-001: [Regra de Negócio]
-Descrição detalhada da regra.
-
-### BR-002: [Regra de Negócio]
-Descrição detalhada da regra.
-
----
-
-## 🗄️ Modelo de Dados
-
-### Entidade 1
-- Id (UUID)
-- Nome (string, required)
-- Descricao (string, nullable)
-- DataCriacao (DateTime)
-- Ativo (bool)
-
-### Entidade 2
-- Id (UUID)
-- EntidadeId (FK)
-- Status (enum: Ativo, Inativo)
-- DataAtualizacao (DateTime)
-
----
-
-## 📡 Endpoints Principais
-
-### Listar
-- `GET /api/recursos` - Listar com paginação
-
-### Criar
-- `POST /api/recursos` - Criar novo
-
-### Detalhes
-- `GET /api/recursos/{id}` - Obter um
-
-### Atualizar
-- `PUT /api/recursos/{id}` - Atualizar
-
-### Deletar
-- `DELETE /api/recursos/{id}` - Deletar
-
----
-
-## 🧪 Testes
-
-Cobertura mínima: 80% da Application Layer
-
-- [ ] Testes unitários
-- [ ] Testes de integração
-- [ ] Testes E2E
-
----
-
-## 🔒 Segurança
-
-- [ ] Autenticação JWT
-- [ ] Validação de entrada
-- [ ] Rate limiting
-- [ ] HTTPS em produção
-
----
-
-## ✅ Critérios de Aceitar
-
-- [ ] Todos os endpoints funcionando
-- [ ] Validações funcionando
-- [ ] Testes com 80%+ cobertura
-- [ ] Código segue SOLID
-- [ ] Sem vulnerabilidades críticas
-
----
-
-**Pronto para orquestração!** 🚀
-
-Edite este arquivo e chame:
-```
-/orchestrator
-```
-SPECEOF
-
-elif [ "$FRONTEND" = "none" ]; then
+if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
 # Sua Aplicação - Especificação
 
@@ -2427,12 +1913,131 @@ Edite este arquivo e chame:
 ```
 SPECEOF
 
+else
+    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
+# Sua Aplicação - Especificação
+
+## 📋 Visão Geral
+
+Descreva brevemente sua aplicação aqui. Este projeto é **somente frontend** — não tem backend próprio.
+
+**Stack:** __STACK_LABEL__
+
+---
+
+## 🎯 Requisitos Funcionais
+
+### REQ-001: [Descrição do Requisito]
+- Sub-requisito 1
+- Sub-requisito 2
+- Sub-requisito 3
+
+### REQ-002: [Descrição do Requisito]
+- Sub-requisito 1
+- Sub-requisito 2
+
+---
+
+## 🏗️ Regras de Negócio
+
+### BR-001: [Regra de Negócio]
+Descrição detalhada da regra.
+
+### BR-002: [Regra de Negócio]
+Descrição detalhada da regra.
+
+---
+
+## 🗄️ Modelo de Dados (telas/estado)
+
+### Entidade 1
+- Id (UUID)
+- Nome (string, required)
+- Descricao (string, nullable)
+- DataCriacao (DateTime)
+- Ativo (bool)
+
+### Entidade 2
+- Id (UUID)
+- EntidadeId (FK)
+- Status (enum: Ativo, Inativo)
+- DataAtualizacao (DateTime)
+
+---
+
+## 📡 Endpoints Consumidos (API externa, se houver)
+
+Se este frontend consome uma API já existente ou a ser fornecida por outro projeto/time, descreva os
+endpoints aqui. Se não houver API (só dados mockados/locais), remova esta seção.
+
+### Listar
+- `GET /api/recursos` - Listar com paginação
+
+### Criar
+- `POST /api/recursos` - Criar novo
+
+### Detalhes
+- `GET /api/recursos/{id}` - Obter um
+
+### Atualizar
+- `PUT /api/recursos/{id}` - Atualizar
+
+### Deletar
+- `DELETE /api/recursos/{id}` - Deletar
+
+---
+
+## 🧪 Testes
+
+Cobertura mínima: 80%
+
+- [ ] Testes unitários (componentes/lógica)
+- [ ] Testes E2E do fluxo principal
+
+---
+
+## 🔒 Segurança
+
+- [ ] Autenticação (armazenamento seguro de token, se houver login)
+- [ ] Validação de entrada nos formulários
+- [ ] HTTPS em produção
+
+---
+
+## ✅ Critérios de Aceitar
+
+- [ ] Todas as telas/fluxos funcionando
+- [ ] Validações funcionando
+- [ ] Testes com 80%+ cobertura
+- [ ] Sem vulnerabilidades críticas
+
+---
+
+**Pronto para orquestração!** 🚀
+
+Edite este arquivo e chame:
+```
+/orchestrator
+```
+SPECEOF
+    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g" ""$PROJECT_DIR/docs/SPEC.md""
 fi
 echo -e "${GREEN}✅ docs/SPEC.md criado${NC}"
 
 # ============================================================================
 # CRIAR README.md e COMECE-AQUI.md
 # ============================================================================
+
+if [ "$STACK" = "dotnet" ]; then
+    SRC_TREE="└── src/              (.NET Clean Architecture)
+    ├── Domain/
+    ├── Application/
+    ├── Infrastructure/
+    ├── API/
+    └── Tests/"
+else
+    SRC_TREE="└── src/              (código do frontend, implementado pelo agente $SPECIALIST_AGENT)"
+fi
 
 cat > "$PROJECT_DIR/README.md" << READMEEOF
 # Seu Projeto SDD
@@ -2484,12 +2089,7 @@ seu-projeto/
 │
 ├── output/           (resultados + token-report.md)
 │
-└── src/              (.NET Clean Architecture)
-    ├── Domain/
-    ├── Application/
-    ├── Infrastructure/
-    ├── API/
-    └── Tests/
+$SRC_TREE
 \`\`\`
 
 ## 🚀 Comece Agora
@@ -2504,6 +2104,12 @@ seu-projeto/
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
+
+if [ "$STACK" = "dotnet" ]; then
+    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build, commits sugeridos e workflow de testes de API"
+else
+    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build e commits sugeridos"
+fi
 
 cat > "$PROJECT_DIR/COMECE-AQUI.md" << COMECEEOF
 # 🚀 Comece Aqui
@@ -2540,8 +2146,7 @@ Aguarde ~20-30 minutos enquanto os agentes trabalham em cascata.
 
 ## 📁 Depois de Executar
 
-Você terá em \`output/\` a arquitetura, código, testes, code review,
-relatório de build, commits sugeridos e workflow de testes de API.
+Você terá em \`output/\` $OUTPUTS_DESC.
 
 Se você usou \`.docs/\`, também terá \`knowledge/\` — a Base de Conhecimento que persiste entre execuções
 (diferente de \`output/\`, que é por rodada) e que os agentes continuam consultando conforme o projeto evolui.

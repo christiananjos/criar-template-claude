@@ -73,6 +73,10 @@ de embeddings); os chunks já ficam prontos para quem quiser plugar esse passo d
 
 Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`) que, ao final de cada rodada do `/orchestrator`, atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente — lido direto dos transcripts da sessão, sem estimativa do modelo.
 
+## Plugin ponytail (redução de tokens)
+
+Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado — o `.claude/settings.json` do projeto já vem com `extraKnownMarketplaces` e `enabledPlugins` apontando pra ele, então não é preciso instalar nada manualmente: ao abrir o projeto criado no Claude Code, o ponytail já carrega junto e passa a atuar reduzindo o consumo de tokens da sessão. Para conferir se está ativo dentro do projeto gerado, rode `/plugin` e veja `ponytail@ponytail` habilitado. (Este repositório-template, por ser só o gerador de estrutura, não precisa do ponytail — a habilitação é escrita apenas no projeto gerado.)
+
 ## Estrutura do plugin
 
 ```

@@ -2085,12 +2085,20 @@ seu-projeto/
 │   ├── cache/           (contexto resumido por agente)
 │   └── templates/       (modelos Feature/API/ADR/Bug/TestCase)
 │
-├── .claude/          (hook automático de relatório de tokens)
+├── .claude/          (hook automático de relatório de tokens + plugin ponytail habilitado)
 │
 ├── output/           (resultados + token-report.md)
 │
 $SRC_TREE
 \`\`\`
+
+## 🧵 Plugin ponytail (redução de tokens)
+
+Este projeto já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado em
+\`.claude/settings.json\` (\`extraKnownMarketplaces\` + \`enabledPlugins\`) — ele ajuda a reduzir o consumo de
+tokens durante as sessões do Claude Code. Não precisa instalar nada manualmente: ao abrir este projeto no
+Claude Code, o plugin já é carregado automaticamente. Para conferir se está ativo, rode \`/plugin\` dentro do
+projeto e veja se \`ponytail@ponytail\` aparece habilitado.
 
 ## 🚀 Comece Agora
 
@@ -2444,11 +2452,22 @@ cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
         "timeout": 15
       }
     ]
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
   }
 }
 SETTINGSEOF
 
-echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens)${NC}"
+echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens + plugin ponytail habilitado)${NC}"
 
 # ============================================================================
 # CRIAR .gitignore

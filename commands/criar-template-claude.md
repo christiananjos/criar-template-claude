@@ -85,7 +85,7 @@ NOME_DO_PROJETO/
 │                              o resto (vault/, graph/, embeddings/, cache/, index.json) é gerado
 │                              pelo agente knowledge-bootstrap na primeira vez que .docs/ tiver arquivos
 ├── .claude/
-│   ├── settings.json       ← registra o hook Stop de relatório de tokens
+│   ├── settings.json       ← registra o hook Stop de relatório de tokens + habilita o plugin ponytail
 │   ├── hooks/generate-token-report.cjs
 │   └── scripts/knowledge-engine-build.cjs  ← reconstrói grafo/embeddings a partir de knowledge/vault/
 ├── output/                 ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
@@ -101,6 +101,8 @@ os demais agentes passam a consultar como fonte única de verdade. Se `.docs/` f
 automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
 
 Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
+
+O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado (`extraKnownMarketplaces` + `enabledPlugins`), que ajuda a reduzir o consumo de tokens da sessão — carrega automaticamente ao abrir o projeto, sem instalação manual.
 
 ## Observação
 

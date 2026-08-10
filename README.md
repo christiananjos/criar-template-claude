@@ -90,6 +90,10 @@ criar-template-claude/
 
 Cada projeto **gerado** recebe sua própria estrutura `commands/` + `agents/` + `.claude/` — ver seções acima.
 
+## Contribuindo
+
+Sugestões, issues e PRs são bem-vindos no repositório do projeto.
+
 ## Licença
 
 MIT — Christian Anjos

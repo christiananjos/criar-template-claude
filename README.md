@@ -32,7 +32,7 @@ misturados. Isso muda o que é gerado — o `orchestrator.md`, `commands/README.
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
-O `/orchestrator` leva ~15-30 minutos e não pausa pra confirmação no meio — só interrompe se `orchestrator-sdd`, `compliance-validator`, `code-review-sdd` ou `build-test-validator` reportar falha.
+O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `compliance-validator`, `code-review-sdd` ou `build-test-validator` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
 ## Agentes
 

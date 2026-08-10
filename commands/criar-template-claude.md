@@ -106,6 +106,6 @@ O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.c
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. E o `/orchestrator`, por sua vez, também não deve parar para pedir confirmações extras no meio da cascata — só interrompe se um dos gates de qualidade (orchestrator-sdd, compliance-validator, code-review-sdd ou build-test-validator) reportar falha.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`compliance-validator`, `code-review-sdd` ou `build-test-validator`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
 
 

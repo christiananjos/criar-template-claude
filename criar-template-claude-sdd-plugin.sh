@@ -1492,8 +1492,12 @@ if [ "$STACK" = "dotnet" ]; then
    /orchestrator
    ```
 
-4. **Aguarde ~20-30 minutos**
-   - Os agentes executam em cascata
+4. **Aprove a validação da especificação**
+   - O pipeline roda o `Orchestrator` e **pausa** — mostra o relatório completo e pergunta se você aprova
+     seguir (veja "Pausa de Aprovação" abaixo)
+
+5. **Aguarde ~20-30 minutos**
+   - Depois da sua aprovação, o resto dos agentes executa em cascata, sem novas pausas
    - Resultados salvos em `output/`
 
 ## 🎯 O que Acontece
@@ -1507,6 +1511,8 @@ docs/SPEC.md
     ↓
 🎯 Orchestrator     → Valida especificação
     ↓
+⏸️ Pausa — você aprova seguir? (única pausa do pipeline)
+    ↓ (só continua se você aprovar)
 🏛️ Architect        → Gera arquitetura
     ↓
 🔷 .NET Specialist  → Implementa código .NET
@@ -1526,12 +1532,29 @@ docs/SPEC.md
 ✅ output/ Pronto!
 ```
 
+## ⏸️ Pausa de Aprovação (única do pipeline)
+
+Assim que o `Orchestrator` gerar `output/1-orchestrator.md`, o pipeline **para** e mostra o relatório completo
+formatado (status, requisitos, regras de negócio, lacunas e recomendação) — **mesmo que o status seja
+✅ APROVADO**. Em seguida pergunta objetivamente:
+
+> "A validação da especificação ficou assim [relatório]. Aprova seguir para a arquitetura e o resto do
+> pipeline?"
+
+- Se você **aprovar**, o restante do pipeline roda **automaticamente até o fim**, sem pedir mais nenhuma
+  confirmação (só interrompe de novo se um gate técnico reprovar — ver regra abaixo).
+- Se você **não aprovar**, o pipeline **para ali**, sem rodar `Architect` nem nenhum agente seguinte, até
+  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/orchestrator` de novo.
+
+Essa é a única pausa manual do fluxo — o objetivo é você decidir uma vez, no início, e depois deixar o resto
+rodar sozinho sem ficar confirmando etapa por etapa.
+
 ## ⚠️ Regras de Execução
 
 - **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
 - **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Build & Test` já ter passado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
-- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -1593,8 +1616,12 @@ else
    /orchestrator
    ```
 
-4. **Aguarde ~15-25 minutos**
-   - Os agentes executam em cascata
+4. **Aprove a validação da especificação**
+   - O pipeline roda o `Orchestrator` e **pausa** — mostra o relatório completo e pergunta se você aprova
+     seguir (veja "Pausa de Aprovação" abaixo)
+
+5. **Aguarde ~15-25 minutos**
+   - Depois da sua aprovação, o resto dos agentes executa em cascata, sem novas pausas
    - Resultados salvos em `output/`
 
 ## 🎯 O que Acontece
@@ -1608,6 +1635,8 @@ docs/SPEC.md
     ↓
 🎯 Orchestrator          → Valida especificação
     ↓
+⏸️ Pausa — você aprova seguir? (única pausa do pipeline)
+    ↓ (só continua se você aprovar)
 🏛️ Architect             → Gera arquitetura (componentes, estado, rotas)
     ↓
 FE_EMOJI __SPECIALIST__   → Implementa o frontend
@@ -1625,11 +1654,28 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
 ✅ output/ Pronto!
 ```
 
+## ⏸️ Pausa de Aprovação (única do pipeline)
+
+Assim que o `Orchestrator` gerar `output/1-orchestrator.md`, o pipeline **para** e mostra o relatório completo
+formatado (status, requisitos, regras de negócio, lacunas e recomendação) — **mesmo que o status seja
+✅ APROVADO**. Em seguida pergunta objetivamente:
+
+> "A validação da especificação ficou assim [relatório]. Aprova seguir para a arquitetura e o resto do
+> pipeline?"
+
+- Se você **aprovar**, o restante do pipeline roda **automaticamente até o fim**, sem pedir mais nenhuma
+  confirmação (só interrompe de novo se um gate técnico reprovar — ver regra abaixo).
+- Se você **não aprovar**, o pipeline **para ali**, sem rodar `Architect` nem nenhum agente seguinte, até
+  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/orchestrator` de novo.
+
+Essa é a única pausa manual do fluxo — o objetivo é você decidir uma vez, no início, e depois deixar o resto
+rodar sozinho sem ficar confirmando etapa por etapa.
+
 ## ⚠️ Regras de Execução
 
 - **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Pare em qualquer gate reprovado**: se `Orchestrator`, `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ REJEITADO / NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
 
 ## 📁 Resultados
 

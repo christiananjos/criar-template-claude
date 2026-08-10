@@ -34,6 +34,20 @@ externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
 O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `compliance-validator`, `code-review-sdd` ou `build-test-validator` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
+## Acoplar num projeto já existente
+
+Além de criar um projeto do zero, o `/criar-template-claude` também acopla o pipeline a um projeto que **já
+tem código** (uma casca inicial, um projeto em andamento etc.). A primeira pergunta do comando é justamente
+essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do projeto já existente:
+
+- **Nada do código é tocado** — `src/` não recebe a estrutura de pastas do template, só o que o script sempre cria (`commands/`, `agents/`, `knowledge/`, `.claude/`).
+- **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `COMECE-AQUI.md` e `docs/SPEC.md` só são criados se ainda não existirem.
+- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `knowledge/embeddings/chunks/`, estado do hook) são acrescentadas, sem duplicar em reexecuções.
+- **`.claude/settings.json`** existente sofre *merge* (hook de token-report + ponytail somados ao que já estava configurado), nunca substituição.
+- **`architect-sdd` e os `*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
+
+Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o que falta implementar) e rodar `/orchestrator`.
+
 ## Agentes
 
 Todo projeto sai com 9 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida:

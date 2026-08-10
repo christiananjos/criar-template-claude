@@ -7,13 +7,20 @@
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
 #
 # Uso:
-#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>
+#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]
+#
+# O terceiro argumento é opcional (default: novo):
+#   novo      → projeto do zero, cria tudo (comportamento original)
+#   existente → acopla o pipeline a um projeto que já existe: só adiciona o que falta
+#               (commands/, agents/, knowledge/, .claude/) sem sobrescrever código,
+#               README.md, docs/SPEC.md, .gitignore ou settings.json já existentes
 #
 # Exemplos:
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet   # só backend .NET
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto react    # só frontend React
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto angular  # só frontend Angular
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto vue      # só frontend Vue
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet             # novo, só backend .NET
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto react              # novo, só frontend React
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto angular            # novo, só frontend Angular
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto vue                # novo, só frontend Vue
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet existente   # acopla num projeto .NET já existente
 # ============================================================================
 
 set -e
@@ -30,18 +37,18 @@ NC='\033[0m'
 
 if [ -z "$1" ]; then
     echo -e "${RED}Erro: Nome do projeto obrigatório${NC}"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>"
+    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]"
     exit 1
 fi
 
 PROJECT_NAME="$1"
-PROJECT_DIR="./$PROJECT_NAME"
 STACK="$2"
+MODE="${3:-novo}"
 
 if [ -z "$STACK" ]; then
     echo -e "${RED}Erro: informe a stack${NC}"
     echo "Opções válidas: dotnet, angular, react, vue (uma única stack por projeto)"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue>"
+    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]"
     exit 1
 fi
 
@@ -53,6 +60,24 @@ case "$STACK" in
         exit 1
         ;;
 esac
+
+case "$MODE" in
+    novo|existente) ;;
+    *)
+        echo -e "${RED}Erro: modo \"$MODE\" inválido${NC}"
+        echo "Opções válidas: novo, existente"
+        exit 1
+        ;;
+esac
+
+if [ "$MODE" = "existente" ]; then
+    PROJECT_DIR="."
+    if [ -z "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]; then
+        echo -e "${YELLOW}Aviso: a pasta atual está vazia — não parece um projeto existente, mas seguindo mesmo assim.${NC}"
+    fi
+else
+    PROJECT_DIR="./$PROJECT_NAME"
+fi
 
 case "$STACK" in
     dotnet)  STACK_LABEL=".NET 10 (Clean Architecture, somente backend)"; SPECIALIST_AGENT="dotnet-specialist" ;;
@@ -72,7 +97,11 @@ echo -e "${BLUE}╔════════════════════�
 echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v2.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${YELLOW}Criando projeto: $PROJECT_NAME${NC}"
+if [ "$MODE" = "existente" ]; then
+    echo -e "${YELLOW}Acoplando pipeline SDD ao projeto existente: $PROJECT_NAME${NC}"
+else
+    echo -e "${YELLOW}Criando projeto: $PROJECT_NAME${NC}"
+fi
 echo -e "${YELLOW}Stack: $STACK_LABEL${NC}"
 echo ""
 
@@ -86,17 +115,21 @@ mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/.claude/scripts"
 mkdir -p "$PROJECT_DIR/knowledge/templates"
 
-if [ "$STACK" = "dotnet" ]; then
-    mkdir -p "$PROJECT_DIR/src/Domain"
-    mkdir -p "$PROJECT_DIR/src/Application"
-    mkdir -p "$PROJECT_DIR/src/Infrastructure"
-    mkdir -p "$PROJECT_DIR/src/API"
-    mkdir -p "$PROJECT_DIR/src/Tests"
+if [ "$MODE" = "existente" ]; then
+    echo -e "${GREEN}✅ Pastas do pipeline criadas (commands/, agents/, docs/, .docs/, output/, knowledge/)${NC}"
+    echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
 else
-    mkdir -p "$PROJECT_DIR/src"
+    if [ "$STACK" = "dotnet" ]; then
+        mkdir -p "$PROJECT_DIR/src/Domain"
+        mkdir -p "$PROJECT_DIR/src/Application"
+        mkdir -p "$PROJECT_DIR/src/Infrastructure"
+        mkdir -p "$PROJECT_DIR/src/API"
+        mkdir -p "$PROJECT_DIR/src/Tests"
+    else
+        mkdir -p "$PROJECT_DIR/src"
+    fi
+    echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
 fi
-
-echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
 
 # ============================================================================
 # CRIAR .docs/README.md — instruções para o usuário sobre a pasta de entrada
@@ -734,6 +767,19 @@ integrações e decisões (ADRs) relevantes. Complemente lendo `knowledge/vault/
 a informação já existir no Knowledge Engine. Depois de gerar a arquitetura, se `knowledge/` existir, crie um
 arquivo por decisão relevante em `knowledge/vault/10 - ADR/` usando `knowledge/templates/ADR.md` como base.
 
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de desenhar qualquer coisa, use Glob/Read para verificar se já existe código em `src/` (ou na raiz do
+projeto). Se existir:
+- Leia a estrutura de pastas, convenções de nomenclatura, camadas e padrões já usados
+- Baseie a arquitetura no que já existe — **não** proponha uma estrutura de pastas ou padrão diferente do que
+  já está em uso, a menos que a spec peça uma mudança explícita
+- Trate `docs/SPEC.md` como a descrição do que falta implementar/mudar a partir do estado atual, não como se
+  o projeto começasse do zero
+- Aponte no `TECHNICAL_SPECIFICATION.md` o que é novo vs. o que é extensão/ajuste de algo já existente
+
+Se `src/` estiver vazio ou não existir, prossiga normalmente como projeto novo (greenfield).
+
 ## O Que Você Faz
 
 Com base em `docs/SPEC.md` e no relatório do orchestrator-sdd, gere três documentos:
@@ -788,6 +834,19 @@ integrações e decisões (ADRs) relevantes. Complemente lendo `knowledge/vault/
 `knowledge/vault/07 - Integrações/` se precisar de mais detalhe. Nunca decida algo com conhecimento próprio se
 a informação já existir no Knowledge Engine. Depois de gerar a arquitetura, se `knowledge/` existir, crie um
 arquivo por decisão relevante em `knowledge/vault/10 - ADR/` usando `knowledge/templates/ADR.md` como base.
+
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de desenhar qualquer coisa, use Glob/Read para verificar se já existe código em `src/` (ou na raiz do
+projeto). Se existir:
+- Leia a estrutura de pastas, convenções de nomenclatura, componentes e padrões já usados
+- Baseie a arquitetura no que já existe — **não** proponha uma estrutura de pastas ou padrão diferente do que
+  já está em uso, a menos que a spec peça uma mudança explícita
+- Trate `docs/SPEC.md` como a descrição do que falta implementar/mudar a partir do estado atual, não como se
+  o projeto começasse do zero
+- Aponte no `TECHNICAL_SPECIFICATION.md` o que é novo vs. o que é extensão/ajuste de algo já existente
+
+Se `src/` estiver vazio ou não existir, prossiga normalmente como projeto novo (greenfield).
 
 ## O Que Você Faz
 
@@ -847,6 +906,13 @@ filtradas para o backend. Complemente lendo `knowledge/vault/04 - APIs/` e `know
 Dados/` se precisar de mais detalhe. Depois de implementar, se `knowledge/` existir, atualize (ou crie) os
 arquivos correspondentes em `knowledge/vault/04 - APIs/` e `knowledge/vault/05 - Banco de Dados/` para refletir
 o que foi implementado de fato — isso mantém o Knowledge Engine sincronizado com o código.
+
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de implementar, use Glob/Read em `src/` para verificar se já existe código. Se existir, leia as
+entidades, use cases e convenções já usados e **estenda-os** — não recrie do zero nem duplique algo que já
+existe. Siga exatamente os nomes, namespaces e padrões já em uso no projeto, mesmo que diferentes do que você
+proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do zero.
 
 ## O Que Você Implementa
 
@@ -1344,6 +1410,13 @@ Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalid
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
 mais contexto (fluxos de tela, wireframes descritos, textos de interface).
 
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de implementar, use Glob/Read em `src/` para verificar se já existe código. Se existir, leia os
+componentes, hooks e convenções já usados e **estenda-os** — não recrie do zero nem duplique algo que já
+existe. Siga exatamente os padrões de nomenclatura e organização já em uso no projeto, mesmo que diferentes
+do que você proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do zero.
+
 ## O Que Você Implementa
 
 - **Componentes** funcionais React, tipados com TypeScript
@@ -1391,6 +1464,13 @@ Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalid
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
 mais contexto (fluxos de tela, wireframes descritos, textos de interface).
 
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de implementar, use Glob/Read em `src/` para verificar se já existe código. Se existir, leia os
+componentes, services e convenções já usados e **estenda-os** — não recrie do zero nem duplique algo que já
+existe. Siga exatamente os padrões de nomenclatura e organização já em uso no projeto, mesmo que diferentes
+do que você proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do zero.
+
 ## O Que Você Implementa
 
 - **Componentes** standalone, tipados com TypeScript
@@ -1437,6 +1517,13 @@ Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs
 Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalidades, UX e APIs consumidas já
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
 mais contexto (fluxos de tela, wireframes descritos, textos de interface).
+
+## Código Existente (projeto acoplado, não greenfield)
+
+Antes de implementar, use Glob/Read em `src/` para verificar se já existe código. Se existir, leia os
+componentes, composables e convenções já usados e **estenda-os** — não recrie do zero nem duplique algo que já
+existe. Siga exatamente os padrões de nomenclatura e organização já em uso no projeto, mesmo que diferentes
+do que você proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do zero.
 
 ## O Que Você Implementa
 
@@ -1851,6 +1938,9 @@ echo -e "${GREEN}✅ commands/README.md criado${NC}"
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha
 # ============================================================================
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/docs/SPEC.md" ]; then
+    echo -e "${YELLOW}⏭️  docs/SPEC.md já existe — mantido sem alterações${NC}"
+else
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
 # Sua Aplicação - Especificação
@@ -2069,6 +2159,7 @@ SPECEOF
     sed -i "s/__STACK_LABEL__/$STACK_LABEL/g" ""$PROJECT_DIR/docs/SPEC.md""
 fi
 echo -e "${GREEN}✅ docs/SPEC.md criado${NC}"
+fi
 
 # ============================================================================
 # CRIAR README.md e COMECE-AQUI.md
@@ -2085,6 +2176,9 @@ else
     SRC_TREE="└── src/              (código do frontend, implementado pelo agente $SPECIALIST_AGENT)"
 fi
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
+    echo -e "${YELLOW}⏭️  README.md já existe — mantido sem alterações${NC}"
+else
 cat > "$PROJECT_DIR/README.md" << READMEEOF
 # Seu Projeto SDD
 
@@ -2158,6 +2252,7 @@ projeto e veja se \`ponytail@ponytail\` aparece habilitado.
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
+fi
 
 if [ "$STACK" = "dotnet" ]; then
     OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build, commits sugeridos e workflow de testes de API"
@@ -2165,6 +2260,9 @@ else
     OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build e commits sugeridos"
 fi
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/COMECE-AQUI.md" ]; then
+    echo -e "${YELLOW}⏭️  COMECE-AQUI.md já existe — mantido sem alterações${NC}"
+else
 cat > "$PROJECT_DIR/COMECE-AQUI.md" << COMECEEOF
 # 🚀 Comece Aqui
 
@@ -2215,6 +2313,7 @@ Se você usou \`.docs/\`, também terá \`knowledge/\` — a Base de Conheciment
 COMECEEOF
 
 echo -e "${GREEN}✅ COMECE-AQUI.md criado${NC}"
+fi
 
 # ============================================================================
 # CRIAR .claude/hooks/generate-token-report.cjs + .claude/settings.json
@@ -2488,6 +2587,26 @@ TOKENHOOKEOF
 
 echo -e "${GREEN}✅ .claude/hooks/generate-token-report.cjs criado${NC}"
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.claude/settings.json" ]; then
+    node -e '
+const fs = require("fs");
+const target = process.argv[1];
+let settings = {};
+try { settings = JSON.parse(fs.readFileSync(target, "utf-8")); } catch { settings = {}; }
+settings.hooks = settings.hooks || {};
+settings.hooks.Stop = Array.isArray(settings.hooks.Stop) ? settings.hooks.Stop : [];
+const hasTokenHook = settings.hooks.Stop.some((h) => typeof h.command === "string" && h.command.includes("generate-token-report.cjs"));
+if (!hasTokenHook) {
+  settings.hooks.Stop.push({ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"", timeout: 15 });
+}
+settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
+settings.extraKnownMarketplaces.ponytail = { source: { source: "github", repo: "DietrichGebert/ponytail" } };
+settings.enabledPlugins = settings.enabledPlugins || {};
+settings.enabledPlugins["ponytail@ponytail"] = true;
+fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
+' ""$PROJECT_DIR/.claude/settings.json""
+    echo -e "${GREEN}✅ .claude/settings.json já existia — mesclado hook de tokens + plugin ponytail sem remover nada que já estava configurado${NC}"
+else
 cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
 {
   "hooks": {
@@ -2514,11 +2633,26 @@ cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
 SETTINGSEOF
 
 echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens + plugin ponytail habilitado)${NC}"
+fi
 
 # ============================================================================
 # CRIAR .gitignore
 # ============================================================================
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
+    if ! grep -q "Pipeline SDD (criar-template-claude)" "$PROJECT_DIR/.gitignore" 2>/dev/null; then
+        cat >> "$PROJECT_DIR/.gitignore" << 'GITIGNOREAPPENDEOF'
+
+# Pipeline SDD (criar-template-claude)
+output/
+knowledge/embeddings/chunks/
+.claude/hooks/.token-report-state.json
+GITIGNOREAPPENDEOF
+        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, knowledge/embeddings/chunks/, hook state)${NC}"
+    else
+        echo -e "${YELLOW}⏭️  .gitignore já tem as regras do pipeline SDD — nada a fazer${NC}"
+    fi
+else
 cat > "$PROJECT_DIR/.gitignore" << 'GITIGNOREEOF'
 # .NET
 bin/
@@ -2562,6 +2696,7 @@ Thumbs.db
 GITIGNOREEOF
 
 echo -e "${GREEN}✅ .gitignore criado${NC}"
+fi
 
 # ============================================================================
 # RESUMO FINAL
@@ -2569,25 +2704,45 @@ echo -e "${GREEN}✅ .gitignore criado${NC}"
 
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}✅ PROJETO CRIADO COM SUCESSO!${NC}"
+if [ "$MODE" = "existente" ]; then
+    echo -e "${GREEN}✅ PIPELINE SDD ACOPLADO COM SUCESSO!${NC}"
+else
+    echo -e "${GREEN}✅ PROJETO CRIADO COM SUCESSO!${NC}"
+fi
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${BLUE}📁 Pasta criada:${NC} $PROJECT_DIR"
+if [ "$MODE" = "existente" ]; then
+    echo -e "${BLUE}📁 Projeto:${NC} $(pwd)"
+else
+    echo -e "${BLUE}📁 Pasta criada:${NC} $PROJECT_DIR"
+fi
 echo -e "${BLUE}🧱 Stack:${NC} $STACK_LABEL"
 echo ""
 echo -e "${YELLOW}Próximos passos:${NC}"
 echo ""
-echo "  1️⃣  Entrar na pasta"
-echo "     cd $PROJECT_NAME"
-echo ""
-echo "  2️⃣  (Opcional) Jogar documentação bruta em .docs/"
-echo "     cp suas-especificacoes.docx .docs/"
-echo ""
-echo "  3️⃣  Editar especificação"
-echo "     nano docs/SPEC.md"
-echo ""
-echo "  4️⃣  Executar orchestrador (no Claude Code)"
-echo "     /orchestrator"
+if [ "$MODE" = "existente" ]; then
+    echo "  1️⃣  (Opcional) Editar/completar a especificação com o que falta implementar"
+    echo "     nano docs/SPEC.md"
+    echo ""
+    echo "  2️⃣  Executar orchestrador (no Claude Code)"
+    echo "     /orchestrator"
+    echo ""
+    echo -e "${YELLOW}Nada do seu código existente foi tocado ou sobrescrito${NC} — só foram acrescentadas as"
+    echo "pastas e arquivos do pipeline (commands/, agents/, knowledge/, .claude/). Os agentes de arquitetura"
+    echo "e implementação vão ler a estrutura já existente antes de propor/gerar qualquer coisa."
+else
+    echo "  1️⃣  Entrar na pasta"
+    echo "     cd $PROJECT_NAME"
+    echo ""
+    echo "  2️⃣  (Opcional) Jogar documentação bruta em .docs/"
+    echo "     cp suas-especificacoes.docx .docs/"
+    echo ""
+    echo "  3️⃣  Editar especificação"
+    echo "     nano docs/SPEC.md"
+    echo ""
+    echo "  4️⃣  Executar orchestrador (no Claude Code)"
+    echo "     /orchestrator"
+fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""

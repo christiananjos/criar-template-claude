@@ -7,33 +7,41 @@ argument-hint: [nome-do-projeto]
 
 Crie um novo projeto usando o script de scaffolding deste plugin.
 
-## Fluxo de Confirmação (Apenas 3 Perguntas)
+## Fluxo de Confirmação
 
-Faça **somente estas três perguntas** ao usuário, uma de cada vez. Depois de respondidas, **execute tudo o resto automaticamente, sem pedir mais nenhuma confirmação**.
+Faça as perguntas abaixo, uma de cada vez, na ordem. A primeira pergunta muda o resto do fluxo. Depois de
+todas respondidas, **execute tudo o resto automaticamente, sem pedir mais nenhuma confirmação**.
 
-### Pergunta 1 — Caminho do projeto
+### Pergunta 1 — Projeto novo ou existente
 
-Pergunte onde o projeto deve ser criado:
+> "Você quer criar um projeto novo do zero, ou acoplar este pipeline SDD a um projeto que já existe (que já
+> tem código/casca escrita)?
+> 1. Novo projeto (do zero)
+> 2. Projeto existente (só acrescenta o pipeline, sem sobrescrever o código)"
 
-> "Qual o caminho (pasta) onde o projeto deve ser criado?"
+Guarde a resposta como `MODO`: `novo` ou `existente`.
 
-Se o usuário não especificar, assuma o diretório atual (`.`).
+### Pergunta 2 — Caminho
 
-### Pergunta 2 — Nome do projeto
+- Se `MODO = novo`: "Qual o caminho (pasta) onde o projeto deve ser criado?" Se o usuário não especificar, assuma o diretório atual (`.`).
+- Se `MODO = existente`: "Qual o caminho da pasta raiz do projeto já existente?" Essa pasta **precisa já existir** — se não existir, avise e não prossiga com essa resposta.
 
-Se o usuário já informou o nome no argumento do comando, use-o diretamente e não pergunte de novo. Caso contrário, pergunte:
+### Pergunta 3 — Nome do projeto
 
-> "Qual o nome do projeto?"
+- Se `MODO = novo`: se o usuário já informou o nome no argumento do comando, use-o direto e não pergunte de novo; caso contrário, pergunte "Qual o nome do projeto?"
+- Se `MODO = existente`: **não pergunte** — use o nome da pasta existente (`basename` do caminho da Pergunta 2) como identificador.
 
-### Pergunta 3 — Stack
+### Pergunta 4 — Stack
 
-Pergunte qual stack o usuário quer, como **uma única escolha**. Este template cria **UMA stack por projeto** — nunca backend e frontend juntos no mesmo projeto. Cada opção gera um projeto 100% naquela stack, com só os agentes relevantes a ela (sem misturar contexto/agentes à toa e sem gastar token com o que não vai ser usado):
+Pergunte qual stack o usuário quer, como **uma única escolha**. Este template cria/acopla **UMA stack por projeto** — nunca backend e frontend juntos no mesmo projeto. Cada opção ativa só os agentes relevantes a ela (sem misturar contexto/agentes à toa e sem gastar token com o que não vai ser usado):
 
 > "Qual stack você quer usar?
 > 1. .NET (backend, Clean Architecture)
 > 2. Angular
 > 3. React
 > 4. Vue"
+
+Se `MODO = existente`, deixe claro que essa é a stack do código já existente na pasta (não uma nova stack a ser criada do zero).
 
 Mapeie a resposta para o parâmetro do script:
 
@@ -50,25 +58,40 @@ criados como projetos separados é algo que o usuário decide e implementa por f
 
 ## A Partir Daqui — Tudo Automático
 
-Depois das três respostas, **não faça mais nenhuma pergunta**. O script só aceita o nome do projeto (cria `./NOME_DO_PROJETO` a partir do diretório atual), então primeiro entre no caminho informado e depois rode o script só com o nome:
+Depois das respostas, **não faça mais nenhuma pergunta**. Rode o script passando o modo como terceiro argumento:
 
+**Se `MODO = novo`** (cria `./NOME_DO_PROJETO` a partir do caminho informado):
 ```bash
-mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO STACK_ESCOLHIDA
+mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO STACK_ESCOLHIDA novo
+```
+Se o caminho informado for o diretório atual (`.`), pule o `mkdir`/`cd` e rode o script direto.
+
+**Se `MODO = existente`** (entra na pasta já existente e acopla o pipeline nela, sem criar subpasta nova):
+```bash
+cd "CAMINHO_DO_PROJETO_EXISTENTE" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACK_ESCOLHIDA existente
 ```
 
-Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`. Se o caminho informado for o diretório atual (`.`), pule o `mkdir`/`cd` e rode o script direto.
+Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`.
+
+No modo `existente`, o script:
+- **Não sobrescreve** código em `src/`, nem `README.md`, `COMECE-AQUI.md`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline).
+- Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + plugin ponytail) em vez de sobrescrever, preservando o que já estava configurado.
+- Sempre (re)cria `commands/`, `agents/`, `knowledge/templates/` e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
+- Os agentes de arquitetura e implementação (`architect-sdd`, `*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
 
 E então:
-1. Confirme que o projeto foi criado, mencionando a stack final (ex: "React 18 + TypeScript (somente frontend)" ou ".NET 10 (Clean Architecture, somente backend)")
+1. Confirme o resultado, mencionando a stack (ex: "React 18 + TypeScript (somente frontend)" ou ".NET 10 (Clean Architecture, somente backend)") e o modo usado (novo projeto vs. pipeline acoplado a um projeto existente).
 2. Explique os próximos passos, sem esperar resposta:
-   - Entrar na pasta do projeto criado
+   - (Se `novo`) Entrar na pasta do projeto criado
    - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `.docs/`
-   - Editar `docs/SPEC.md` com a especificação da aplicação
+   - Editar `docs/SPEC.md` com a especificação (no modo `existente`, descrevendo o que falta implementar/mudar)
    - Rodar `/orchestrator` dentro do projeto para disparar os agentes automaticamente
 
 ## Resultado Esperado
 
-O script cria a seguinte estrutura dentro de `NOME_DO_PROJETO/`:
+No modo `novo`, o script cria a seguinte estrutura dentro de `NOME_DO_PROJETO/`. No modo `existente`, ele
+acrescenta as mesmas pastas/arquivos do pipeline (`commands/`, `agents/`, `knowledge/`, `.claude/`) dentro da
+pasta já existente, pulando `src/` e qualquer arquivo de usuário que já exista:
 
 ```
 NOME_DO_PROJETO/

@@ -83,7 +83,7 @@ E então:
 1. Confirme o resultado, mencionando a stack (ex: "React 18 + TypeScript (somente frontend)" ou ".NET 10 (Clean Architecture, somente backend)") e o modo usado (novo projeto vs. pipeline acoplado a um projeto existente).
 2. Explique os próximos passos, sem esperar resposta:
    - (Se `novo`) Entrar na pasta do projeto criado
-   - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `.docs/`
+   - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `docs/raw/`
    - Editar `docs/SPEC.md` com a especificação (no modo `existente`, descrevendo o que falta implementar/mudar)
    - Rodar `/orchestrator` dentro do projeto para disparar os agentes automaticamente
 
@@ -111,12 +111,12 @@ NOME_DO_PROJETO/
 │   │                              relatório de tokens + plugin ponytail habilitado
 │   ├── hooks/generate-token-report.cjs
 │   └── scripts/knowledge-engine-build.cjs  ← reconstrói grafo/embeddings a partir de knowledge/vault/
-├── .docs/                    ← opcional: documentação bruta de entrada (README.md explica o uso)
 ├── docs/SPEC.md              ← template para o usuário preencher
+├── docs/raw/                    ← opcional: documentação bruta de entrada (README.md explica o uso)
 ├── knowledge/
 │   └── templates/            ← templates Obsidian prontos (Feature, API, ADR, Bug, TestCase);
 │                                o resto (vault/, graph/, embeddings/, cache/, index.json) é gerado
-│                                pelo agente knowledge-bootstrap na primeira vez que .docs/ tiver arquivos
+│                                pelo agente knowledge-bootstrap na primeira vez que docs/raw/ tiver arquivos
 ├── output/                   ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
 └── src/                      ← dotnet: Domain, Application, Infrastructure, API, Tests
                                   frontend: pasta única, organizada pelo specialist da stack
@@ -128,9 +128,9 @@ depois. `CLAUDE.md` e `.mcp.json` só são criados se ainda não existirem (mesm
 `README.md`/`COMECE-AQUI.md`/`docs/SPEC.md`), e `claude --worktree nome-da-frente` deixa rodar duas frentes do
 pipeline em paralelo sem os agentes esbarrarem nos mesmos arquivos.
 
-Se o usuário colocar arquivos em `.docs/`, a primeira etapa do `/orchestrator` (Fase 0 — `knowledge-bootstrap`)
+Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/orchestrator` (Fase 0 — `knowledge-bootstrap`)
 transforma tudo numa Base de Conhecimento estruturada em `knowledge/vault/`, compatível com Obsidian, que
-os demais agentes passam a consultar como fonte única de verdade. Se `.docs/` ficar vazia, essa fase é pulada
+os demais agentes passam a consultar como fonte única de verdade. Se `docs/raw/` ficar vazia, essa fase é pulada
 automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
 
 Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.

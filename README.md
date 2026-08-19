@@ -4,10 +4,10 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 
 ## Como funciona
 
-1. `/criar-template-claude` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `.docs/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
-2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `.docs/`
+1. `/criar-template-claude` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
+2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `.docs/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
+4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
 5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
 
 ## Instalação
@@ -54,7 +54,7 @@ Todo projeto sai com 9 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o sp
 
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
-| `knowledge-bootstrap` | Fase 0 — consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) | sempre |
+| `knowledge-bootstrap` | Fase 0 — consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) | sempre |
 | `orchestrator-sdd` | Valida a especificação | sempre |
 | `architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
 | `dotnet-specialist` | Implementa o backend .NET 10 | só stack `dotnet` |
@@ -71,11 +71,11 @@ Todo projeto sai com 9 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o sp
 ## Base de Conhecimento (Knowledge Engine)
 
 Se você tiver documentação já pronta do projeto (Word, PDF, planilhas, imagens, atas de reunião), coloque tudo
-em `.docs/` antes de chamar `/orchestrator`. A Fase 0 (`knowledge-bootstrap`) lê e consolida todo esse material
+em `docs/raw/` antes de chamar `/orchestrator`. A Fase 0 (`knowledge-bootstrap`) lê e consolida todo esse material
 em `knowledge/vault/` — uma base de conhecimento em Markdown, compatível com Obsidian (pastas por domínio,
 links `[[internos]]`, glossário e índice), além de um grafo de relacionamentos (`knowledge/graph/`), chunks
 prontos para busca semântica (`knowledge/embeddings/`) e um resumo por área (`knowledge/cache/`) para os
-demais agentes consultarem em vez de reler tudo. Se `.docs/` estiver vazia, essa fase é pulada e o pipeline
+demais agentes consultarem em vez de reler tudo. Se `docs/raw/` estiver vazia, essa fase é pulada e o pipeline
 segue normalmente a partir de `docs/SPEC.md`, como sempre funcionou.
 
 `knowledge/graph/` e `knowledge/embeddings/` são reconstruídos deterministicamente por

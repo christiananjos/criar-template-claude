@@ -109,14 +109,14 @@ mkdir -p "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/.claude/commands"
 mkdir -p "$PROJECT_DIR/.claude/agents"
 mkdir -p "$PROJECT_DIR/docs"
-mkdir -p "$PROJECT_DIR/.docs"
+mkdir -p "$PROJECT_DIR/docs/raw"
 mkdir -p "$PROJECT_DIR/output"
 mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/.claude/scripts"
 mkdir -p "$PROJECT_DIR/knowledge/templates"
 
 if [ "$MODE" = "existente" ]; then
-    echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, .docs/, output/, knowledge/)${NC}"
+    echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/)${NC}"
     echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
 else
     if [ "$STACK" = "dotnet" ]; then
@@ -128,15 +128,15 @@ else
     else
         mkdir -p "$PROJECT_DIR/src"
     fi
-    echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
+    echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/, src/)${NC}"
 fi
 
 # ============================================================================
-# CRIAR .docs/README.md — instruções para o usuário sobre a pasta de entrada
+# CRIAR docs/raw/README.md — instruções para o usuário sobre a pasta de entrada
 # ============================================================================
 
-cat > ""$PROJECT_DIR/.docs/README.md"" << 'DOCSREADMEEOF'
-# 📥 Pasta de Documentação Bruta (.docs/)
+cat > ""$PROJECT_DIR/docs/raw/README.md"" << 'DOCSREADMEEOF'
+# 📥 Pasta de Documentação Bruta (docs/raw/)
 
 Coloque aqui **toda** a documentação original do projeto, em qualquer formato:
 
@@ -174,7 +174,7 @@ Os arquivos originais **nunca são alterados**. Eles ficam preservados também e
 como referência permanente.
 DOCSREADMEEOF
 
-echo -e "${GREEN}✅ .docs/README.md criado${NC}"
+echo -e "${GREEN}✅ docs/raw/README.md criado${NC}"
 
 # ============================================================================
 # CRIAR knowledge/templates/ — templates Obsidian estáticos usados pelo
@@ -547,7 +547,7 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 cat > ""$PROJECT_DIR/.claude/agents/knowledge-bootstrap.md"" << 'AGENTEOF'
 ---
 name: knowledge-bootstrap
-description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `.docs/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `.docs/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em .docs/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em .docs/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em .docs/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: .docs/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como .docs/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
+description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 ---
@@ -556,19 +556,19 @@ Você é o **Knowledge Bootstrap**, a Fase 0 do pipeline SDD. Você roda antes d
 
 ## Sua Missão
 
-Transformar toda a documentação bruta recebida em `.docs/` numa **Base de Conhecimento estruturada** em
+Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de Conhecimento estruturada** em
 `knowledge/`, compatível com Obsidian, que sirva de fonte única de verdade para todos os agentes seguintes
 (Orchestrator, Architect, .NET/Frontend Specialist, Compliance, QA, Build & Test, etc.).
 
 ## Quando Rodar
 
-- Só execute se `.docs/` existir e tiver **pelo menos um arquivo** (ignore `README.md`, que é só instrução).
-- Se `.docs/` estiver vazia, não crie a pasta `knowledge/` — produza um relatório curto dizendo que a Fase 0
+- Só execute se `docs/raw/` existir e tiver **pelo menos um arquivo** (ignore `README.md`, que é só instrução).
+- Se `docs/raw/` estiver vazia, não crie a pasta `knowledge/` — produza um relatório curto dizendo que a Fase 0
   foi pulada e encerre. O pipeline segue normalmente a partir de `docs/SPEC.md`.
 
 ## Passo a Passo
 
-1. **Preserve os originais** — copie (não mova) cada arquivo de `.docs/` para `knowledge/source/`, mantendo
+1. **Preserve os originais** — copie (não mova) cada arquivo de `docs/raw/` para `knowledge/source/`, mantendo
    a estrutura de subpastas. Esses arquivos nunca são editados; funcionam como referência permanente.
 2. **Leia e interprete cada documento**:
    - `.md`, `.txt`, `.csv`: leia diretamente.
@@ -630,7 +630,7 @@ Transformar toda a documentação bruta recebida em `.docs/` numa **Base de Conh
 7. **Verifique `docs/SPEC.md`**: se ainda estiver com o conteúdo padrão do template (não editado pelo usuário),
    preencha-o com base no que foi consolidado no vault, para que `orchestrator-sdd` tenha uma spec normalizada
    para validar. Se `docs/SPEC.md` já tiver conteúdo real escrito pelo usuário, **não sobrescreva** — apenas
-   sinalize no relatório se houver divergência entre o SPEC.md e o que os documentos em `.docs/` dizem.
+   sinalize no relatório se houver divergência entre o SPEC.md e o que os documentos em `docs/raw/` dizem.
 
 ## Formato de Saída
 
@@ -639,7 +639,7 @@ Salve em `output/0-knowledge-bootstrap.md`:
 ```markdown
 # Relatório — Knowledge Bootstrap
 
-## Status: ✅ CONCLUÍDO / ⚠️ CONCLUÍDO COM PENDÊNCIAS / ❌ FALHOU / ⏭️ PULADO (.docs/ vazia)
+## Status: ✅ CONCLUÍDO / ⚠️ CONCLUÍDO COM PENDÊNCIAS / ❌ FALHOU / ⏭️ PULADO (docs/raw/ vazia)
 
 ## Documentos Processados
 - Especificacao.docx → knowledge/vault/00 - Projeto/Visão Geral.md
@@ -680,7 +680,7 @@ AGENTEOF
 cat > ""$PROJECT_DIR/.claude/agents/orchestrator-sdd.md"" << 'AGENTEOF'
 ---
 name: orchestrator-sdd
-description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `.docs/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
+description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -1561,11 +1561,11 @@ if [ "$STACK" = "dotnet" ]; then
 ## 📋 Como Usar
 
 1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
-   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
+   reunião etc., coloque tudo em `docs/raw/` (veja `docs/raw/README.md`). Se essa pasta tiver arquivos, a Fase 0
    transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
 
 2. **Prepare sua especificação**
-   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
+   - Edite `docs/SPEC.md` com seus requisitos (se usou `docs/raw/`, a Fase 0 pode preencher um rascunho aqui pra
      você revisar)
 
 3. **Chame o orchestrador**
@@ -1584,9 +1584,9 @@ if [ "$STACK" = "dotnet" ]; then
 ## 🎯 O que Acontece
 
 ```
-.docs/ (opcional)
+docs/raw/ (opcional)
     ↓
-📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
+📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se docs/raw/ tiver arquivos)
     ↓
 docs/SPEC.md
     ↓
@@ -1632,7 +1632,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 ## ⚠️ Regras de Execução
 
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
+- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
 - **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Build & Test` já ter passado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
@@ -1642,7 +1642,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 Após execução, em `output/`:
 
 ```
-0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
+0-knowledge-bootstrap.md      (Base de Conhecimento — só se docs/raw/ foi usada)
 1-orchestrator.md            (Validação)
 2-architect.md                (Arquitetura)
 3-dotnet-specialist.md        (Código .NET)
@@ -1656,12 +1656,12 @@ token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
-E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
+E, se `docs/raw/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
 projeto (diferente de `output/`, que é por rodada).
 
 ## ✅ Pré-requisitos
 
-- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
+- ✅ `docs/SPEC.md` preenchida **ou** `docs/raw/` com documentação bruta
 - ✅ Conexão com internet
 
 ## 🚀 Comece Agora
@@ -1685,11 +1685,11 @@ else
 ## 📋 Como Usar
 
 1. **(Opcional) Documentação bruta** — se você tiver Word, PDF, planilhas, prints de wireframe, atas de
-   reunião etc., coloque tudo em `.docs/` (veja `.docs/README.md`). Se essa pasta tiver arquivos, a Fase 0
+   reunião etc., coloque tudo em `docs/raw/` (veja `docs/raw/README.md`). Se essa pasta tiver arquivos, a Fase 0
    transforma tudo numa Base de Conhecimento em `knowledge/` antes de qualquer outra coisa.
 
 2. **Prepare sua especificação**
-   - Edite `docs/SPEC.md` com seus requisitos (se usou `.docs/`, a Fase 0 pode preencher um rascunho aqui pra
+   - Edite `docs/SPEC.md` com seus requisitos (se usou `docs/raw/`, a Fase 0 pode preencher um rascunho aqui pra
      você revisar). Se o frontend consome uma API externa, descreva os endpoints nela.
 
 3. **Chame o orchestrador**
@@ -1708,9 +1708,9 @@ else
 ## 🎯 O que Acontece
 
 ```
-.docs/ (opcional)
+docs/raw/ (opcional)
     ↓
-📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se .docs/ tiver arquivos)
+📚 Knowledge Bootstrap  → Consolida tudo em knowledge/ (só roda se docs/raw/ tiver arquivos)
     ↓
 docs/SPEC.md
     ↓
@@ -1754,7 +1754,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 ## ⚠️ Regras de Execução
 
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `.docs/` existir e tiver pelo menos um arquivo.
+- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
 
@@ -1763,7 +1763,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 Após execução, em `output/`:
 
 ```
-0-knowledge-bootstrap.md      (Base de Conhecimento — só se .docs/ foi usada)
+0-knowledge-bootstrap.md      (Base de Conhecimento — só se docs/raw/ foi usada)
 1-orchestrator.md            (Validação)
 2-architect.md                (Arquitetura)
 __SPECIALIST_OUTPUT_FILE__      (Código frontend)
@@ -1776,12 +1776,12 @@ token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
 
-E, se `.docs/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
+E, se `docs/raw/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
 projeto (diferente de `output/`, que é por rodada).
 
 ## ✅ Pré-requisitos
 
-- ✅ `docs/SPEC.md` preenchida **ou** `.docs/` com documentação bruta
+- ✅ `docs/SPEC.md` preenchida **ou** `docs/raw/` com documentação bruta
 - ✅ Conexão com internet
 
 ## 🚀 Comece Agora
@@ -1806,11 +1806,11 @@ Stack deste projeto: **.NET 10 (somente backend)**
 
 ## 🎯 Fluxo Recomendado
 
-1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
+1. **(Opcional) Jogue sua documentação bruta em `docs/raw/`**
    ```
-   cp suas-especificacoes.docx .docs/
+   cp suas-especificacoes.docx docs/raw/
    ```
-   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
+   Word, PDF, planilhas, imagens — o que tiver. Veja `docs/raw/README.md`.
 
 2. **Edite sua especificação**
    ```
@@ -1823,19 +1823,19 @@ Stack deste projeto: **.NET 10 (somente backend)**
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `.docs/` tiver arquivos
+   `knowledge-bootstrap`, se `docs/raw/` tiver arquivos
 
 ## 📚 Estrutura
 
 - **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
 - **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
-- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
+- **`docs/raw/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
 | # | Agente | Responsabilidade |
 |---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
+| 0 | `knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
 | 1 | `orchestrator-sdd` | Valida a especificação |
 | 2 | `architect-sdd` | Gera arquitetura técnica |
 | 3 | `dotnet-specialist` | Implementa backend .NET |
@@ -1869,11 +1869,11 @@ Stack deste projeto: **__STACK_LABEL__**
 
 ## 🎯 Fluxo Recomendado
 
-1. **(Opcional) Jogue sua documentação bruta em `.docs/`**
+1. **(Opcional) Jogue sua documentação bruta em `docs/raw/`**
    ```
-   cp suas-especificacoes.docx .docs/
+   cp suas-especificacoes.docx docs/raw/
    ```
-   Word, PDF, planilhas, imagens — o que tiver. Veja `.docs/README.md`.
+   Word, PDF, planilhas, imagens — o que tiver. Veja `docs/raw/README.md`.
 
 2. **Edite sua especificação**
    ```
@@ -1886,13 +1886,13 @@ Stack deste projeto: **__STACK_LABEL__**
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `.docs/` tiver arquivos
+   `knowledge-bootstrap`, se `docs/raw/` tiver arquivos
 
 ## 📚 Estrutura
 
 - **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
 - **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
-- **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
+- **`docs/raw/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
@@ -1900,7 +1900,7 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 
 | # | Agente | Responsabilidade |
 |---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `.docs/` numa Base de Conhecimento em `knowledge/` (só roda se `.docs/` tiver arquivos) |
+| 0 | `knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
 | 1 | `orchestrator-sdd` | Valida a especificação |
 | 2 | `architect-sdd` | Gera arquitetura técnica |
 | 3 | `__SPECIALIST__` | Implementa o frontend |
@@ -2202,7 +2202,7 @@ $CLAUDE_BUILD_STEPS
 ## Onde as coisas vivem
 
 - \`docs/SPEC.md\` — a especificação que você escreve/edita
-- \`.docs/\` — documentação bruta opcional (Word, PDF, planilhas...); a Fase 0 do pipeline consolida em \`knowledge/\`
+- \`docs/raw/\` — documentação bruta opcional (Word, PDF, planilhas...); a Fase 0 do pipeline consolida em \`knowledge/\`
 - \`knowledge/\` — Base de Conhecimento (Obsidian-compatível), persiste entre rodadas
 - \`output/\` — resultado de cada rodada do \`/orchestrator\`, incluindo \`token-report.md\`
 - \`src/\` — código do projeto
@@ -2364,7 +2364,7 @@ Projeto criado com **Pipeline SDD** — Stack: $STACK_LABEL
 ## 🚀 Quick Start
 
 ### 1. (Opcional) Documentação Bruta
-Tem Word, PDF, planilhas, prints de wireframe, atas de reunião? Jogue tudo em \`.docs/\` (veja \`.docs/README.md\`).
+Tem Word, PDF, planilhas, prints de wireframe, atas de reunião? Jogue tudo em \`docs/raw/\` (veja \`docs/raw/README.md\`).
 Se essa pasta tiver arquivos, o \`/orchestrator\` transforma tudo numa Base de Conhecimento em \`knowledge/\`
 antes de qualquer outra coisa.
 
@@ -2398,12 +2398,11 @@ seu-projeto/
 │   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine)
 │   └── settings.json       (permissões + hook de tokens + plugin ponytail habilitado)
 │
-├── .docs/             (opcional: sua documentação bruta — Word, PDF, planilhas...)
-│
 ├── docs/
-│   └── SPEC.md       (sua especificação)
+│   ├── SPEC.md       (sua especificação)
+│   └── raw/           (opcional: sua documentação bruta — Word, PDF, planilhas...)
 │
-├── knowledge/         (Base de Conhecimento gerada a partir de .docs/, se usada)
+├── knowledge/         (Base de Conhecimento gerada a partir de docs/raw/, se usada)
 │   ├── source/        (documentos originais preservados)
 │   ├── vault/          (conteúdo organizado em Markdown, compatível com Obsidian)
 │   ├── graph/          (grafo de relacionamentos entre documentos)
@@ -2476,8 +2475,8 @@ Bem-vindo ao seu projeto SDD! Stack: $STACK_LABEL
 ### 0️⃣ (Opcional) Documentação Bruta
 
 Se você já tem material do projeto — Word, PDF, planilhas, prints de wireframe, atas de reunião — jogue tudo
-em \`.docs/\`. Ao rodar o orchestrador, esse material vira automaticamente uma Base de Conhecimento em
-\`knowledge/\`, compatível com Obsidian, que todos os agentes consultam. Veja \`.docs/README.md\`.
+em \`docs/raw/\`. Ao rodar o orchestrador, esse material vira automaticamente uma Base de Conhecimento em
+\`knowledge/\`, compatível com Obsidian, que todos os agentes consultam. Veja \`docs/raw/README.md\`.
 
 ### 1️⃣ Edite a Especificação
 
@@ -2487,7 +2486,7 @@ Abra \`docs/SPEC.md\` e descreva sua aplicação:
 - Modelo de dados
 - Endpoints
 
-(Se você usou \`.docs/\`, a Fase 0 pode deixar um rascunho aqui pronto pra você revisar.)
+(Se você usou \`docs/raw/\`, a Fase 0 pode deixar um rascunho aqui pronto pra você revisar.)
 
 ### 2️⃣ Execute o Orchestrador
 
@@ -2503,7 +2502,7 @@ Aguarde ~20-30 minutos enquanto os agentes trabalham em cascata.
 
 Você terá em \`output/\` $OUTPUTS_DESC.
 
-Se você usou \`.docs/\`, também terá \`knowledge/\` — a Base de Conhecimento que persiste entre execuções
+Se você usou \`docs/raw/\`, também terá \`knowledge/\` — a Base de Conhecimento que persiste entre execuções
 (diferente de \`output/\`, que é por rodada) e que os agentes continuam consultando conforme o projeto evolui.
 
 ---
@@ -2978,8 +2977,8 @@ else
     echo "  1️⃣  Entrar na pasta"
     echo "     cd $PROJECT_NAME"
     echo ""
-    echo "  2️⃣  (Opcional) Jogar documentação bruta em .docs/"
-    echo "     cp suas-especificacoes.docx .docs/"
+    echo "  2️⃣  (Opcional) Jogar documentação bruta em docs/raw/"
+    echo "     cp suas-especificacoes.docx docs/raw/"
     echo ""
     echo "  3️⃣  Editar especificação"
     echo "     nano docs/SPEC.md"
@@ -2992,6 +2991,6 @@ echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
 echo -e "${BLUE}Comandos disponíveis em:${NC} .claude/commands/"
 echo -e "${BLUE}Subagentes disponíveis em:${NC} .claude/agents/"
-echo -e "${BLUE}Documentação bruta (opcional):${NC} .docs/ — vira Base de Conhecimento em knowledge/ na Fase 0 do /orchestrator"
+echo -e "${BLUE}Documentação bruta (opcional):${NC} docs/raw/ — vira Base de Conhecimento em knowledge/ na Fase 0 do /orchestrator"
 echo -e "${BLUE}Relatório de tokens:${NC} gerado automaticamente em output/token-report.md a cada rodada do /orchestrator"
 echo ""

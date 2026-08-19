@@ -1846,6 +1846,10 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | 8 | `commit-message-generator` | Gera commits semânticos |
 | 9 | `swagger-tester` | Gera workflow de testes de API |
 
+## 🧩 Comando avulso
+
+- `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual.
+
 ## ⏱️ Tempo
 
 - Pipeline completo (`/orchestrator`): 20-30 minutos
@@ -1910,6 +1914,10 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 | 7 | `build-test-validator` | Valida build e testes |
 | 8 | `commit-message-generator` | Gera commits semânticos |
 
+## 🧩 Comando avulso
+
+- `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual.
+
 ## ⏱️ Tempo
 
 - Pipeline completo (`/orchestrator`): 15-25 minutos
@@ -1927,6 +1935,49 @@ CMDREADMEEOF
     sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/commands/README.md""
 fi
 echo -e "${GREEN}✅ .claude/commands/README.md criado${NC}"
+
+# ============================================================================
+# CRIAR .claude/commands/commit.md — comando avulso, igual pra qualquer stack
+# ============================================================================
+
+cat > ""$PROJECT_DIR/.claude/commands/commit.md"" << 'COMMITEOF'
+---
+description: Gera a mensagem de commit a partir do diff atual e faz push na branch atual
+argument-hint: [contexto opcional sobre o que mudou]
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*)
+---
+
+Contexto opcional passado pelo usuário (pode estar vazio): $ARGUMENTS
+
+## O que fazer
+
+1. Rode `git status --short` e `git diff` (staged + unstaged) para ver exatamente o que mudou.
+   Se não houver nada para commitar, avise e pare — não crie um commit vazio.
+
+2. Rode `git log --oneline -15` para seguir o estilo de mensagens já usado neste repositório:
+   - Prefixo de tipo (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`) quando o tipo for óbvio pelo diff.
+   - Descrição curta, no mesmo idioma e tempo verbal já usados no histórico do projeto.
+   - Sem emojis, a menos que o histórico já use.
+   - Se o diff mistura mudanças não relacionadas, prefira resumir o essencial numa linha só em vez de
+     inventar múltiplos commits — separar em commits distintos só se for trivial (`git add` por arquivo).
+
+3. Monte a mensagem final. Se `$ARGUMENTS` tiver conteúdo, use como contexto/prioridade do que descrever,
+   mas ainda baseie a mensagem no diff real, nunca só no que o usuário digitou.
+
+4. A mensagem de commit deve terminar com esta linha (obrigatória, harness):
+   ```
+   Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+   ```
+
+5. Rode `git branch --show-current` e commite/pushe nessa mesma branch — não crie nem troque de branch
+   por conta própria. Se a branch atual não tiver upstream configurado, use `git push -u origin <branch>`.
+
+6. `git add -A`, `git commit -m "..."` (heredoc se a mensagem tiver corpo em múltiplas linhas) e `git push`.
+
+7. Reporte o resultado: hash do commit, resumo de uma linha do que foi commitado, e confirmação do push
+   (ou o erro, se o push falhar — não tente forçar).
+COMMITEOF
+echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
 
 # ============================================================================
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha

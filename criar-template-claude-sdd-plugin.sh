@@ -12,7 +12,7 @@
 # O terceiro argumento é opcional (default: novo):
 #   novo      → projeto do zero, cria tudo (comportamento original)
 #   existente → acopla o pipeline a um projeto que já existe: só adiciona o que falta
-#               (commands/, agents/, knowledge/, .claude/) sem sobrescrever código,
+#               (.claude/commands/, .claude/agents/, knowledge/) sem sobrescrever código,
 #               README.md, docs/SPEC.md, .gitignore ou settings.json já existentes
 #
 # Exemplos:
@@ -106,8 +106,8 @@ echo -e "${YELLOW}Stack: $STACK_LABEL${NC}"
 echo ""
 
 mkdir -p "$PROJECT_DIR"
-mkdir -p "$PROJECT_DIR/commands"
-mkdir -p "$PROJECT_DIR/agents"
+mkdir -p "$PROJECT_DIR/.claude/commands"
+mkdir -p "$PROJECT_DIR/.claude/agents"
 mkdir -p "$PROJECT_DIR/docs"
 mkdir -p "$PROJECT_DIR/.docs"
 mkdir -p "$PROJECT_DIR/output"
@@ -116,7 +116,7 @@ mkdir -p "$PROJECT_DIR/.claude/scripts"
 mkdir -p "$PROJECT_DIR/knowledge/templates"
 
 if [ "$MODE" = "existente" ]; then
-    echo -e "${GREEN}✅ Pastas do pipeline criadas (commands/, agents/, docs/, .docs/, output/, knowledge/)${NC}"
+    echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, .docs/, output/, knowledge/)${NC}"
     echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
 else
     if [ "$STACK" = "dotnet" ]; then
@@ -128,7 +128,7 @@ else
     else
         mkdir -p "$PROJECT_DIR/src"
     fi
-    echo -e "${GREEN}✅ Pastas criadas (commands/, agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
+    echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, .docs/, output/, knowledge/, src/)${NC}"
 fi
 
 # ============================================================================
@@ -544,7 +544,7 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 # CRIAR AGENTS — agentes fixos (sempre incluídos)
 # ============================================================================
 
-cat > ""$PROJECT_DIR/agents/knowledge-bootstrap.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/knowledge-bootstrap.md"" << 'AGENTEOF'
 ---
 name: knowledge-bootstrap
 description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `.docs/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `.docs/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em .docs/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em .docs/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em .docs/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: .docs/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como .docs/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
@@ -599,12 +599,9 @@ Transformar toda a documentação bruta recebida em `.docs/` numa **Base de Conh
    ├── Glossário.md             (termos de negócio e técnicos usados no projeto, em ordem alfabética)
    └── Index.md                 (lista todos os documentos do vault, organizados por pasta, com links)
    ```
-   - Cada documento deve usar **links internos no estilo Obsidian** (`[[Nome do Outro Documento]]`) para
-     conectar regras, funcionalidades, APIs, tabelas e testes relacionados entre si.
-   - Cada documento deve indicar sua origem (ex.: `> Fonte: Especificacao.docx`) para manter rastreabilidade.
-   - **Nunca invente informação.** Se algo estiver ambíguo ou faltando, registre como lacuna no relatório final
-     em vez de completar com suposição.
-   - Se o mesmo assunto aparecer em documentos diferentes, consolide num único arquivo e remova a duplicidade.
+   - Siga as convenções de `.claude/rules/knowledge-vault.md` (carrega automaticamente ao mexer em
+     `knowledge/vault/**`): links internos estilo Obsidian, rastreabilidade de fonte, nunca inventar
+     informação, e consolidar em vez de duplicar quando o mesmo assunto aparece em documentos diferentes.
 4. **Gere o grafo e os chunks de embeddings automaticamente** — depois de escrever o vault, rode:
    ```bash
    node .claude/scripts/knowledge-engine-build.cjs
@@ -680,7 +677,7 @@ Salve em `output/0-knowledge-bootstrap.md`:
   origem em `knowledge/source/`.
 AGENTEOF
 
-cat > ""$PROJECT_DIR/agents/orchestrator-sdd.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/orchestrator-sdd.md"" << 'AGENTEOF'
 ---
 name: orchestrator-sdd
 description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `.docs/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
@@ -745,7 +742,7 @@ Produza um relatório curto e direto:
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/agents/architect-sdd.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/architect-sdd.md"" << 'AGENTEOF'
 ---
 name: architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
@@ -813,7 +810,7 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 else
-    cat > ""$PROJECT_DIR/agents/architect-sdd.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/architect-sdd.md"" << 'AGENTEOF'
 ---
 name: architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
@@ -876,16 +873,16 @@ Decisões arquiteturais relevantes (formato ADR curto):
 
 ## Regras Importantes
 
-- Separe claramente componentes de apresentação (UI) de lógica de estado/negócio (hooks, services ou composables, conforme a stack escolhida)
+- Siga `.claude/rules/frontend-components.md` para separação componente/estado — não repita essas convenções aqui
 - Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 fi
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/agents/architect-sdd.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/architect-sdd.md""
 
 if [ "$STACK" = "dotnet" ]; then
-cat > ""$PROJECT_DIR/agents/dotnet-specialist.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/dotnet-specialist.md"" << 'AGENTEOF'
 ---
 name: dotnet-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 10 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
@@ -940,11 +937,8 @@ proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do ze
 
 ## Padrões Obrigatórios
 
-- **SOLID** em todo o código
-- **Repository Pattern** para acesso a dados
-- **DTOs** — nunca expor entidades de domínio diretamente na API
-- Nomenclatura em português para domínio de negócio, em inglês para termos técnicos (padrão do projeto)
-- Código pronto para produção, sem placeholders ou `TODO`
+Siga `.claude/rules/dotnet-clean-architecture.md` (carrega automaticamente ao mexer em `src/**/*.cs`): SOLID,
+Repository Pattern, DTOs, convenção de nomenclatura PT/EN, código pronto para produção sem placeholders.
 
 ## Regras Importantes
 
@@ -955,7 +949,7 @@ proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do ze
 AGENTEOF
 fi
 
-cat > ""$PROJECT_DIR/agents/compliance-validator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/compliance-validator.md"" << 'AGENTEOF'
 ---
 name: compliance-validator
 description: Use this agent after __SPECIALIST__ has produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Code was just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
@@ -1016,11 +1010,11 @@ Salve em `output/4-compliance.md`:
 - Se algo estiver faltando, seja específico sobre o que falta e onde
 - Não corrija o código você mesmo; apenas reporte
 AGENTEOF
-sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/agents/compliance-validator.md""
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/agents/compliance-validator.md""
+sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/compliance-validator.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/compliance-validator.md""
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/agents/test-validator.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/test-validator.md"" << 'AGENTEOF'
 ---
 name: test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the backend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
@@ -1083,7 +1077,7 @@ Seguido dos blocos de código de cada arquivo de teste, organizados por caminho 
 - Priorize testes que cobrem regras de negócio reais
 AGENTEOF
 else
-    cat > ""$PROJECT_DIR/agents/test-validator.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/test-validator.md"" << 'AGENTEOF'
 ---
 name: test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
@@ -1143,10 +1137,10 @@ Seguido dos blocos de código de cada arquivo de teste, organizados por caminho.
 - Não escreva testes triviais sem valor (ex: testar getter/setter simples)
 - Priorize testes que cobrem regras de negócio reais
 AGENTEOF
-    sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/agents/test-validator.md""
+    sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/test-validator.md""
 fi
 
-cat > ""$PROJECT_DIR/agents/code-review-sdd.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/code-review-sdd.md"" << 'AGENTEOF'
 ---
 name: code-review-sdd
 description: Use this agent after test-validator has generated tests, to review the overall code quality, SOLID compliance, and identify improvements before build validation. Use PROACTIVELY as step 6 of the SDD pipeline. Examples: <example>Context: Tests were just generated. user: "Os testes estão prontos, revisa a qualidade do código" assistant: "Vou usar o agente code-review-sdd para revisar SOLID, clean code e segurança no código gerado." <commentary>Code review happens after tests exist so reviewers can also assess test quality, not just production code.</commentary></example>
@@ -1203,7 +1197,7 @@ Salve em `output/6-code-review.md`:
 - Não reescreva o código você mesmo; apenas reporte
 AGENTEOF
 
-cat > ""$PROJECT_DIR/agents/build-test-validator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/build-test-validator.md"" << 'AGENTEOF'
 ---
 name: build-test-validator
 description: Use this agent after code-review-sdd has approved the code, to simulate build and test execution validation, checking for compilation issues and coverage thresholds. Use PROACTIVELY as step 7 of the SDD pipeline. Examples: <example>Context: Code review passed. user: "Revisão aprovada, valida o build" assistant: "Vou usar o agente build-test-validator para validar que o código compila e os testes passam." <commentary>Build validation is the last technical gate before commit messages are generated.</commentary></example>
@@ -1261,7 +1255,7 @@ Salve em `output/7-build-test.md`:
 - Se encontrar um problema bloqueante, marque como FAILED claramente
 AGENTEOF
 
-cat > ""$PROJECT_DIR/agents/commit-message-generator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/commit-message-generator.md"" << 'AGENTEOF'
 ---
 name: commit-message-generator
 description: Use this agent after build-test-validator has confirmed the build passes, to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 8 of the SDD pipeline. Examples: <example>Context: Build validation passed. user: "Build ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build and pass tests.</commentary></example>
@@ -1316,7 +1310,7 @@ Salve em `output/8-commit-message.md` a lista de commits sugeridos, na ordem em 
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/agents/swagger-tester.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/swagger-tester.md"" << 'AGENTEOF'
 ---
 name: swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
@@ -1381,7 +1375,7 @@ curl -X POST ... -d '{ "titulo": "" }'
 AGENTEOF
 fi
 
-echo -e "${GREEN}✅ Agentes fixos criados em agents/${NC}"
+echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 
 # ============================================================================
 # CRIAR AGENT DE FRONTEND — só para stacks de frontend (react/angular/vue).
@@ -1390,7 +1384,7 @@ echo -e "${GREEN}✅ Agentes fixos criados em agents/${NC}"
 # ============================================================================
 
 if [ "$STACK" = "react" ]; then
-    cat > ""$PROJECT_DIR/agents/react-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/react-specialist.md"" << 'AGENTEOF'
 ---
 name: react-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -1444,7 +1438,7 @@ AGENTEOF
 fi
 
 if [ "$STACK" = "angular" ]; then
-    cat > ""$PROJECT_DIR/agents/angular-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/angular-specialist.md"" << 'AGENTEOF'
 ---
 name: angular-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -1498,7 +1492,7 @@ AGENTEOF
 fi
 
 if [ "$STACK" = "vue" ]; then
-    cat > ""$PROJECT_DIR/agents/vue-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/vue-specialist.md"" << 'AGENTEOF'
 ---
 name: vue-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -1555,11 +1549,11 @@ if [ "$STACK" = "dotnet" ]; then
 fi
 
 # ============================================================================
-# CRIAR commands/orchestrator.md — conteúdo específico por stack
+# CRIAR .claude/commands/orchestrator.md — conteúdo específico por stack
 # ============================================================================
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
+    cat > ""$PROJECT_DIR/.claude/commands/orchestrator.md"" << 'ORCHEOF'
 # /orchestrator - Executar Pipeline SDD
 
 > Execute os agentes automaticamente para gerar código baseado em sua especificação.
@@ -1683,7 +1677,7 @@ else
         angular) FE_EMOJI="🅰️" ;;
         vue)     FE_EMOJI="💚" ;;
     esac
-    cat > ""$PROJECT_DIR/commands/orchestrator.md"" << 'ORCHEOF'
+    cat > ""$PROJECT_DIR/.claude/commands/orchestrator.md"" << 'ORCHEOF'
 # /orchestrator - Executar Pipeline SDD
 
 > Execute os agentes automaticamente para gerar código baseado em sua especificação. Este projeto é **somente frontend** (não tem backend próprio).
@@ -1796,16 +1790,16 @@ projeto (diferente de `output/`, que é por rodada).
 /orchestrator
 ```
 ORCHEOF
-    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/commands/orchestrator.md""
+    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/.claude/commands/orchestrator.md""
 fi
-echo -e "${GREEN}✅ commands/orchestrator.md criado${NC}"
+echo -e "${GREEN}✅ .claude/commands/orchestrator.md criado${NC}"
 
 # ============================================================================
-# CRIAR commands/README.md — conteúdo específico por stack
+# CRIAR .claude/commands/README.md — conteúdo específico por stack
 # ============================================================================
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
+    cat > ""$PROJECT_DIR/.claude/commands/README.md"" << 'CMDREADMEEOF'
 # 📌 Comandos do Pipeline SDD
 
 Stack deste projeto: **.NET 10 (somente backend)**
@@ -1828,16 +1822,16 @@ Stack deste projeto: **.NET 10 (somente backend)**
    /orchestrator
    ```
 
-4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
+4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
    `knowledge-bootstrap`, se `.docs/` tiver arquivos
 
 ## 📚 Estrutura
 
-- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+- **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
+- **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
 - **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
-## 🤖 Os Agentes (em `agents/`)
+## 🤖 Os Agentes (em `.claude/agents/`)
 
 | # | Agente | Responsabilidade |
 |---|--------|-------------------|
@@ -1868,7 +1862,7 @@ Stack deste projeto: **.NET 10 (somente backend)**
 CMDREADMEEOF
 
 else
-    cat > ""$PROJECT_DIR/commands/README.md"" << 'CMDREADMEEOF'
+    cat > ""$PROJECT_DIR/.claude/commands/README.md"" << 'CMDREADMEEOF'
 # 📌 Comandos do Pipeline SDD
 
 Stack deste projeto: **__STACK_LABEL__**
@@ -1891,16 +1885,16 @@ Stack deste projeto: **__STACK_LABEL__**
    /orchestrator
    ```
 
-4. **Pronto!** Os subagentes (pasta `agents/`) rodam automaticamente em cascata — começando pelo
+4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
    `knowledge-bootstrap`, se `.docs/` tiver arquivos
 
 ## 📚 Estrutura
 
-- **`commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+- **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
+- **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
 - **`.docs/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
-## 🤖 Os Agentes (em `agents/`)
+## 🤖 Os Agentes (em `.claude/agents/`)
 
 Este projeto é **somente frontend** — não há agente de backend .NET nem de teste de API (`swagger-tester`).
 
@@ -1930,9 +1924,9 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 
 **Comece aqui:** `/orchestrator`
 CMDREADMEEOF
-    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/commands/README.md""
+    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/commands/README.md""
 fi
-echo -e "${GREEN}✅ commands/README.md criado${NC}"
+echo -e "${GREEN}✅ .claude/commands/README.md criado${NC}"
 
 # ============================================================================
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha
@@ -2162,6 +2156,189 @@ echo -e "${GREEN}✅ docs/SPEC.md criado${NC}"
 fi
 
 # ============================================================================
+# COMANDOS DE BUILD/TEST POR STACK — usados no CLAUDE.md e nas permissões
+# ============================================================================
+
+case "$STACK" in
+    dotnet)
+        CLAUDE_BUILD_STEPS="dotnet build
+dotnet test"
+        PERM_BASH_JSON='["Bash(dotnet build)","Bash(dotnet build *)","Bash(dotnet test)","Bash(dotnet test *)"]'
+        ;;
+    angular)
+        CLAUDE_BUILD_STEPS="npm install
+ng serve
+ng test"
+        PERM_BASH_JSON='["Bash(npm install)","Bash(ng serve)","Bash(ng serve *)","Bash(ng test)","Bash(ng test *)","Bash(ng build)","Bash(ng build *)"]'
+        ;;
+    *)
+        CLAUDE_BUILD_STEPS="npm install
+npm run dev
+npm test"
+        PERM_BASH_JSON='["Bash(npm install)","Bash(npm run dev)","Bash(npm run build)","Bash(npm test)","Bash(npm test *)"]'
+        ;;
+esac
+
+# ============================================================================
+# CRIAR CLAUDE.md — memória do projeto (lida pelo Claude a cada sessão)
+# ============================================================================
+
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    echo -e "${YELLOW}⏭️  CLAUDE.md já existe — mantido sem alterações${NC}"
+else
+cat > "$PROJECT_DIR/CLAUDE.md" << CLAUDEMDEOF
+# Projeto SDD — $STACK_LABEL
+
+Este projeto usa o **Pipeline SDD** (Spec-Driven Development): agentes especializados em
+\`.claude/agents/\` implementam, testam e revisam código a partir de \`docs/SPEC.md\`, disparados pelo
+comando \`/orchestrator\` (\`.claude/commands/orchestrator.md\`).
+
+## Comandos de build/teste
+
+\`\`\`bash
+$CLAUDE_BUILD_STEPS
+\`\`\`
+
+## Onde as coisas vivem
+
+- \`docs/SPEC.md\` — a especificação que você escreve/edita
+- \`.docs/\` — documentação bruta opcional (Word, PDF, planilhas...); a Fase 0 do pipeline consolida em \`knowledge/\`
+- \`knowledge/\` — Base de Conhecimento (Obsidian-compatível), persiste entre rodadas
+- \`output/\` — resultado de cada rodada do \`/orchestrator\`, incluindo \`token-report.md\`
+- \`src/\` — código do projeto
+- \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/orchestrator\` cuida disso)
+- \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
+  duplicar uma convenção aqui)
+
+## Fluxo
+
+Rode \`/orchestrator\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
+resto roda automático até o fim, só parando de novo se um gate de qualidade (compliance, code review, build)
+reportar falha.
+
+## Trabalhando em paralelo
+
+Para tocar duas frentes ao mesmo tempo (ex: duas specs diferentes) sem os agentes esbarrarem nos mesmos
+arquivos, rode cada uma em uma worktree: \`claude --worktree nome-da-frente\`.
+
+## Convenções deste projeto
+
+<!-- Adicione aqui o que o Claude deveria saber sempre e que não está em .claude/rules/ nem nos agentes:
+comandos que você roda com frequência, decisões de arquitetura, coisas que o Claude já errou uma vez. -->
+CLAUDEMDEOF
+echo -e "${GREEN}✅ CLAUDE.md criado${NC}"
+fi
+
+# ============================================================================
+# CRIAR .mcp.json — servidores MCP do projeto
+# ============================================================================
+
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.mcp.json" ]; then
+    echo -e "${YELLOW}⏭️  .mcp.json já existe — mantido sem alterações${NC}"
+else
+cat > "$PROJECT_DIR/.mcp.json" << 'MCPEOF'
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+MCPEOF
+echo -e "${GREEN}✅ .mcp.json criado (context7 pronto pra uso; github precisa de \$GITHUB_TOKEN no ambiente — apague a entrada se não for usar)${NC}"
+fi
+
+# ============================================================================
+# CRIAR .claude/rules/ — convenções que só carregam quando relevantes
+# ============================================================================
+
+mkdir -p "$PROJECT_DIR/.claude/rules"
+
+if [ -f "$PROJECT_DIR/.claude/rules/knowledge-vault.md" ]; then
+    echo -e "${YELLOW}⏭️  .claude/rules/knowledge-vault.md já existe — mantido sem alterações${NC}"
+else
+cat > "$PROJECT_DIR/.claude/rules/knowledge-vault.md" << 'RULEEOF'
+---
+paths:
+  - "knowledge/vault/**/*.md"
+---
+
+# Convenções do Knowledge Vault
+
+- Use links internos no estilo Obsidian (`[[Nome do Outro Documento]]`) para conectar regras, funcionalidades,
+  APIs, tabelas e testes relacionados entre si.
+- Todo documento deve indicar sua origem (ex.: `> Fonte: Especificacao.docx`) para manter rastreabilidade.
+- Nunca invente informação: se algo estiver ambíguo ou faltando, registre como lacuna em vez de completar com
+  suposição.
+- Se o mesmo assunto aparecer em documentos diferentes, consolide num único arquivo em vez de duplicar.
+- Depois de editar o vault, rode `node .claude/scripts/knowledge-engine-build.cjs` para reconstruir o grafo e
+  os chunks de embeddings — não escreva `knowledge/graph/` ou `knowledge/embeddings/` manualmente.
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/knowledge-vault.md criado${NC}"
+fi
+
+if [ "$STACK" = "dotnet" ]; then
+    if [ -f "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" ]; then
+        echo -e "${YELLOW}⏭️  .claude/rules/dotnet-clean-architecture.md já existe — mantido sem alterações${NC}"
+    else
+cat > "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" << 'RULEEOF'
+---
+paths:
+  - "src/**/*.cs"
+---
+
+# Convenções .NET — Clean Architecture
+
+- Domain não depende de nada; Application depende só de Domain; Infrastructure e API dependem de Application.
+- **SOLID** em todo o código.
+- **Repository Pattern** para acesso a dados — interfaces no Domain, implementação na Infrastructure.
+- **DTOs** — nunca exponha entidades de domínio diretamente na API.
+- Nomenclatura em português para domínio de negócio, em inglês para termos técnicos (padrão deste projeto).
+- Código pronto para produção, sem placeholders ou `TODO`.
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/dotnet-clean-architecture.md criado${NC}"
+    fi
+else
+    if [ -f "$PROJECT_DIR/.claude/rules/frontend-components.md" ]; then
+        echo -e "${YELLOW}⏭️  .claude/rules/frontend-components.md já existe — mantido sem alterações${NC}"
+    else
+        case "$STACK" in
+            react)   FRONTEND_RULE_PATHS='  - "src/**/*.ts"
+  - "src/**/*.tsx"' ;;
+            angular) FRONTEND_RULE_PATHS='  - "src/**/*.ts"' ;;
+            vue)     FRONTEND_RULE_PATHS='  - "src/**/*.vue"
+  - "src/**/*.ts"' ;;
+        esac
+cat > "$PROJECT_DIR/.claude/rules/frontend-components.md" << RULEEOF
+---
+paths:
+$FRONTEND_RULE_PATHS
+---
+
+# Convenções de Frontend — $STACK_LABEL
+
+- Separe claramente componentes de apresentação (UI) de lógica de estado/negócio (hooks, services ou
+  composables, conforme a stack).
+- Componentes pequenos e reutilizáveis — se um componente cresce demais, quebre em subcomponentes.
+- Estado local vs. global: só suba estado para um store/contexto compartilhado quando mais de um componente
+  precisar dele.
+- Camada de acesso a API centralizada (cliente HTTP único, tratamento de erro e loading consistentes) — nunca
+  chame \`fetch\`/\`axios\` direto de dentro de um componente de apresentação.
+- Código pronto para produção, sem placeholders ou \`TODO\`.
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/frontend-components.md criado${NC}"
+    fi
+fi
+
+# ============================================================================
 # CRIAR README.md e COMECE-AQUI.md
 # ============================================================================
 
@@ -2208,9 +2385,18 @@ Código gerado em \`output/\` em ~20-30 minutos.
 
 \`\`\`
 seu-projeto/
-├── commands/          📌 COMANDOS DO PIPELINE
-│   ├── orchestrator.md (comece por aqui!)
-│   └── README.md
+├── CLAUDE.md          🧠 memória do projeto (Claude lê a cada sessão)
+├── .mcp.json          🔌 servidores MCP do projeto (docs atualizadas, GitHub...)
+│
+├── .claude/
+│   ├── commands/       📌 COMANDOS DO PIPELINE
+│   │   ├── orchestrator.md (comece por aqui!)
+│   │   └── README.md
+│   ├── agents/         (subagentes especializados, invocados pelo orchestrator)
+│   ├── rules/           (convenções aplicadas só quando Claude mexe nos arquivos certos)
+│   ├── hooks/            (hook automático de relatório de tokens)
+│   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine)
+│   └── settings.json       (permissões + hook de tokens + plugin ponytail habilitado)
 │
 ├── .docs/             (opcional: sua documentação bruta — Word, PDF, planilhas...)
 │
@@ -2225,8 +2411,6 @@ seu-projeto/
 │   ├── cache/           (contexto resumido por agente)
 │   └── templates/       (modelos Feature/API/ADR/Bug/TestCase)
 │
-├── .claude/          (hook automático de relatório de tokens + plugin ponytail habilitado)
-│
 ├── output/           (resultados + token-report.md)
 │
 $SRC_TREE
@@ -2239,6 +2423,25 @@ Este projeto já sai com o plugin [ponytail](https://github.com/DietrichGebert/p
 tokens durante as sessões do Claude Code. Não precisa instalar nada manualmente: ao abrir este projeto no
 Claude Code, o plugin já é carregado automaticamente. Para conferir se está ativo, rode \`/plugin\` dentro do
 projeto e veja se \`ponytail@ponytail\` aparece habilitado.
+
+## 🧠 CLAUDE.md, .mcp.json, rules e permissões
+
+Este projeto já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code:
+
+- **\`CLAUDE.md\`** — memória do projeto, carregada em toda sessão. Edite à vontade conforme o projeto evolui.
+- **\`.mcp.json\`** — servidores MCP do projeto (documentação atualizada de bibliotecas via \`context7\`, e um
+  exemplo de GitHub pronto pra você só preencher o token). Na primeira vez que abrir a pasta, o Claude Code
+  pede aprovação desses servidores (workspace trust) — é esperado, não é erro.
+- **\`.claude/rules/\`** — convenções (Clean Architecture, componentes/estado, etc.) que só entram no contexto
+  quando o Claude mexe em arquivos que batem o padrão certo, em vez de pesar em toda sessão.
+- **\`.claude/settings.json\`** — já sai com um bloco \`permissions\` liberando leitura e as ações que o
+  próprio pipeline precisa (escrita em \`output/\`, \`docs/\`, \`knowledge/\`, build/test da stack), pra
+  \`/orchestrator\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
+  durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, pessoal e fora do git.
+
+**Trabalhar em duas frentes ao mesmo tempo?** Rode \`claude --worktree nome-da-frente\` — cada sessão trabalha
+num checkout isolado do Git, então duas rodadas de \`/orchestrator\` (ex: duas features diferentes) não
+esbarram nos mesmos arquivos.
 
 ## 🚀 Comece Agora
 
@@ -2636,6 +2839,41 @@ echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens 
 fi
 
 # ============================================================================
+# PERMISSÕES — libera leitura + as ações que o próprio pipeline precisa, pra
+# /orchestrator não ficar parando pra pedir aceite o tempo todo. Roda sempre
+# (novo ou existente) como merge idempotente, nunca removendo regra já
+# configurada por fora deste script.
+# ============================================================================
+
+node -e '
+const fs = require("fs");
+const target = process.argv[1];
+const stackBash = JSON.parse(process.argv[2]);
+let settings = {};
+try { settings = JSON.parse(fs.readFileSync(target, "utf-8")); } catch { settings = {}; }
+settings.permissions = settings.permissions || {};
+settings.permissions.allow = Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
+const generic = [
+  "Read",
+  "Grep",
+  "Glob",
+  "Write(output/**)",
+  "Edit(output/**)",
+  "Write(docs/**)",
+  "Edit(docs/**)",
+  "Write(knowledge/**)",
+  "Edit(knowledge/**)",
+  "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
+];
+for (const rule of [...generic, ...stackBash]) {
+  if (!settings.permissions.allow.includes(rule)) settings.permissions.allow.push(rule);
+}
+fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
+' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
+
+echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, build/test da stack)${NC}"
+
+# ============================================================================
 # CRIAR .gitignore
 # ============================================================================
 
@@ -2647,8 +2885,11 @@ if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
 output/
 knowledge/embeddings/chunks/
 .claude/hooks/.token-report-state.json
+
+# Claude Code worktrees (claude --worktree)
+.claude/worktrees/
 GITIGNOREAPPENDEOF
-        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, knowledge/embeddings/chunks/, hook state)${NC}"
+        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, knowledge/embeddings/chunks/, hook state, worktrees)${NC}"
     else
         echo -e "${YELLOW}⏭️  .gitignore já tem as regras do pipeline SDD — nada a fazer${NC}"
     fi
@@ -2677,6 +2918,9 @@ knowledge/embeddings/chunks/
 
 # Estado interno do hook de relatório de tokens (não é útil versionar)
 .claude/hooks/.token-report-state.json
+
+# Claude Code worktrees (claude --worktree)
+.claude/worktrees/
 
 # IDE
 .idea/
@@ -2728,7 +2972,7 @@ if [ "$MODE" = "existente" ]; then
     echo "     /orchestrator"
     echo ""
     echo -e "${YELLOW}Nada do seu código existente foi tocado ou sobrescrito${NC} — só foram acrescentadas as"
-    echo "pastas e arquivos do pipeline (commands/, agents/, knowledge/, .claude/). Os agentes de arquitetura"
+    echo "pastas e arquivos do pipeline (.claude/commands/, .claude/agents/, knowledge/). Os agentes de arquitetura"
     echo "e implementação vão ler a estrutura já existente antes de propor/gerar qualquer coisa."
 else
     echo "  1️⃣  Entrar na pasta"
@@ -2746,8 +2990,8 @@ fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
-echo -e "${BLUE}Comandos disponíveis em:${NC} commands/"
-echo -e "${BLUE}Subagentes disponíveis em:${NC} agents/"
+echo -e "${BLUE}Comandos disponíveis em:${NC} .claude/commands/"
+echo -e "${BLUE}Subagentes disponíveis em:${NC} .claude/agents/"
 echo -e "${BLUE}Documentação bruta (opcional):${NC} .docs/ — vira Base de Conhecimento em knowledge/ na Fase 0 do /orchestrator"
 echo -e "${BLUE}Relatório de tokens:${NC} gerado automaticamente em output/token-report.md a cada rodada do /orchestrator"
 echo ""

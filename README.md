@@ -7,7 +7,7 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 1. `/criar-template-claude` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
+4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, roda um scan de segurança estática (Semgrep), gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
 5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
 
 ## Instalação
@@ -32,7 +32,7 @@ misturados. Isso muda o que é gerado — o `orchestrator.md`, `.claude/commands
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
-O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `compliance-validator`, `code-review-sdd` ou `build-test-validator` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
+O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `compliance-validator`, `code-review-sdd`, `build-test-validator` ou `security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
 ## Acoplar num projeto já existente
 
@@ -50,7 +50,7 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 
 ## Agentes
 
-Todo projeto sai com 9 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida:
+Todo projeto sai com 10 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida:
 
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
@@ -63,6 +63,7 @@ Todo projeto sai com 9 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o sp
 | `test-validator` | Gera testes automatizados | sempre |
 | `code-review-sdd` | Revisa qualidade e SOLID | sempre |
 | `build-test-validator` | Valida build e testes | sempre |
+| `security-scan-sdd` | Roda scan de segurança estática (Semgrep) e corrige achados Critical/High que não alterem comportamento observável | sempre |
 | `commit-message-generator` | Gera commits semânticos | sempre |
 | `swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
 
@@ -99,7 +100,7 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, build/test da stack), além do hook de tokens e do plugin ponytail.
+- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, build/test da stack, scan do Semgrep), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
 ## Estrutura do plugin

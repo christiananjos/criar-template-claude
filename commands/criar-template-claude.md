@@ -103,8 +103,9 @@ NOME_DO_PROJETO/
 │   │   ├── orchestrator.md    ← comando que o usuário vai chamar depois
 │   │   └── README.md
 │   ├── agents/                 ← knowledge-bootstrap (Fase 0) + agentes da stack escolhida
-│   │                              (dotnet: 10 agentes, incl. dotnet-specialist e swagger-tester;
-│   │                               frontend: 9 agentes, com react/angular/vue-specialist no lugar deles)
+│   │                              (dotnet: 11 agentes, incl. dotnet-specialist, security-scan-sdd e
+│   │                               swagger-tester; frontend: 10 agentes, com react/angular/vue-specialist
+│   │                               no lugar deles)
 │   ├── rules/                   ← convenções por caminho de arquivo (Clean Architecture no dotnet,
 │   │                              componente/estado no frontend, convenções do Knowledge Vault)
 │   ├── settings.json           ← permissions (libera o que o pipeline precisa) + hook Stop de
@@ -138,6 +139,6 @@ O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.c
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`compliance-validator`, `code-review-sdd` ou `build-test-validator`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`compliance-validator`, `code-review-sdd`, `build-test-validator` ou `security-scan-sdd`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
 
 

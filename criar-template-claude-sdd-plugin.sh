@@ -89,6 +89,12 @@ esac
 SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
 SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 
+case "$STACK" in
+    dotnet)                 SEMGREP_CONFIG="--config p/csharp" ;;
+    react)                  SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/react" ;;
+    angular|vue)            SEMGREP_CONFIG="--config p/javascript --config p/typescript" ;;
+esac
+
 # ============================================================================
 # CRIAR ESTRUTURA
 # ============================================================================
@@ -1266,10 +1272,96 @@ Salve em `output/7-build-test.md`:
 - Se encontrar um problema bloqueante, marque como FAILED claramente
 AGENTEOF
 
+cat > ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md"" << 'AGENTEOF'
+---
+name: security-scan-sdd
+description: Use this agent after build-test-validator has confirmed the build passes, to run a deterministic static-analysis security scan (Semgrep) over the generated code before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para rodar o Semgrep sobre o código gerado antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
+Você é o **Security Scan-SDD**, responsável pelo gate de segurança estática (SAST) do pipeline.
+
+## Sua Missão
+
+Rodar o Semgrep sobre o código gerado em `src/` e decidir, achado a achado, o que pode ser corrigido com
+segurança agora e o que precisa de decisão humana antes de seguir para commits ou testes de API.
+
+## Passo a Passo
+
+1. **Verifique se o Semgrep está disponível**:
+   ```bash
+   command -v semgrep >/dev/null 2>&1 || pip install semgrep --break-system-packages -q
+   ```
+   Se mesmo assim não estiver disponível (sem rede, ambiente restrito, etc.), **não bloqueie o pipeline** — gere
+   o relatório com status `⏭️ PULADO (semgrep indisponível)`, recomende instalar (`pip install semgrep` ou
+   `npx skills add semgrep/skills`) e encerre. Segurança estática ausente é melhor que travar o pipeline inteiro
+   por uma ferramenta de terceiros indisponível.
+2. **Rode o scan, escopado em `src/`** (nunca `.` — em modo `existente` isso misturaria dívida técnica legada do
+   projeto com o que o pipeline acabou de gerar, inflando o relatório com achados que não são desta rodada):
+   ```bash
+   semgrep --config p/security-audit --config p/owasp-top-ten __STACK_SEMGREP_CONFIG__ --severity ERROR,WARNING src/
+   ```
+3. **Explique cada achado** — severidade (reclassifique cada um como Critical/High/Medium/Low a partir da regra
+   e do CWE/OWASP associado, já que o Semgrep só reporta ERROR/WARNING/INFO), arquivo, linha e o que o padrão
+   detectado realmente significa nesse contexto (nem todo achado é um falso positivo, nem todo achado é
+   explorável de fato — avalie).
+4. **Corrija apenas Critical/High, e só se a correção for mecânica e não alterar comportamento observável**
+   (ex.: trocar concatenação de SQL por parâmetro, remover segredo hardcoded movendo para configuração, corrigir
+   `TLS`/algoritmo de hash fraco). Não toque em Medium/Low — apenas reporte.
+5. **Se a correção de um Critical/High alteraria comportamento observável** (regra de validação, fluxo de
+   autenticação/autorização, formato de resposta), **não aplique** — marque o achado como bloqueante no
+   relatório em vez de decidir sozinho por conta do usuário.
+6. **Revalide** — se você aplicou alguma correção, rode o mesmo comando do passo 2 de novo (confirma que o
+   achado sumiu e que nada novo foi introduzido) e, se existir suíte de testes gerada por `test-validator`, rode
+   também os comandos de build/teste da stack (mesmos comandos que `build-test-validator` teria usado) para
+   confirmar que a correção não quebrou nada.
+
+## Formato de Saída
+
+Salve em `output/8-security-scan.md`:
+
+```markdown
+# Security Scan Report (Semgrep)
+
+## Status: ✅ APROVADO / ⚠️ APROVADO COM RESSALVAS / ❌ REPROVADO / ⏭️ PULADO (semgrep indisponível)
+
+## Achados Críticos/Altos
+| Severidade | Arquivo | Linha | Regra | Descrição | Ação |
+|------------|---------|-------|-------|-----------|------|
+| 🔴 Critical | src/... | 42 | sql-injection | ... | ✅ Corrigido |
+| 🟠 High | src/... | 10 | hardcoded-secret | ... | ⚠️ Bloqueante — requer decisão humana (altera fluxo de auth) |
+
+## Achados Médios/Baixos (reportados, não corrigidos)
+| Severidade | Arquivo | Linha | Regra | Descrição |
+|------------|---------|-------|-------|-----------|
+
+## Correções Aplicadas
+- [Arquivo e o que mudou, em uma linha por correção]
+
+## Revalidação
+- Novo scan: ✅ limpo / ❌ ainda há achados
+- Build/testes após correção: ✅ OK / ❌ quebrou / N/A (nenhuma correção aplicada)
+
+## Recomendação
+[Prosseguir para commits / Corrigir manualmente os itens bloqueantes antes de prosseguir]
+```
+
+## Regras Importantes
+
+- Nunca escaneie `.` inteiro — sempre escopado em `src/`.
+- Nunca corrija Medium/Low; nunca corrija Critical/High que altere comportamento observável sem sinalizar.
+- Se houver qualquer achado Critical/High **não corrigido** (bloqueante) ao final, marque o status como
+  ❌ REPROVADO — isso interrompe o pipeline antes de `commit-message-generator`, seguindo a mesma regra de gate
+  técnico que `compliance-validator`, `code-review-sdd` e `build-test-validator` já usam.
+- Não invente achados nem gravidade — baseie-se só no que o Semgrep reportou de fato.
+AGENTEOF
+sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+
 cat > ""$PROJECT_DIR/.claude/agents/commit-message-generator.md"" << 'AGENTEOF'
 ---
 name: commit-message-generator
-description: Use this agent after build-test-validator has confirmed the build passes, to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 8 of the SDD pipeline. Examples: <example>Context: Build validation passed. user: "Build ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build and pass tests.</commentary></example>
+description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 9 of the SDD pipeline. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build, pass tests, and clear the security gate.</commentary></example>
 tools: Read, Grep, Glob
 model: haiku
 ---
@@ -1311,7 +1403,7 @@ docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
 
 ## Formato de Saída
 
-Salve em `output/8-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
+Salve em `output/9-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
 
 ## Regras Importantes
 
@@ -1324,7 +1416,7 @@ if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/swagger-tester.md"" << 'AGENTEOF'
 ---
 name: swagger-tester
-description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
+description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
 tools: Read, Grep, Glob
 model: haiku
 ---
@@ -1345,7 +1437,7 @@ Para cada endpoint definido em `docs/SPEC.md` e implementado por `dotnet-special
 
 ## Formato de Saída
 
-Salve em `output/9-swagger-tester.md`:
+Salve em `output/10-swagger-tester.md`:
 
 ```markdown
 # Swagger Test Workflow
@@ -1617,6 +1709,8 @@ docs/SPEC.md
     ↓
 🏗️ Build & Test     → Valida build
     ↓
+🛡️ Security Scan    → Scan de segurança estática (Semgrep)
+    ↓
 📝 Commit Message   → Gera commits semânticos
     ↓
 🧪 Swagger Tester   → Testa API
@@ -1645,8 +1739,8 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Build & Test` já ter passado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
-- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
+- **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Security Scan` já ter aprovado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -1661,8 +1755,9 @@ Após execução, em `output/`:
 5-test-validator.md           (Testes)
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
-8-commit-message.md           (Commits)
-9-swagger-tester.md           (Swagger)
+8-security-scan.md            (Security Scan — Semgrep)
+9-commit-message.md           (Commits)
+10-swagger-tester.md          (Swagger)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -1741,6 +1836,8 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
     ↓
 🏗️ Build & Test          → Valida build
     ↓
+🛡️ Security Scan         → Scan de segurança estática (Semgrep)
+    ↓
 📝 Commit Message        → Gera commits semânticos
     ↓
 ✅ output/ Pronto!
@@ -1767,7 +1864,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review` ou `Build & Test` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -1782,7 +1879,8 @@ __SPECIALIST_OUTPUT_FILE__      (Código frontend)
 5-test-validator.md           (Testes)
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
-8-commit-message.md           (Commits)
+8-security-scan.md            (Security Scan — Semgrep)
+9-commit-message.md           (Commits)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -1854,8 +1952,9 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | 5 | `test-validator` | Gera testes automatizados |
 | 6 | `code-review-sdd` | Revisa qualidade do código |
 | 7 | `build-test-validator` | Valida build e testes |
-| 8 | `commit-message-generator` | Gera commits semânticos |
-| 9 | `swagger-tester` | Gera workflow de testes de API |
+| 8 | `security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| 9 | `commit-message-generator` | Gera commits semânticos |
+| 10 | `swagger-tester` | Gera workflow de testes de API |
 
 ## 🧩 Comando avulso
 
@@ -1923,7 +2022,8 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 | 5 | `test-validator` | Gera testes automatizados |
 | 6 | `code-review-sdd` | Revisa qualidade do código |
 | 7 | `build-test-validator` | Valida build e testes |
-| 8 | `commit-message-generator` | Gera commits semânticos |
+| 8 | `security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| 9 | `commit-message-generator` | Gera commits semânticos |
 
 ## 🧩 Comando avulso
 
@@ -2275,8 +2375,8 @@ $CLAUDE_BUILD_STEPS
 ## Fluxo
 
 Rode \`/orchestrator\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
-resto roda automático até o fim, só parando de novo se um gate de qualidade (compliance, code review, build)
-reportar falha.
+resto roda automático até o fim, só parando de novo se um gate de qualidade (compliance, code review, build,
+security scan) reportar falha.
 
 ## Trabalhando em paralelo
 
@@ -2925,6 +3025,9 @@ const generic = [
   "Write(knowledge/**)",
   "Edit(knowledge/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
+  "Bash(command -v semgrep)",
+  "Bash(pip install semgrep*)",
+  "Bash(semgrep *)",
 ];
 for (const rule of [...generic, ...stackBash]) {
   if (!settings.permissions.allow.includes(rule)) settings.permissions.allow.push(rule);
@@ -2932,7 +3035,7 @@ for (const rule of [...generic, ...stackBash]) {
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
 ' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
 
-echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, build/test da stack)${NC}"
+echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, build/test da stack, scan do semgrep)${NC}"
 
 # ============================================================================
 # CRIAR .gitignore

@@ -8,7 +8,7 @@
       "name": "christian-criar-template-claude",
       "source": "./",
       "description": "Cria projetos .NET (Clean Architecture) com Pipeline SDD: agentes especializados que implementam, testam e validam código automaticamente dentro do Claude Code.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "author": {
         "name": "Christian Anjos"
       },

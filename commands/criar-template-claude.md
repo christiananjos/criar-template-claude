@@ -76,7 +76,7 @@ Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`.
 No modo `existente`, o script:
 - **Não sobrescreve** código em `src/`, nem `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline).
 - Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + `permissions` + plugin ponytail) em vez de sobrescrever, preservando o que já estava configurado.
-- Sempre (re)cria `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/templates/` e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
+- Sempre (re)cria `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/` (vazia) e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
 - Os agentes de arquitetura e implementação (`architect-sdd`, `*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
 
 E então:
@@ -113,10 +113,9 @@ NOME_DO_PROJETO/
 │   └── scripts/knowledge-engine-build.cjs  ← reconstrói grafo/embeddings a partir de knowledge/vault/
 ├── docs/SPEC.md              ← template para o usuário preencher
 ├── docs/raw/                    ← opcional: documentação bruta de entrada (README.md explica o uso)
-├── knowledge/
-│   └── templates/            ← templates Obsidian prontos (Feature, API, ADR, Bug, TestCase);
-│                                o resto (vault/, graph/, embeddings/, cache/, index.json) é gerado
-│                                pelo agente knowledge-bootstrap na primeira vez que docs/raw/ tiver arquivos
+├── knowledge/                 ← vazia na criação; tudo dentro dela (templates/, vault/, graph/,
+│                                embeddings/, cache/, index.json) é gerado pelo agente knowledge-bootstrap
+│                                na primeira vez que docs/raw/ tiver arquivos
 ├── output/                   ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
 └── src/                      ← dotnet: Domain, Application, Infrastructure, API, Tests
                                   frontend: pasta única, organizada pelo specialist da stack

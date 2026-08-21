@@ -113,7 +113,7 @@ mkdir -p "$PROJECT_DIR/docs/raw"
 mkdir -p "$PROJECT_DIR/output"
 mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/.claude/scripts"
-mkdir -p "$PROJECT_DIR/knowledge/templates"
+mkdir -p "$PROJECT_DIR/knowledge"
 
 if [ "$MODE" = "existente" ]; then
     echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/)${NC}"
@@ -177,166 +177,12 @@ DOCSREADMEEOF
 echo -e "${GREEN}✅ docs/raw/README.md criado${NC}"
 
 # ============================================================================
-# CRIAR knowledge/templates/ — templates Obsidian estáticos usados pelo
-# knowledge-bootstrap e por qualquer agente que crie documentação nova
+# knowledge/ fica vazia na criação do projeto — nada é pré-gravado aqui.
+# knowledge/templates/, knowledge/vault/, knowledge/graph/, etc. só passam a
+# existir quando o agente knowledge-bootstrap roda de fato (Fase 0 do
+# pipeline), criando os templates Obsidian (Feature, API, ADR, Bug, TestCase)
+# na primeira execução, se ainda não existirem.
 # ============================================================================
-
-cat > ""$PROJECT_DIR/knowledge/templates/Feature.md"" << 'KTPLEOF'
----
-tipo: feature
-status: rascunho
-tags: []
----
-
-# {{Nome da Funcionalidade}}
-
-## Visão Geral
-Descreva o que a funcionalidade faz e por que ela existe.
-
-## Requisitos Relacionados
-- REQ-XXX
-
-## Regras de Negócio
-- [[BR-XXX]]
-
-## Fluxo Principal
-1. ...
-
-## APIs
-- [[API Nome]]
-
-## Banco de Dados
-- [[Tabela Nome]]
-
-## UX
-- [[Wireframe Nome]]
-
-## Casos de Teste
-- [[CT Nome]]
-
-## Arquitetura
-- [[Componente ou Serviço]]
-KTPLEOF
-
-cat > ""$PROJECT_DIR/knowledge/templates/API.md"" << 'KTPLEOF'
----
-tipo: api
-status: rascunho
-tags: []
----
-
-# {{Nome da API}}
-
-## Endpoint
-`MÉTODO /caminho`
-
-## Descrição
-...
-
-## Request
-```json
-{}
-```
-
-## Response
-```json
-{}
-```
-
-## Regras de Negócio
-- [[BR-XXX]]
-
-## Funcionalidade Relacionada
-- [[Nome da Funcionalidade]]
-
-## Casos de Teste
-- [[CT Nome]]
-KTPLEOF
-
-cat > ""$PROJECT_DIR/knowledge/templates/ADR.md"" << 'KTPLEOF'
----
-tipo: adr
-status: proposto
-data: {{data}}
-tags: []
----
-
-# ADR-XXX: {{Título da Decisão}}
-
-## Status
-Proposto / Aceito / Substituído por [[ADR-YYY]]
-
-## Contexto
-...
-
-## Decisão
-...
-
-## Alternativas Consideradas
-- ...
-
-## Consequências
-- ...
-
-## Relacionado
-- [[Componente ou Serviço]]
-KTPLEOF
-
-cat > ""$PROJECT_DIR/knowledge/templates/Bug.md"" << 'KTPLEOF'
----
-tipo: bug
-status: aberto
-severidade: media
-tags: []
----
-
-# BUG-XXX: {{Título}}
-
-## Descrição
-...
-
-## Passos para Reproduzir
-1. ...
-
-## Comportamento Esperado
-...
-
-## Comportamento Atual
-...
-
-## Funcionalidade Relacionada
-- [[Nome da Funcionalidade]]
-
-## Caso de Teste Relacionado
-- [[CT Nome]]
-KTPLEOF
-
-cat > ""$PROJECT_DIR/knowledge/templates/TestCase.md"" << 'KTPLEOF'
----
-tipo: caso-de-teste
-status: rascunho
-tags: []
----
-
-# CT-XXX: {{Título do Caso de Teste}}
-
-## Pré-condições
-...
-
-## Passos
-1. ...
-
-## Resultado Esperado
-...
-
-## Regra de Negócio Coberta
-- [[BR-XXX]]
-
-## Funcionalidade Relacionada
-- [[Nome da Funcionalidade]]
-KTPLEOF
-
-echo -e "${GREEN}✅ knowledge/templates/ criado (Feature, API, ADR, Bug, TestCase)${NC}"
 
 # ============================================================================
 # CRIAR .claude/scripts/knowledge-engine-build.cjs
@@ -568,9 +414,174 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
 
 ## Passo a Passo
 
-1. **Preserve os originais** — copie (não mova) cada arquivo de `docs/raw/` para `knowledge/source/`, mantendo
+1. **Crie `knowledge/templates/` se ainda não existir** (projeto novo ou primeira vez que esta fase roda) — cinco
+   templates Obsidian estáticos, usados como base nos passos seguintes e por outros agentes do pipeline mais
+   adiante (`architect-sdd` cria ADRs, `test-validator` cria casos de teste). Se a pasta já existir com algum
+   desses arquivos (execução de uma fase 0 anterior), **não sobrescreva** — eles podem ter sido ajustados
+   manualmente pelo usuário. Conteúdo de cada template:
+
+   `knowledge/templates/Feature.md`:
+   ```markdown
+   ---
+   tipo: feature
+   status: rascunho
+   tags: []
+   ---
+
+   # {{Nome da Funcionalidade}}
+
+   ## Visão Geral
+   Descreva o que a funcionalidade faz e por que ela existe.
+
+   ## Requisitos Relacionados
+   - REQ-XXX
+
+   ## Regras de Negócio
+   - [[BR-XXX]]
+
+   ## Fluxo Principal
+   1. ...
+
+   ## APIs
+   - [[API Nome]]
+
+   ## Banco de Dados
+   - [[Tabela Nome]]
+
+   ## UX
+   - [[Wireframe Nome]]
+
+   ## Casos de Teste
+   - [[CT Nome]]
+
+   ## Arquitetura
+   - [[Componente ou Serviço]]
+   ```
+
+   `knowledge/templates/API.md`:
+   ```markdown
+   ---
+   tipo: api
+   status: rascunho
+   tags: []
+   ---
+
+   # {{Nome da API}}
+
+   ## Endpoint
+   `MÉTODO /caminho`
+
+   ## Descrição
+   ...
+
+   ## Request
+   ```json
+   {}
+   ```
+
+   ## Response
+   ```json
+   {}
+   ```
+
+   ## Regras de Negócio
+   - [[BR-XXX]]
+
+   ## Funcionalidade Relacionada
+   - [[Nome da Funcionalidade]]
+
+   ## Casos de Teste
+   - [[CT Nome]]
+   ```
+
+   `knowledge/templates/ADR.md`:
+   ```markdown
+   ---
+   tipo: adr
+   status: proposto
+   data: {{data}}
+   tags: []
+   ---
+
+   # ADR-XXX: {{Título da Decisão}}
+
+   ## Status
+   Proposto / Aceito / Substituído por [[ADR-YYY]]
+
+   ## Contexto
+   ...
+
+   ## Decisão
+   ...
+
+   ## Alternativas Consideradas
+   - ...
+
+   ## Consequências
+   - ...
+
+   ## Relacionado
+   - [[Componente ou Serviço]]
+   ```
+
+   `knowledge/templates/Bug.md`:
+   ```markdown
+   ---
+   tipo: bug
+   status: aberto
+   severidade: media
+   tags: []
+   ---
+
+   # BUG-XXX: {{Título}}
+
+   ## Descrição
+   ...
+
+   ## Passos para Reproduzir
+   1. ...
+
+   ## Comportamento Esperado
+   ...
+
+   ## Comportamento Atual
+   ...
+
+   ## Funcionalidade Relacionada
+   - [[Nome da Funcionalidade]]
+
+   ## Caso de Teste Relacionado
+   - [[CT Nome]]
+   ```
+
+   `knowledge/templates/TestCase.md`:
+   ```markdown
+   ---
+   tipo: caso-de-teste
+   status: rascunho
+   tags: []
+   ---
+
+   # CT-XXX: {{Título do Caso de Teste}}
+
+   ## Pré-condições
+   ...
+
+   ## Passos
+   1. ...
+
+   ## Resultado Esperado
+   ...
+
+   ## Regra de Negócio Coberta
+   - [[BR-XXX]]
+
+   ## Funcionalidade Relacionada
+   - [[Nome da Funcionalidade]]
+   ```
+2. **Preserve os originais** — copie (não mova) cada arquivo de `docs/raw/` para `knowledge/source/`, mantendo
    a estrutura de subpastas. Esses arquivos nunca são editados; funcionam como referência permanente.
-2. **Leia e interprete cada documento**:
+3. **Leia e interprete cada documento**:
    - `.md`, `.txt`, `.csv`: leia diretamente.
    - `.pdf`, imagens (`.png`, `.jpg`, `.jpeg`): leia diretamente (a ferramenta Read suporta os dois).
    - `.docx`, `.xlsx`, `.pptx`: tente converter via `pandoc` pelo Bash, se disponível no ambiente
@@ -578,7 +589,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
      não processado no relatório final.
    - Áudio/vídeo: não são transcritos automaticamente. Liste como não processado e sugira ao usuário fornecer
      uma transcrição em texto.
-3. **Consolide e organize** o conteúdo extraído por domínio, criando um arquivo Markdown por assunto dentro de
+4. **Consolide e organize** o conteúdo extraído por domínio, criando um arquivo Markdown por assunto dentro de
    `knowledge/vault/`, usando exatamente esta estrutura de pastas:
    ```
    knowledge/vault/
@@ -602,14 +613,14 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
    - Siga as convenções de `.claude/rules/knowledge-vault.md` (carrega automaticamente ao mexer em
      `knowledge/vault/**`): links internos estilo Obsidian, rastreabilidade de fonte, nunca inventar
      informação, e consolidar em vez de duplicar quando o mesmo assunto aparece em documentos diferentes.
-4. **Gere o grafo e os chunks de embeddings automaticamente** — depois de escrever o vault, rode:
+5. **Gere o grafo e os chunks de embeddings automaticamente** — depois de escrever o vault, rode:
    ```bash
    node .claude/scripts/knowledge-engine-build.cjs
    ```
    Esse script lê `knowledge/vault/`, resolve os wikilinks e escreve `knowledge/graph/nodes.json`,
    `knowledge/graph/edges.json`, `knowledge/embeddings/chunks/` e `knowledge/embeddings/metadata.json`.
    Não escreva esses arquivos manualmente.
-5. **Crie o cache por agente** em `knowledge/cache/`, cada um um JSON curto e focado, só com o que aquele
+6. **Crie o cache por agente** em `knowledge/cache/`, cada um um JSON curto e focado, só com o que aquele
    agente precisa (evita que cada agente tenha que ler o vault inteiro):
    - `analyst.json` — requisitos, regras de negócio, glossário
    - `architect.json` — arquitetura, integrações, decisões (ADRs) já existentes
@@ -617,7 +628,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
    - `frontend.json` — funcionalidades, UX, casos de uso, APIs consumidas
    - `qa.json` — casos de teste, regras de negócio, bugs conhecidos, critérios de aceite
    - `devops.json` — integrações, arquitetura, requisitos não-funcionais (se houver)
-6. **Crie/atualize `knowledge/index.json`** — o índice mestre:
+7. **Crie/atualize `knowledge/index.json`** — o índice mestre:
    ```json
    {
      "version": "1.0.0",
@@ -627,7 +638,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
      "sourceFiles": ["Especificacao.docx", "..."]
    }
    ```
-7. **Verifique `docs/SPEC.md`**: se ainda estiver com o conteúdo padrão do template (não editado pelo usuário),
+8. **Verifique `docs/SPEC.md`**: se ainda estiver com o conteúdo padrão do template (não editado pelo usuário),
    preencha-o com base no que foi consolidado no vault, para que `orchestrator-sdd` tenha uma spec normalizada
    para validar. Se `docs/SPEC.md` já tiver conteúdo real escrito pelo usuário, **não sobrescreva** — apenas
    sinalize no relatório se houver divergência entre o SPEC.md e o que os documentos em `docs/raw/` dizem.
@@ -671,8 +682,8 @@ Salve em `output/0-knowledge-bootstrap.md`:
 - Esta fase roda **uma única vez**, no início do pipeline. Atualizar o Knowledge Engine durante o
   desenvolvimento (novo endpoint, nova regra, nova tabela) é responsabilidade de cada agente subsequente, não
   sua.
-- Não escreva `knowledge/graph/` ou `knowledge/embeddings/` na mão — sempre use o script do passo 4.
-- Não sobrescreva `knowledge/templates/*.md` — eles já vêm prontos no projeto.
+- Não escreva `knowledge/graph/` ou `knowledge/embeddings/` na mão — sempre use o script do passo 5.
+- Crie `knowledge/templates/*.md` só se ainda não existirem (passo 1); depois de criados, não os sobrescreva.
 - Seja rigoroso com rastreabilidade: qualquer informação no vault deve dar pra rastrear até o documento de
   origem em `knowledge/source/`.
 AGENTEOF

@@ -42,7 +42,7 @@ essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do pr
 
 - **Nada do código é tocado** — `src/` não recebe a estrutura de pastas do template, só o que o script sempre cria (`.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/`).
 - **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
-- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `knowledge/embeddings/chunks/`, estado do hook, `.claude/worktrees/`) são acrescentadas, sem duplicar em reexecuções.
+- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `knowledge/embeddings/chunks/`, `.claude/`) são acrescentadas, sem duplicar em reexecuções.
 - **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
 - **`architect-sdd` e os `*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 

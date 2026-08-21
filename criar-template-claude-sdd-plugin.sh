@@ -2934,12 +2934,11 @@ if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
 # Pipeline SDD (criar-template-claude)
 output/
 knowledge/embeddings/chunks/
-.claude/hooks/.token-report-state.json
 
-# Claude Code worktrees (claude --worktree)
-.claude/worktrees/
+# Claude Code
+.claude/
 GITIGNOREAPPENDEOF
-        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, knowledge/embeddings/chunks/, hook state, worktrees)${NC}"
+        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, knowledge/embeddings/chunks/, .claude/)${NC}"
     else
         echo -e "${YELLOW}⏭️  .gitignore já tem as regras do pipeline SDD — nada a fazer${NC}"
     fi
@@ -2966,11 +2965,8 @@ output/
 # .claude/scripts/knowledge-engine-build.cjs; não precisam ir pro controle de versão
 knowledge/embeddings/chunks/
 
-# Estado interno do hook de relatório de tokens (não é útil versionar)
-.claude/hooks/.token-report-state.json
-
-# Claude Code worktrees (claude --worktree)
-.claude/worktrees/
+# Claude Code
+.claude/
 
 # IDE
 .idea/

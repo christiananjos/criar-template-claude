@@ -21,15 +21,22 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 
 Marketplaces de terceiros (como este) vêm com auto-update **desligado por padrão** no Claude Code — só os
 marketplaces oficiais da Anthropic atualizam sozinhos. Isso não é algo que o `marketplace.json` deste repo
-controle; é uma escolha de quem instala. Duas formas de garantir que você está na versão mais recente:
+controle; é uma escolha de quem instala.
 
-**Manual, antes de usar** (mais simples, sem mexer em configuração):
+**Mais simples: use o comando que o próprio plugin traz:**
+```
+/christian-criar-template-claude:atualizar-versao
+```
+Sincroniza o marketplace e atualiza o plugin para a versão mais recente numa tacada só (equivale aos passos
+manuais abaixo). Pede restart da sessão do Claude Code pra aplicar, se atualizar alguma coisa.
+
+**Manual, passo a passo:**
 ```
 /plugin marketplace update
+/plugin install christian-criar-template-claude@christian-criar-template-claude
 ```
-Sincroniza com o repositório remoto antes de você rodar `/christian-criar-template-claude:comecar`.
-O próprio `/plugin install` já faz esse refresh automaticamente (a menos que o marketplace tenha sido
-atualizado há menos de 30s), então normalmente nem precisa disso.
+O `/plugin install` já faz o refresh do marketplace automaticamente (a menos que ele tenha sido atualizado
+há menos de 30s), então normalmente o primeiro comando nem é necessário.
 
 **Automático, uma vez só:**
 1. Rode `/plugin`
@@ -49,10 +56,10 @@ Isso equivale a setar no seu `settings.json`:
 }
 ```
 
-**Para checar se você está na versão mais recente**, compare o campo `version` de
-`~/.claude/plugins/installed/christian-criar-template-claude/plugin.json` com o `version` em
-[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) deste repo — não há um aviso automático de
-"nova versão disponível" na interface hoje.
+**Para checar a versão instalada**, rode `claude plugin list --json` e veja o campo `version` da entrada
+`christian-criar-template-claude@christian-criar-template-claude`; compare com o `version` em
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) deste repo — não há um aviso automático
+de "nova versão disponível" na interface hoje.
 
 **Para desinstalar e reinstalar do zero:**
 ```
@@ -161,7 +168,10 @@ criar-template-claude/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/comecar.md                   # comando do plugin instalado (/comecar)
+├── commands/
+│   ├── comecar.md                        # /comecar — gera/acopla a estrutura SDD no projeto
+│   └── atualizar-versao.md                # /atualizar-versao — atualiza este plugin instalado para a versão mais recente
+├── .claude/commands/bump-versao.md       # só neste repo (dev) — não vai para quem instala o plugin
 └── criar-template-claude-sdd-plugin.sh   # script de scaffolding
 ```
 

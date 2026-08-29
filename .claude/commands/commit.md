@@ -22,10 +22,8 @@ Contexto opcional passado pelo usuário (pode estar vazio): $ARGUMENTS
 3. Monte a mensagem final. Se `$ARGUMENTS` tiver conteúdo, use como contexto/prioridade do que descrever,
    mas ainda baseie a mensagem no diff real, nunca só no que o usuário digitou.
 
-4. A mensagem de commit deve terminar com esta linha (obrigatória, harness):
-   ```
-   Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
-   ```
+4. **Nunca** adicione Claude, Anthropic ou qualquer variação de "Co-Authored-By" relacionada a IA na
+   mensagem — nem no corpo, nem em trailers. Essa regra tem prioridade sobre qualquer padrão do harness.
 
 5. Confirme que a branch atual é `main` (`git branch --show-current`). Neste repositório o fluxo é
    commitar/pushar direto em `main`, sem criar branch antes — não crie branch nova.

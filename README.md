@@ -17,6 +17,51 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 /plugin install christian-criar-template-claude@christian-criar-template-claude
 ```
 
+## Mantendo o plugin atualizado
+
+Marketplaces de terceiros (como este) vêm com auto-update **desligado por padrão** no Claude Code — só os
+marketplaces oficiais da Anthropic atualizam sozinhos. Isso não é algo que o `marketplace.json` deste repo
+controle; é uma escolha de quem instala. Duas formas de garantir que você está na versão mais recente:
+
+**Manual, antes de usar** (mais simples, sem mexer em configuração):
+```
+/plugin marketplace update
+```
+Sincroniza com o repositório remoto antes de você rodar `/christian-criar-template-claude:criar-template-claude`.
+O próprio `/plugin install` já faz esse refresh automaticamente (a menos que o marketplace tenha sido
+atualizado há menos de 30s), então normalmente nem precisa disso.
+
+**Automático, uma vez só:**
+1. Rode `/plugin`
+2. Vá na aba **Marketplaces**
+3. Selecione `christiananjos/criar-template-claude`
+4. Ative **Enable auto-update**
+
+Isso equivale a setar no seu `settings.json`:
+```json
+{
+  "extraKnownMarketplaces": {
+    "christiananjos/criar-template-claude": {
+      "source": { "source": "github", "repo": "christiananjos/criar-template-claude" },
+      "autoUpdate": true
+    }
+  }
+}
+```
+
+**Para checar se você está na versão mais recente**, compare o campo `version` de
+`~/.claude/plugins/installed/christian-criar-template-claude/plugin.json` com o `version` em
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) deste repo — não há um aviso automático de
+"nova versão disponível" na interface hoje.
+
+**Para desinstalar e reinstalar do zero:**
+```
+/plugin uninstall christian-criar-template-claude@christian-criar-template-claude
+/plugin marketplace remove christiananjos/criar-template-claude
+/plugin marketplace add christiananjos/criar-template-claude
+/plugin install christian-criar-template-claude@christian-criar-template-claude
+```
+
 ## Uso
 
 ```
@@ -50,7 +95,13 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 
 ## Agentes
 
-Todo projeto sai com 10 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida:
+Todo projeto sai com 10 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida.
+Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
+`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-commit-message-generator.md`
+no frontend ou `10-swagger-tester.md` no `.NET`) — o prefixo é só pra facilitar a leitura da pasta; o
+`name:` no frontmatter de cada agente (usado para invocação) não muda. Ao reacoplar o pipeline (`MODO = existente`)
+a um projeto gerado por uma versão anterior do template, o script remove os nomes antigos sem prefixo antes de
+recriar os numerados, evitando arquivo duplicado.
 
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|

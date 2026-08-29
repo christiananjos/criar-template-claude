@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v2.1.0
+# 🚀 Criar Template Claude SDD v2.2.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -100,7 +100,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v2.1.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v2.2.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -114,6 +114,15 @@ echo ""
 mkdir -p "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/.claude/commands"
 mkdir -p "$PROJECT_DIR/.claude/agents"
+
+# Remove nomes antigos (sem prefixo numérico) de execuções deste script anteriores à v2.2.0,
+# evitando duplicar arquivo quando o pipeline é reacoplado a um projeto já gerado antes.
+for legacy_agent in knowledge-bootstrap orchestrator-sdd architect-sdd dotnet-specialist \
+    react-specialist angular-specialist vue-specialist compliance-validator test-validator \
+    code-review-sdd build-test-validator security-scan-sdd commit-message-generator swagger-tester; do
+    rm -f "$PROJECT_DIR/.claude/agents/$legacy_agent.md"
+done
+
 mkdir -p "$PROJECT_DIR/docs"
 mkdir -p "$PROJECT_DIR/docs/raw"
 mkdir -p "$PROJECT_DIR/output"
@@ -396,7 +405,7 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 # CRIAR AGENTS — agentes fixos (sempre incluídos)
 # ============================================================================
 
-cat > ""$PROJECT_DIR/.claude/agents/knowledge-bootstrap.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/00-knowledge-bootstrap.md"" << 'AGENTEOF'
 ---
 name: knowledge-bootstrap
 description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
@@ -694,7 +703,7 @@ Salve em `output/0-knowledge-bootstrap.md`:
   origem em `knowledge/source/`.
 AGENTEOF
 
-cat > ""$PROJECT_DIR/.claude/agents/orchestrator-sdd.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/01-orchestrator-sdd.md"" << 'AGENTEOF'
 ---
 name: orchestrator-sdd
 description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
@@ -759,7 +768,7 @@ Produza um relatório curto e direto:
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/architect-sdd.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
 ---
 name: architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
@@ -827,7 +836,7 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 else
-    cat > ""$PROJECT_DIR/.claude/agents/architect-sdd.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
 ---
 name: architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
@@ -907,10 +916,10 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 fi
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/architect-sdd.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md""
 
 if [ "$STACK" = "dotnet" ]; then
-cat > ""$PROJECT_DIR/.claude/agents/dotnet-specialist.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/03-dotnet-specialist.md"" << 'AGENTEOF'
 ---
 name: dotnet-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 10 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
@@ -977,7 +986,7 @@ Repository Pattern, DTOs, convenção de nomenclatura PT/EN, código pronto para
 AGENTEOF
 fi
 
-cat > ""$PROJECT_DIR/.claude/agents/compliance-validator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md"" << 'AGENTEOF'
 ---
 name: compliance-validator
 description: Use this agent after __SPECIALIST__ has produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Code was just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
@@ -1038,11 +1047,11 @@ Salve em `output/4-compliance.md`:
 - Se algo estiver faltando, seja específico sobre o que falta e onde
 - Não corrija o código você mesmo; apenas reporte
 AGENTEOF
-sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/compliance-validator.md""
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/compliance-validator.md""
+sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md""
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/test-validator.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/05-test-validator.md"" << 'AGENTEOF'
 ---
 name: test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the backend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
@@ -1105,7 +1114,7 @@ Seguido dos blocos de código de cada arquivo de teste, organizados por caminho 
 - Priorize testes que cobrem regras de negócio reais
 AGENTEOF
 else
-    cat > ""$PROJECT_DIR/.claude/agents/test-validator.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/05-test-validator.md"" << 'AGENTEOF'
 ---
 name: test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
@@ -1169,10 +1178,10 @@ Seguido dos blocos de código de cada arquivo de teste, organizados por caminho.
 - Não escreva testes triviais sem valor (ex: testar getter/setter simples)
 - Priorize testes que cobrem regras de negócio reais
 AGENTEOF
-    sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/test-validator.md""
+    sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/05-test-validator.md""
 fi
 
-cat > ""$PROJECT_DIR/.claude/agents/code-review-sdd.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md"" << 'AGENTEOF'
 ---
 name: code-review-sdd
 description: Use this agent after test-validator has generated tests, to review the overall code quality, SOLID compliance, and identify improvements before build validation. Use PROACTIVELY as step 6 of the SDD pipeline. Examples: <example>Context: Tests were just generated. user: "Os testes estão prontos, revisa a qualidade do código" assistant: "Vou usar o agente code-review-sdd para revisar SOLID, clean code e segurança no código gerado." <commentary>Code review happens after tests exist so reviewers can also assess test quality, not just production code.</commentary></example>
@@ -1258,21 +1267,21 @@ RULEFEOF
     sed -i "/__FRONTEND_DESIGN_CRITERIA__/{
         r $CRITERIA_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md""
     sed -i "/__FRONTEND_DESIGN_SECTION__/{
         r $SECTION_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md""
     sed -i "/__FRONTEND_DESIGN_RULE__/{
         r $RULE_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md""
     rm -f "$CRITERIA_FILE" "$SECTION_FILE" "$RULE_FILE"
 else
-    sed -i "/__FRONTEND_DESIGN_CRITERIA__/d;/__FRONTEND_DESIGN_RULE__/d;s/__FRONTEND_DESIGN_SECTION__//" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    sed -i "/__FRONTEND_DESIGN_CRITERIA__/d;/__FRONTEND_DESIGN_RULE__/d;s/__FRONTEND_DESIGN_SECTION__//" ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md""
 fi
 
-cat > ""$PROJECT_DIR/.claude/agents/build-test-validator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/07-build-test-validator.md"" << 'AGENTEOF'
 ---
 name: build-test-validator
 description: Use this agent after code-review-sdd has approved the code, to simulate build and test execution validation, checking for compilation issues and coverage thresholds. Use PROACTIVELY as step 7 of the SDD pipeline. Examples: <example>Context: Code review passed. user: "Revisão aprovada, valida o build" assistant: "Vou usar o agente build-test-validator para validar que o código compila e os testes passam." <commentary>Build validation is the last technical gate before commit messages are generated.</commentary></example>
@@ -1330,7 +1339,7 @@ Salve em `output/7-build-test.md`:
 - Se encontrar um problema bloqueante, marque como FAILED claramente
 AGENTEOF
 
-cat > ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md"" << 'AGENTEOF'
 ---
 name: security-scan-sdd
 description: Use this agent after build-test-validator has confirmed the build passes, to run a deterministic static-analysis security scan (Semgrep) over the generated code before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para rodar o Semgrep sobre o código gerado antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
@@ -1416,7 +1425,7 @@ __FRONTEND_SECURITY_SECTION__
 - Não invente achados nem gravidade — baseie-se só no que o Semgrep reportou de fato.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
-sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
 
 if [ "$STACK" != "dotnet" ]; then
     STEP_FILE=$(mktemp)
@@ -1453,21 +1462,21 @@ RULEFEOF
     sed -i "/__FRONTEND_SECURITY_STEP__/{
         r $STEP_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
     sed -i "/__FRONTEND_SECURITY_SECTION__/{
         r $SECTION_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
     sed -i "/__FRONTEND_SECURITY_RULE__/{
         r $RULE_FILE
         d
-    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    }" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
     rm -f "$STEP_FILE" "$SECTION_FILE" "$RULE_FILE"
 else
-    sed -i "/__FRONTEND_SECURITY_STEP__/d;/__FRONTEND_SECURITY_RULE__/d;s/__FRONTEND_SECURITY_SECTION__//" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    sed -i "/__FRONTEND_SECURITY_STEP__/d;/__FRONTEND_SECURITY_RULE__/d;s/__FRONTEND_SECURITY_SECTION__//" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
 fi
 
-cat > ""$PROJECT_DIR/.claude/agents/commit-message-generator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/09-commit-message-generator.md"" << 'AGENTEOF'
 ---
 name: commit-message-generator
 description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 9 of the SDD pipeline. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build, pass tests, and clear the security gate.</commentary></example>
@@ -1522,7 +1531,7 @@ Salve em `output/9-commit-message.md` a lista de commits sugeridos, na ordem em 
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/swagger-tester.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/10-swagger-tester.md"" << 'AGENTEOF'
 ---
 name: swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
@@ -1596,7 +1605,7 @@ echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 # ============================================================================
 
 if [ "$STACK" = "react" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/react-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/03-react-specialist.md"" << 'AGENTEOF'
 ---
 name: react-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -1653,7 +1662,7 @@ AGENTEOF
 fi
 
 if [ "$STACK" = "angular" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/angular-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/03-angular-specialist.md"" << 'AGENTEOF'
 ---
 name: angular-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -1710,7 +1719,7 @@ AGENTEOF
 fi
 
 if [ "$STACK" = "vue" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/vue-specialist.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/03-vue-specialist.md"" << 'AGENTEOF'
 ---
 name: vue-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
@@ -2821,7 +2830,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v2.1.0**
+**Projeto criado com Claude SDD v2.2.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

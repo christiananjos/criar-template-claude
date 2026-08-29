@@ -3,7 +3,7 @@ description: Cria um novo projeto (.NET, Angular, React ou Vue — uma stack por
 argument-hint: [nome-do-projeto]
 ---
 
-# /criar-template-claude — Criar Novo Projeto SDD
+# /comecar — Criar Novo Projeto SDD
 
 Crie um novo projeto usando o script de scaffolding deste plugin.
 

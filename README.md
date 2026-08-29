@@ -4,7 +4,7 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 
 ## Como funciona
 
-1. `/criar-template-claude` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
+1. `/comecar` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
 4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, roda um scan de segurança estática (Semgrep), gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
@@ -27,7 +27,7 @@ controle; é uma escolha de quem instala. Duas formas de garantir que você est�
 ```
 /plugin marketplace update
 ```
-Sincroniza com o repositório remoto antes de você rodar `/christian-criar-template-claude:criar-template-claude`.
+Sincroniza com o repositório remoto antes de você rodar `/christian-criar-template-claude:comecar`.
 O próprio `/plugin install` já faz esse refresh automaticamente (a menos que o marketplace tenha sido
 atualizado há menos de 30s), então normalmente nem precisa disso.
 
@@ -65,7 +65,7 @@ Isso equivale a setar no seu `settings.json`:
 ## Uso
 
 ```
-/christian-criar-template-claude:criar-template-claude meu-projeto
+/christian-criar-template-claude:comecar meu-projeto
 cd meu-projeto
 nano docs/SPEC.md
 /orchestrator
@@ -81,7 +81,7 @@ O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim q
 
 ## Acoplar num projeto já existente
 
-Além de criar um projeto do zero, o `/criar-template-claude` também acopla o pipeline a um projeto que **já
+Além de criar um projeto do zero, o `/comecar` também acopla o pipeline a um projeto que **já
 tem código** (uma casca inicial, um projeto em andamento etc.). A primeira pergunta do comando é justamente
 essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do projeto já existente:
 
@@ -161,7 +161,7 @@ criar-template-claude/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
-├── commands/criar-template-claude.md     # comando do plugin instalado
+├── commands/comecar.md                   # comando do plugin instalado (/comecar)
 └── criar-template-claude-sdd-plugin.sh   # script de scaffolding
 ```
 

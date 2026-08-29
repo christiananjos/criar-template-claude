@@ -1,11 +1,12 @@
 ---
-description: Cria um novo projeto (.NET, Angular, React ou Vue — uma stack por vez) com estrutura SDD completa (.claude/commands/ + .claude/agents/ prontos) para rodar o pipeline de agentes depois
+description: Monta a estrutura SDD (.NET, Angular, React ou Vue — uma stack por vez) seguindo as convenções oficiais do Claude Code (.claude/commands/ + .claude/agents/ prontos), num projeto novo ou já existente
 argument-hint: [nome-do-projeto]
 ---
 
-# /comecar — Criar Novo Projeto SDD
+# /comecar — Montar Estrutura SDD
 
-Crie um novo projeto usando o script de scaffolding deste plugin.
+Monte a estrutura do projeto (agentes, comandos, knowledge/) usando o script de scaffolding deste plugin,
+seguindo as convenções oficiais de projeto do Claude Code para a stack escolhida.
 
 ## Fluxo de Confirmação
 

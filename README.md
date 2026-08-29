@@ -1,6 +1,6 @@
 # Criar Template Claude — Pipeline SDD
 
-Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, React ou Vue — nunca backend e frontend misturados no mesmo projeto) com um pipeline de agentes que especifica, implementa, testa e revisa código automaticamente — tudo dentro do Claude Code, sem serviços externos.
+Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.NET, Angular, React ou Vue — nunca backend e frontend misturados no mesmo projeto), seguindo as convenções oficiais de projeto do Claude Code, com um pipeline de agentes que especifica, implementa, testa e revisa código automaticamente — tudo dentro do Claude Code, sem serviços externos.
 
 ## Como funciona
 
@@ -14,8 +14,12 @@ Plugin para Claude Code que cria projetos de **uma stack só** (.NET, Angular, R
 
 ```
 /plugin marketplace add christiananjos/criar-template-claude
-/plugin install christian-criar-template-claude@christian-criar-template-claude
+/plugin install sdd@christian-criar-template-claude
 ```
+
+Os comandos ficam disponíveis como `/sdd:comecar` e `/sdd:atualizar-versao` — o prefixo `sdd:` vem do nome
+do plugin (`christiananjos/criar-template-claude` é só o repositório/marketplace; o plugin em si se chama
+`sdd`).
 
 ## Mantendo o plugin atualizado
 
@@ -25,7 +29,7 @@ controle; é uma escolha de quem instala.
 
 **Mais simples: use o comando que o próprio plugin traz:**
 ```
-/christian-criar-template-claude:atualizar-versao
+/sdd:atualizar-versao
 ```
 Sincroniza o marketplace e atualiza o plugin para a versão mais recente numa tacada só (equivale aos passos
 manuais abaixo). Pede restart da sessão do Claude Code pra aplicar, se atualizar alguma coisa.
@@ -33,7 +37,7 @@ manuais abaixo). Pede restart da sessão do Claude Code pra aplicar, se atualiza
 **Manual, passo a passo:**
 ```
 /plugin marketplace update
-/plugin install christian-criar-template-claude@christian-criar-template-claude
+/plugin install sdd@christian-criar-template-claude
 ```
 O `/plugin install` já faz o refresh do marketplace automaticamente (a menos que ele tenha sido atualizado
 há menos de 30s), então normalmente o primeiro comando nem é necessário.
@@ -57,22 +61,22 @@ Isso equivale a setar no seu `settings.json`:
 ```
 
 **Para checar a versão instalada**, rode `claude plugin list --json` e veja o campo `version` da entrada
-`christian-criar-template-claude@christian-criar-template-claude`; compare com o `version` em
+`sdd@christian-criar-template-claude`; compare com o `version` em
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) deste repo — não há um aviso automático
 de "nova versão disponível" na interface hoje.
 
 **Para desinstalar e reinstalar do zero:**
 ```
-/plugin uninstall christian-criar-template-claude@christian-criar-template-claude
+/plugin uninstall sdd@christian-criar-template-claude
 /plugin marketplace remove christiananjos/criar-template-claude
 /plugin marketplace add christiananjos/criar-template-claude
-/plugin install christian-criar-template-claude@christian-criar-template-claude
+/plugin install sdd@christian-criar-template-claude
 ```
 
 ## Uso
 
 ```
-/christian-criar-template-claude:comecar meu-projeto
+/sdd:comecar meu-projeto
 cd meu-projeto
 nano docs/SPEC.md
 /orchestrator

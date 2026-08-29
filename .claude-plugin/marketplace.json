@@ -1,14 +1,15 @@
 {
   "name": "christian-criar-template-claude",
+  "description": "Marketplace pessoal de Christian Anjos com o plugin sdd (Pipeline SDD para .NET, Angular, React e Vue).",
   "owner": {
     "name": "Christian Anjos"
   },
   "plugins": [
     {
-      "name": "christian-criar-template-claude",
+      "name": "sdd",
       "source": "./",
-      "description": "Cria projetos .NET (Clean Architecture) com Pipeline SDD: agentes especializados que implementam, testam e validam código automaticamente dentro do Claude Code.",
-      "version": "2.4.0",
+      "description": "Monta a estrutura de projeto SDD (.NET, Angular, React ou Vue — uma stack por vez), seguindo as convenções oficiais do Claude Code, com agentes especializados que implementam, testam e validam código automaticamente.",
+      "version": "3.0.0",
       "author": {
         "name": "Christian Anjos"
       },

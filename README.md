@@ -131,6 +131,24 @@ recriar os numerados, evitando arquivo duplicado.
 
 `commit-message-generator` e `swagger-tester` usam Haiku por serem etapas de baixo risco; os demais usam Sonnet.
 
+## Skills — especialistas extras (só stack `.NET`)
+
+Todo projeto `.NET` sai também com 4 skills em `.claude/skills/`, complementares aos agentes do pipeline —
+não são chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você
+invocar manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem:
+
+| Skill | Cobre |
+|---|---|
+| `dba-expert` | SQL Server, Azure SQL e PostgreSQL — modelagem de schema, indexação, otimização de query, migrations do EF Core, backup/replicação |
+| `cicd-pipeline-expert` | Pipelines Azure DevOps e GitHub Actions — YAML, estratégias de deploy (blue-green/canary/rolling), políticas de branch |
+| `tech-leader` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
+| `dotnet-security-expert` | Segurança de aplicações .NET — auth (JWT/Identity), OWASP Top 10, gestão de secrets, SAST com Semgrep |
+
+Stacks de frontend (`Angular`/`React`/`Vue`) não recebem essas skills — o conteúdo é específico de backend
+.NET (EF Core, ASP.NET Core, pipelines de API). Essas mesmas 4 skills também existem globalmente em
+`~/.claude/skills/` nesta máquina, disponíveis em qualquer sessão do Claude Code, não só dentro de projetos
+gerados pelo template.
+
 ## Base de Conhecimento (Knowledge Engine)
 
 Se você tiver documentação já pronta do projeto (Word, PDF, planilhas, imagens, atas de reunião), coloque tudo
@@ -159,6 +177,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
 - **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
+- **`.claude/skills/`** — só em projetos `.NET`: 4 skills de especialistas extras (`dba-expert`, `cicd-pipeline-expert`, `tech-leader`, `dotnet-security-expert`), ver seção "Skills" acima.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.

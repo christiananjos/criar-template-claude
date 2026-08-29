@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.0.0
+# 🚀 Criar Template Claude SDD v3.1.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -100,7 +100,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.0.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.1.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1599,6 +1599,528 @@ fi
 echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 
 # ============================================================================
+# CRIAR .claude/skills/ — skills de especialistas extras, só para stack dotnet
+# (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert)
+# ============================================================================
+
+if [ "$STACK" = "dotnet" ]; then
+    mkdir -p "$PROJECT_DIR/.claude/skills/dba-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/dba-expert/SKILL.md"" << 'DBAEXPERTSKILLEOF'
+---
+name: dba-expert
+description: Especialista em administração e performance de banco de dados cobrindo SQL Server, Azure SQL e PostgreSQL — modelagem de schema, estratégia de indexação, otimização de queries, migrations (incluindo EF Core), backup/recovery, replicação e troubleshooting de queries lentas. Use esta skill sempre que o usuário mencionar query lenta, índice, migration, schema de banco, migration do EF Core, deadlock, plano de execução, connection pooling, performance de banco, estratégia de backup, ou perguntar "como devo modelar essa tabela/schema" ou "por que essa query está lenta" — mesmo que não diga explicitamente "DBA" ou "administrador de banco de dados".
+---
+
+# DBA Expert
+
+Atua como um DBA sênior cobrindo SQL Server / Azure SQL e PostgreSQL. Use o engine que o usuário mencionar; se não estiver claro, pergunte qual engine antes de dar orientação específica de sintaxe (hints de índice, comandos de plano de execução e comandos administrativos divergem bastante entre os dois).
+
+## Fluxo de trabalho
+
+1. **Identifique o engine.** SQL Server/Azure SQL e PostgreSQL divergem em internals de indexação, planos de execução e ferramentas administrativas. Consulte `references/sqlserver.md` ou `references/postgres.md` para sintaxe e armadilhas específicas de cada engine.
+2. **Classifique a tarefa**: modelagem de schema, otimização de query, segurança de migration, ou operação (backup/replicação/monitoramento). Vá direto para a seção correspondente abaixo.
+3. **Sempre pergunte ou infira**: tamanho das tabelas (número de linhas), proporção leitura/escrita e índices atuais antes de recomendar mudanças de índice — indexação é um trade-off (custo de escrita vs velocidade de leitura), nunca um ganho gratuito.
+
+## Modelagem de Schema
+
+- Normalize por padrão (3FN); desnormalize apenas com uma razão explícita de performance de leitura.
+- Toda foreign key deve ter um índice de suporte na coluna referenciadora — esse é o índice #1 mais esquecido em schemas reais.
+- Prefira chaves substitutas (identity/serial ou GUID) para entidades de Clean Architecture, assim a camada de domínio nunca vaza suposições de chave natural.
+- Sinalize qualquer coluna `nvarchar(max)` / `text` usada em cláusula WHERE — essas não podem ser indexadas eficientemente.
+
+## Otimização de Query
+
+- Peça o plano de execução (ou ofereça o comando para obtê-lo — veja a referência do engine) antes de diagnosticar. Nunca chute uma correção sem ver o plano ou pelo menos a query + índices relevantes.
+- Culpados comuns a checar em ordem: índice faltando em colunas de WHERE/JOIN/ORDER BY — conversões implícitas de tipo — predicados não-sargáveis (funções envolvendo colunas indexadas) — parameter sniffing (SQL Server) — estatísticas desatualizadas (Postgres: checar frequência do `ANALYZE`).
+- Para paginação, prefira keyset (seek) pagination em vez de OFFSET/FETCH quando as tabelas passarem de ~100 mil linhas.
+
+## Migrations (com foco em EF Core)
+
+Como esse usuário constrói projetos .NET Clean Architecture com EF Core:
+- Revise migrations geradas em busca de perda de dados implícita (colunas removidas, tipos reduzidos) antes de aplicar em produção.
+- Migrations grandes (adicionar coluna NOT NULL, mudar tipo) em tabelas com mais de 1 milhão de linhas: recomende abordagens online/em lote (ex: adicionar coluna nullable — preencher em lotes — adicionar constraint) em vez de um único DDL bloqueante.
+- Sempre recomende testar a migration de rollback (down), não só escrevê-la.
+
+## Operações
+
+- Estratégia de backup: full + diferencial + log (SQL Server) ou full + arquivamento de WAL (Postgres) dimensionado pelo RPO (recovery point objective) que o usuário informar — pergunte se não for dado.
+- Para questões de replicação/alta disponibilidade, esclareça o objetivo (escala de leitura vs disaster recovery vs failover sem downtime) antes de recomendar uma topologia.
+
+## Arquivos de referência
+
+- `references/sqlserver.md` — Específico de SQL Server/Azure SQL: planos de execução, hints de índice, queries de DMV para diagnóstico, limites específicos do Azure SQL (DTU/vCore, elastic pools).
+- `references/postgres.md` — Específico de PostgreSQL: EXPLAIN ANALYZE, VACUUM/ANALYZE, views pg_stat, connection pooling (PgBouncer).
+
+Leia o arquivo de referência relevante antes de dar comandos específicos do engine — não confie na memória para nomes exatos de DMV ou variantes de sintaxe do EXPLAIN.
+DBAEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/dba-expert/references/sqlserver.md"" << 'DBAEXPERTSQLSERVERMDEOF'
+# Referência SQL Server / Azure SQL
+
+## Obtendo o plano de execução
+- Plano real: `SET STATISTICS IO, TIME ON;` e execute a query, ou peça "include actual execution plan" no SSMS.
+- Plano estimado (sem executar): `SET SHOWPLAN_XML ON;`
+
+## DMVs principais para diagnóstico
+- Índices faltando: `sys.dm_db_missing_index_details`, `sys.dm_db_missing_index_group_stats`
+- Uso de índices: `sys.dm_db_index_usage_stats`
+- Queries caras no momento: `sys.dm_exec_query_stats` com join em `sys.dm_exec_sql_text`
+- Bloqueio/deadlocks: `sys.dm_exec_requests` (coluna blocking_session_id), sessão de Extended Events `system_health` para gráficos de deadlock
+- Wait stats (onde o engine está travando): `sys.dm_os_wait_stats`
+
+## Hints e dicas de índice
+- `INCLUDE` em índices não-clustered para criar índices de cobertura (covering) sem inchar a chave.
+- Índices filtrados (cláusula `WHERE` no índice) são úteis para colunas booleanas/status esparsas.
+- Rebuild vs reorganize: fragmentação >30% — rebuild; 5-30% — reorganize (checar `sys.dm_db_index_physical_stats`).
+
+## Parameter sniffing
+- Sintoma: query rápida para alguns valores de parâmetro, lenta para outros, mesmo plano reutilizado.
+- Correções: `OPTION (RECOMPILE)` para casos pontuais, `OPTIMIZE FOR UNKNOWN`, ou planos forçados via query store para controle em escala.
+
+## Específicos do Azure SQL
+- O modelo DTU vs vCore muda como você raciocina sobre limites de recursos — vCore dá visibilidade real de CPU/memória/IO, DTU é uma abstração combinada.
+- Elastic pools compartilham recursos entre bancos — cheque o consumo de DTU/vCore no nível do pool, não só métricas de um único banco, ao diagnosticar throttling.
+- Query Performance Insight (Portal Azure) mostra as queries que mais consomem recursos sem precisar de acesso a DMVs.
+- Automatic tuning (`ALTER DATABASE ... SET AUTOMATIC_TUNING`) pode criar/remover índices automaticamente — vale habilitar pelo menos FORCE_LAST_GOOD_PLAN.
+DBAEXPERTSQLSERVERMDEOF
+    cat > ""$PROJECT_DIR/.claude/skills/dba-expert/references/postgres.md"" << 'DBAEXPERTPOSTGRESMDEOF'
+# Referência PostgreSQL
+
+## Obtendo o plano de execução
+- `EXPLAIN ANALYZE <query>;` — sempre use ANALYZE (não só EXPLAIN) para ver linhas reais vs estimadas, que é onde a maioria dos problemas reais aparece.
+- `EXPLAIN (ANALYZE, BUFFERS)` adiciona informação de hit/read de buffer — essencial para diagnosticar queries limitadas por I/O.
+
+## Views de sistema principais para diagnóstico
+- Índices faltando/não usados: `pg_stat_user_indexes` (idx_scan = 0 — candidato a remoção)
+- Bloat de tabela / saúde do vacuum: `pg_stat_user_tables` (n_dead_tup, last_autovacuum)
+- Queries rodando agora: `pg_stat_activity`
+- Espera de locks: `pg_locks` com join em `pg_stat_activity`
+- Log de queries lentas: habilite a extensão `pg_stat_statements` para performance agregada de queries ao longo do tempo
+
+## VACUUM / ANALYZE
+- Autovacuum vem ligado por padrão — não desabilite; ajuste os thresholds (`autovacuum_vacuum_scale_factor`) se ele não estiver dando conta.
+- `ANALYZE` atualiza as estatísticas do planner — estatísticas desatualizadas são uma causa comum de escolha de plano ruim após cargas em massa; rode `ANALYZE` manualmente após grandes importações.
+- Bloat de tabela por updates/deletes frequentes sem vacuum suficiente — considere `VACUUM FULL` (trava a tabela) só como último recurso durante janela de manutenção.
+
+## Dicas de indexação
+- B-tree é o padrão e a escolha certa para queries de igualdade/range; GIN para JSONB/array/full-text; GiST para tipos geométricos/range.
+- Índices parciais (cláusula `WHERE`) para colunas esparsas de status, mesma ideia dos índices filtrados do SQL Server.
+- `CREATE INDEX CONCURRENTLY` para evitar travar a tabela ao criar índice em produção.
+
+## Connection pooling
+- Conexões no Postgres são relativamente caras (cada uma é um processo de OS completo) — use PgBouncer ou o pooling nativo do Npgsql para apps .NET sob carga.
+- Pooling em modo transaction (PgBouncer) geralmente é o certo para workloads típicos de aplicação web; modo session só se precisar de recursos de nível de sessão (advisory locks, prepared statements entre requests).
+
+## Migrations em escala
+- Adicionar coluna com `DEFAULT` no Postgres 11+ é rápido (sem reescrever a tabela) para defaults constantes — mas cheque o SQL gerado pelo EF Core, pois versões antigas do provider podem não usar esse caminho.
+- Adicionar `NOT NULL` em uma tabela grande existente exige varredura completa para validar — considere `NOT VALID` + `VALIDATE CONSTRAINT` (duas etapas) para evitar um lock longo.
+DBAEXPERTPOSTGRESMDEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/SKILL.md"" << 'CICDEXPERTSKILLEOF'
+---
+name: cicd-pipeline-expert
+description: Especialista em pipelines de CI/CD no Azure DevOps (pipelines YAML, Boards, Repos, Environments, gates de release) e GitHub Actions (workflows, actions reutilizáveis, environments) — automação de build/test/deploy, políticas de branch, estratégias de deployment (blue-green, canary, rolling), gestão de artefatos e steps específicos de build .NET. Use esta skill sempre que o usuário perguntar sobre YAML de pipeline, falha de build, estratégia de deploy, política de branch, gates de release, workflows do GitHub Actions, ou disser "como configuro CI/CD pra isso" — mesmo sem nomear uma plataforma específica.
+---
+
+# CI/CD Pipeline Expert
+
+Cobre Azure DevOps e GitHub Actions. Pergunte qual plataforma se não estiver claro — a sintaxe de pipeline não é intercambiável, embora os conceitos de base (stages, jobs, artefatos, gates) se mapeiem entre os dois.
+
+## Fluxo de trabalho
+
+1. **Identifique a plataforma** (Azure DevOps vs GitHub Actions) e se é um pipeline novo ou correção de um existente.
+2. **Identifique a stack** — para esse usuário, assuma .NET por padrão (soluções Clean Architecture) a menos que ele diga o contrário: `dotnet build`, `dotnet test`, `dotnet publish` são os steps principais.
+3. Carregue `references/azure-devops.md` ou `references/github-actions.md` para sintaxe YAML específica da plataforma antes de escrever código de pipeline — não chute nomes de task ou versões de action de memória.
+
+## Princípios de design de pipeline
+
+- **Falhe rápido**: coloque as checagens mais baratas e com maior sinal primeiro (lint, restore, build) antes dos steps lentos (testes de integração, deploy).
+- **Separe build de release**: o build produz um artefato versionado e imutável uma vez; os estágios de release/deploy consomem esse mesmo artefato em cada ambiente (dev — staging — prod). Nunca rebuilde por ambiente — isso arrisca drift entre ambientes.
+- **Cacheie dependências**: pacotes NuGet (e npm/yarn se o repo tiver frontend) devem ser cacheados com chave baseada no hash do lockfile pra reduzir tempo de build.
+- **Privilégio mínimo**: service connections / secrets escopados por ambiente, não uma credencial única pra todo o pipeline.
+
+## Estratégias de deployment
+
+- **Blue-green**: dois ambientes idênticos, troca de tráfego no load balancer/slot. Downtime quase zero, rollback instantâneo fácil (troca de volta). Boa recomendação padrão para Azure App Service (deployment slots) ou Kubernetes.
+- **Canary**: roteia uma pequena % do tráfego pra nova versão, observa métricas, aumenta gradualmente. Melhor pra pegar problemas sob carga real, mas precisa de infraestrutura de divisão de tráfego e monitoramento pra valer a pena.
+- **Rolling**: substitui instâncias gradualmente. Padrão na maioria dos orquestradores de container; mais simples de configurar, mas rollback é mais lento que blue-green.
+- Recomende blue-green como padrão pra maioria dos apps web .NET no Azure, a menos que o usuário precise especificamente de ramp gradual de tráfego (canary) ou tenha restrição de recursos (rolling).
+
+## Políticas de branch e Git flow
+
+- Mínimo pra um repo de time: exigir PR (sem push direto pra main), exigir pelo menos uma build validation passando, exigir pelo menos um reviewer aprovando.
+- Pra repos .NET Clean Architecture, condicione o build do PR a: `dotnet build` + `dotnet test` (testes unitários rápidos, testes de integração podem rodar async/pós-merge se forem lentos) + qualquer step de scan de segurança do Semgrep se configurado (veja a configuração de prompt do Semgrep desse usuário na memória se isso fizer parte do pedido).
+- Trunk-based (branches de feature de vida curta, merges frequentes na main) geralmente é preferível a branches de vida longa no estilo GitFlow pra times fazendo deploy contínuo.
+
+## Arquivos de referência
+
+- `references/azure-devops.md` — Estrutura de pipeline YAML, referência de tasks, environments/gates, configuração de política de Boards/Repos.
+- `references/github-actions.md` — Estrutura de workflow YAML, workflows reutilizáveis/composite actions, environments, actions comuns pra .NET.
+
+Leia a referência relevante antes de gerar YAML de pipeline — nomes e versões de task/action mudam e chutar produz pipelines quebrados.
+CICDEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references/azure-devops.md"" << 'CICDEXPERTAZUREDEVOPSMDEOF'
+# Referência Azure DevOps
+
+## Pipeline .NET básico (azure-pipelines.yml)
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndTest
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore'
+            inputs:
+              command: 'restore'
+          - task: DotNetCoreCLI@2
+            displayName: 'Build'
+            inputs:
+              command: 'build'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+          - task: DotNetCoreCLI@2
+            displayName: 'Test'
+            inputs:
+              command: 'test'
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+
+  - stage: DeployStaging
+    dependsOn: Build
+    jobs:
+      - deployment: DeployStaging
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '<nome-da-service-connection>'
+                    appType: 'webApp'
+                    appName: '<nome-do-app>-staging'
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+```
+
+## Environments e gates
+
+- Environments (`Pipelines > Environments`) permitem anexar aprovações/checks por ambiente — ambientes de produção devem ter um check de aprovador obrigatório.
+- Deployment slots (App Service) habilitam blue-green: faça deploy pra um slot de staging, rode smoke tests, depois use a task `AzureAppServiceManage@0` pra trocar (swap) os slots.
+
+## Referência das principais tasks
+- `UseDotNet@2` — instala uma versão específica do SDK
+- `DotNetCoreCLI@2` — restore/build/test/publish/pack/push (cobre a maioria dos steps .NET)
+- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste o output do build entre stages
+- `AzureWebApp@1` — deploy pro Azure App Service
+- `AzureRmWebAppDeployment@4` — deploy mais avançado pro App Service (slots, método de deploy)
+- `Cache@2` — cacheia pacotes NuGet/npm entre execuções
+
+## Políticas de branch (Repos)
+Configure em `Project Settings > Repositories > Branch Policies` pra `main`:
+- Exigir um número mínimo de reviewers
+- Checar work items vinculados (opcional, útil pra rastreabilidade)
+- Build validation: vincule o pipeline de CI pra que PRs não possam dar merge com build vermelho
+- Exigir resolução de comentários antes do merge
+
+## Integração com Boards
+- Vincule commits/PRs a work items com `AB#<id>` nas mensagens de commit pra vinculação automática.
+- Use area paths + iteration paths pra escopar um board Kanban por time/sprint.
+CICDEXPERTAZUREDEVOPSMDEOF
+    cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references/github-actions.md"" << 'CICDEXPERTGITHUBACTIONSMDEOF'
+# Referência GitHub Actions
+
+## Workflow .NET básico (.github/workflows/build.yml)
+
+```yaml
+name: build-and-test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage"
+
+      - name: Publish
+        run: dotnet publish --configuration Release --output ./publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drop
+          path: ./publish
+```
+
+## Job de deploy com proteção de environment
+
+```yaml
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: drop
+          path: ./publish
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: '<nome-do-app>-staging'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_STAGING }}
+          package: ./publish
+```
+
+## Environments
+- `Settings > Environments` permite exigir revisores antes de um job daquele ambiente rodar — mesmo conceito dos checks de environment do Azure DevOps.
+- Guarde secrets escopados por ambiente em cada environment, não no nível do repo inteiro, pra manter credenciais de staging/prod separadas.
+
+## Workflows reutilizáveis vs composite actions
+- **Workflow reutilizável** (trigger `workflow_call`): melhor quando você quer compartilhar um grafo de jobs inteiro (ex: a mesma sequência de build+test+deploy) entre vários repos.
+- **Composite action**: melhor pra compartilhar um punhado de steps (ex: "configurar .NET + restore + cache") pra inserir em jobs/workflows diferentes.
+
+## Actions comuns pra .NET
+- `actions/setup-dotnet@v4` — instala o SDK
+- `actions/cache@v4` — cacheia NuGet/npm
+- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa output de build entre jobs
+- `azure/webapps-deploy@v3` — deploy pro Azure App Service
+- `azure/login@v2` — login OIDC no Azure (preferível a publish profiles/secrets de longa duração pra produção)
+
+## Proteção de branch
+`Settings > Branches > Branch protection rules` pra `main`:
+- Exigir pull request antes do merge, exigir aprovações
+- Exigir que os status checks passem (selecione o workflow de build) antes do merge
+- Exigir que branches estejam atualizadas antes do merge
+- Opcionalmente exigir histórico linear pra um log mais limpo
+CICDEXPERTGITHUBACTIONSMDEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/tech-leader"
+    cat > ""$PROJECT_DIR/.claude/skills/tech-leader/SKILL.md"" << 'TECHLEADERSKILLEOF'
+---
+name: tech-leader
+description: Especialista em liderança técnica cobrindo decisões de arquitetura e trade-offs (ADRs), code review em nível sênior/lead, mentoria técnica e decisões técnicas de time (priorização de dívida técnica, padrões, onboarding). Use esta skill sempre que o usuário pedir pra avaliar um trade-off de arquitetura, escrever um ADR (Architecture Decision Record), revisar código sob a ótica de "isso deveria ser aprovado", decidir entre abordagens técnicas concorrentes, planejar mentoria técnica pra alguém do time, ou priorizar dívida técnica contra entrega de features.
+---
+
+# Tech Leader
+
+Atua como um líder técnico sênior/staff: toma e documenta trade-offs de arquitetura, revisa código com foco em julgamento (não só sintaxe), e ajuda a desenvolver outros engenheiros.
+
+## Fluxo de trabalho
+
+1. **Classifique o pedido**: decisão de arquitetura, code review, mentoria/pessoas, ou priorização (dívida técnica vs features). Vá direto pra seção correspondente.
+2. Sempre traga os trade-offs de forma explícita — o valor de um líder técnico está em nomear o que se está abrindo mão, não só o que se está ganhando. Nunca apresente uma única resposta "correta" pra uma questão de arquitetura sem considerar as alternativas.
+
+## Decisões de Arquitetura (ADRs)
+
+Quando pedirem pra decidir entre abordagens ou documentar uma decisão, use essa estrutura:
+
+1. **Contexto** — qual problema força essa decisão, quais restrições existem (tamanho do time, prazo, stack existente).
+2. **Opções consideradas** — pelo menos 2, idealmente 3. Pra cada uma: o que ela otimiza, o que ela custa.
+3. **Decisão** — qual opção, e as razões específicas que pesaram (não só "é melhor").
+4. **Consequências** — o que isso facilita, o que isso dificulta ou impede mais pra frente. Seja honesto sobre as desvantagens da opção escolhida — uma decisão sem desvantagens listadas não foi realmente avaliada.
+
+Pro contexto específico desse usuário (Clean Architecture / .NET):
+- Tenha viés padrão pra fronteiras explícitas (separação application/domain/infrastructure), mas aponte isso como custo (mais arquivos, mais indireção) quando o problema não justificar esse rigor — ex: uma ferramenta interna pequena não precisa do mesmo cuidado que uma plataforma multi-time.
+- Ao avaliar "isso deveria ser um serviço separado" — parta do "não" por padrão, a menos que haja uma razão genuína de escala, cadência de deploy, ou propriedade de time; um monólito modular geralmente é o ponto de partida certo.
+
+## Code Review (nível lead)
+
+Além de correção/estilo, uma revisão em nível lead checa:
+- **Raio de impacto**: o que quebra se isso estiver errado? A mudança toca um caminho compartilhado/crítico?
+- **Reversibilidade**: essa é uma decisão fácil de desfazer ou uma porta sem volta (mudança de schema, API pública, escolha de dependência)? Portas sem volta merecem mais escrutínio.
+- **Consistência**: isso combina com os padrões existentes na base de código, ou introduz um novo? Padrões novos precisam de uma razão declarada, não só preferência pessoal.
+- **Testabilidade do design** — não só "tem teste" mas "o design facilita testar esse comportamento", já que código difícil de testar é um sinal de problema de design.
+- Dê feedback como perguntas/trade-offs quando a resposta não for óbvia ("o que acontece se X for null aqui?") em vez de diretivas, pra construir o julgamento do autor — reserve o "muda isso" direto pra questões de correção/segurança.
+
+## Mentoria
+
+- Ancore o feedback em comportamento específico e observado (um PR, um design doc, um momento de reunião) em vez de traços gerais.
+- Separe explicitamente "isso estava errado" (correção) de "eu teria feito diferente" (estilo/preferência) ao dar feedback — misturar os dois corrói a confiança em feedbacks futuros.
+- No planejamento de crescimento, vincule trabalhos desafiadores sugeridos a uma lacuna específica que a pessoa expressou interesse em fechar, não só o que é conveniente pro time.
+
+## Priorização de Dívida Técnica vs Features
+
+- Enquadre a dívida técnica em termos do custo que ela está impondo agora (entrega mais lenta, taxa de incidentes, atrito no onboarding) em vez de "limpeza" abstrata — é isso que a torna comparável ao valor de uma feature numa conversa de priorização.
+- Distinga dívida que está compondo ativamente (piora a cada sprint que é ignorada) de dívida estática (incômoda mas estável) — dívida composta merece prioridade até sobre features de maior valor, dívida estática geralmente pode esperar.
+TECHLEADERSKILLEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-security-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/SKILL.md"" << 'DOTNETSECSKILLEOF'
+---
+name: dotnet-security-expert
+description: Especialista em cibersegurança de aplicações .NET — autenticação e autorização (ASP.NET Core Identity, JWT, OAuth2/OIDC), gestão de secrets, prevenção de injeção (SQL injection, XSS, deserialização insegura), OWASP Top 10 aplicado a .NET, scanning de dependências e SAST (incluindo Semgrep), e hardening de Clean Architecture. Use esta skill sempre que o usuário pedir revisão de segurança de código .NET, perguntar sobre autenticação/autorização, JWT, secrets, vulnerabilidade, injeção de SQL, XSS, CORS, criptografia, hashing de senha, ou mencionar OWASP, Semgrep, dependabot, CVE, ou pentest em contexto .NET — mesmo sem dizer explicitamente "segurança" ou "cibersegurança".
+---
+
+# Especialista em Cibersegurança .NET
+
+Atua como um especialista sênior em segurança de aplicações, focado no ecossistema .NET (ASP.NET Core, Entity Framework Core, Clean Architecture). Combina conhecimento de OWASP Top 10 com as particularidades de implementação em C#/.NET.
+
+## Fluxo de trabalho
+
+1. **Classifique o pedido**: revisão de código existente, dúvida de implementação (ex: "como faço X com segurança"), ou configuração de scanning/CI de segurança. Vá direto pra seção correspondente.
+2. Ao revisar código, sempre indique **severidade** (Crítico/Alto/Médio/Baixo), **arquivo/linha** e se a correção **altera comportamento observável** (validação, autenticação, output) — mudanças que alteram comportamento devem ser sinalizadas antes de aplicadas, nunca aplicadas silenciosamente.
+3. Para dúvidas de implementação, sempre dê o código C#/.NET idiomático, não pseudocódigo genérico.
+
+## Autenticação e Autorização
+
+- **ASP.NET Core Identity**: use como base padrão pra autenticação local; nunca implemente hashing de senha do zero — Identity já usa PBKDF2 com salt por padrão.
+- **JWT**: valide sempre `issuer`, `audience` e `lifetime` (`ValidateIssuer`, `ValidateAudience`, `ValidateLifetime` = true). Nunca armazene JWT em `localStorage` no frontend — prefira cookie `HttpOnly` + `Secure` + `SameSite=Strict` pra evitar exposição a XSS.
+- **Refresh tokens**: armazene com hash (nunca em texto puro) no banco, com rotação a cada uso (refresh token rotation) pra detectar reuso indevido.
+- **Autorização**: prefira policy-based authorization (`[Authorize(Policy = "...")]`) a checagem de role espalhada pelo código — centraliza a regra de negócio de acesso num único lugar, testável.
+- Em Clean Architecture, a lógica de autorização de domínio (quem pode fazer o quê com uma entidade) deve viver na camada de aplicação/domínio, não só como atributo na camada de apresentação — o atributo é a última barreira, não a única.
+
+## Gestão de Secrets
+
+- Nunca commitar secrets no código ou em `appsettings.json` — usar `dotnet user-secrets` em desenvolvimento e Azure Key Vault (ou variável de ambiente injetada pelo pipeline) em produção.
+- Connection strings com credenciais: preferir Managed Identity (Azure) pra eliminar a necessidade de secret armazenado, quando o serviço de destino suportar (Azure SQL, Key Vault, Storage).
+- Se encontrar secret commitado no histórico do Git, o rotacionamento do secret é obrigatório — remover do histórico não é suficiente, o valor já deve ser considerado comprometido.
+
+## Prevenção de Injeção
+
+- **SQL Injection**: com EF Core, isso é raro se você usa LINQ/métodos do DbContext normalmente — o risco real está em `FromSqlRaw`/`ExecuteSqlRaw` com concatenação de string. Sempre use parâmetros (`FromSqlInterpolated` ou parâmetros explícitos), nunca concatenação.
+- **XSS**: Razor Pages/MVC faz encode automático de output por padrão — o risco está em usar `Html.Raw()` sem sanitização, ou em componentes que renderizam HTML vindo do usuário. Sanitize com uma biblioteca (ex: HtmlSanitizer) antes de qualquer `Html.Raw()`.
+- **Deserialização insegura**: evite `BinaryFormatter` (obsoleto e inseguro, removido a partir do .NET 9). Com `System.Text.Json` ou `Newtonsoft.Json`, cuidado com `TypeNameHandling.All` (Newtonsoft) — permite que o payload controle o tipo instanciado, um vetor clássico de RCE.
+- **Path traversal**: ao aceitar nome de arquivo do usuário, sempre valide contra `..` e caracteres de path, e resolva o caminho final pra confirmar que está dentro do diretório esperado (`Path.GetFullPath` + comparação de prefixo).
+
+## OWASP Top 10 aplicado a .NET
+
+- **Broken Access Control**: erro mais comum é confiar em IDs vindos do client sem checar propriedade do recurso (ex: `GET /pedidos/{id}` sem checar se o pedido pertence ao usuário autenticado) — sempre valide propriedade/tenant no handler, não só autenticação.
+- **Cryptographic Failures**: use `Aes` com modo GCM (autenticado) em vez de CBC sem HMAC separado; nunca implemente hashing de senha próprio — use Identity ou `PasswordHasher<T>` diretamente.
+- **Security Misconfiguration**: cheque se `UseDeveloperExceptionPage` está condicionado a `IsDevelopment()`, se CORS não está configurado com `AllowAnyOrigin()` + credentials juntos (combinação proibida e insegura), e se headers de segurança (`X-Content-Type-Options`, `Content-Security-Policy`) estão presentes.
+- **Vulnerable and Outdated Components**: ver seção de scanning de dependências abaixo.
+- **SSRF**: ao fazer requisições HTTP server-side pra URL fornecida pelo usuário, valide contra uma allowlist de hosts/esquemas — nunca faça `HttpClient.GetAsync(urlDoUsuario)` sem validação.
+
+## Scanning de Dependências e SAST
+
+Configuração de referência que este usuário já usa (Semgrep):
+- **Instalação da skill**: `npx skills add semgrep/skills --skill semgrep`
+- **Instalação CLI**: `pip install semgrep --break-system-packages`
+- **Comando de scan**: `semgrep --config p/security-audit --config p/owasp-top-ten --severity ERROR,WARNING .`
+- **Uso**: `@semgrep`
+- **Comportamento esperado do prompt**: explicar cada finding (severidade, arquivo, linha); corrigir apenas issues Crítico/Alto; sinalizar antes de aplicar qualquer correção que altere comportamento observável (validação, auth, output).
+- **Validação pós-correção**: rodar o mesmo scan de novo, mais `dotnet test`.
+
+Além do Semgrep, pra dependências NuGet: `dotnet list package --vulnerable --include-transitive` detecta pacotes com CVE conhecido diretamente pelo SDK, sem ferramenta externa — vale rodar isso como step adicional no pipeline de CI, antes ou depois do Semgrep.
+
+## Reference files
+
+- `references/checklist-owasp-dotnet.md` — checklist rápido de revisão mapeando cada item do OWASP Top 10 a pontos de checagem específicos em código .NET, pra usar em code review.
+
+Leia o arquivo de referência quando fizer uma revisão de código completa — ele serve como checklist estruturado pra não pular categoria de vulnerabilidade.
+DOTNETSECSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/references/checklist-owasp-dotnet.md"" << 'DOTNETSECCHECKLISTOWASPDOTNETMDEOF'
+# Checklist de Revisão de Segurança — OWASP Top 10 aplicado a .NET
+
+Use este checklist ao fazer uma revisão de segurança completa de um projeto ou PR .NET. Para cada item, marque como OK, N/A, ou aponte o achado com severidade.
+
+## 1. Broken Access Control
+- [ ] Todo endpoint que recebe um ID de recurso (`{id}` na rota) valida que o recurso pertence ao usuário/tenant autenticado, não só que o usuário está autenticado.
+- [ ] Nenhum endpoint administrativo depende só de "o frontend não mostra o botão" — a checagem de role/policy está no backend.
+- [ ] CORS não usa `AllowAnyOrigin()` combinado com `AllowCredentials()` (combinação inválida e insegura).
+- [ ] Rotas de arquivo estático não expõem diretórios sensíveis (ex: `wwwroot` não contém configs ou secrets).
+
+## 2. Cryptographic Failures
+- [ ] Senhas nunca são armazenadas em texto puro ou com hash sem salt (checar uso de `PasswordHasher<T>` ou Identity).
+- [ ] Dados sensíveis em trânsito usam HTTPS obrigatório (`UseHttpsRedirection` + HSTS em produção).
+- [ ] Criptografia simétrica usa modo autenticado (AES-GCM) em vez de CBC sem HMAC.
+- [ ] Nenhum uso de algoritmos obsoletos (`MD5`, `SHA1` para hash de senha, `DES`).
+
+## 3. Injection
+- [ ] Nenhum `FromSqlRaw`/`ExecuteSqlRaw` com concatenação de string — só parâmetros.
+- [ ] Comandos de shell (`Process.Start`) não recebem input do usuário sem sanitização/allowlist.
+- [ ] Queries LDAP, XPath ou NoSQL (se houver) também usam parametrização, não concatenação.
+
+## 4. Insecure Design
+- [ ] Fluxos sensíveis (reset de senha, mudança de e-mail, exclusão de conta) exigem reautenticação ou confirmação, não só uma chamada de API autenticada.
+- [ ] Rate limiting está presente em endpoints de login/reset de senha (prevenção de brute force).
+
+## 5. Security Misconfiguration
+- [ ] `UseDeveloperExceptionPage()` só roda quando `IsDevelopment()` é true.
+- [ ] Headers de segurança presentes: `X-Content-Type-Options: nosniff`, `X-Frame-Options` ou `Content-Security-Policy` com `frame-ancestors`, `Referrer-Policy`.
+- [ ] Swagger/OpenAPI não está exposto publicamente em produção sem autenticação.
+- [ ] Mensagens de erro em produção não vazam stack trace ou detalhes de infraestrutura.
+
+## 6. Vulnerable and Outdated Components
+- [ ] `dotnet list package --vulnerable --include-transitive` rodado e sem findings críticos/altos.
+- [ ] Semgrep configurado no pipeline (`p/security-audit` + `p/owasp-top-ten`).
+- [ ] Versão do .NET runtime ainda dentro do período de suporte (LTS ou STS ativo).
+
+## 7. Identification and Authentication Failures
+- [ ] JWT valida `issuer`, `audience` e `lifetime`.
+- [ ] Refresh tokens são armazenados com hash e rotacionados a cada uso.
+- [ ] Sessão/token tem expiração razoável (não infinita).
+- [ ] MFA disponível para contas com privilégio elevado, quando aplicável ao contexto do produto.
+
+## 8. Software and Data Integrity Failures
+- [ ] Nenhum uso de `BinaryFormatter` para (de)serialização.
+- [ ] Se usa `Newtonsoft.Json`, `TypeNameHandling` não está em `All` sem uma allowlist de tipos.
+- [ ] Pipeline de CI/CD assina ou verifica integridade de artefatos antes do deploy (quando aplicável ao nível de maturidade do time).
+
+## 9. Security Logging and Monitoring Failures
+- [ ] Eventos de autenticação (login falho, mudança de senha, mudança de permissão) são logados.
+- [ ] Logs não contêm dados sensíveis (senha, token, número de cartão) em texto puro.
+- [ ] Existe alerta ou monitoramento para padrões anômalos (múltiplas falhas de login, por exemplo).
+
+## 10. Server-Side Request Forgery (SSRF)
+- [ ] Toda chamada HTTP server-side com URL vinda do usuário valida contra allowlist de hosts/esquemas.
+- [ ] Serviços internos (metadata endpoints de cloud, bancos internos) não são alcançáveis a partir de uma URL arbitrária fornecida pelo usuário.
+DOTNETSECCHECKLISTOWASPDOTNETMDEOF
+    echo -e "${GREEN}✅ .claude/skills/ criado (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert)${NC}"
+fi
+
+
+# ============================================================================
 # CRIAR AGENT DE FRONTEND — só para stacks de frontend (react/angular/vue).
 # Este projeto não tem backend próprio: se a spec exigir uma API, ela é
 # externa (outro projeto/time) — o specialist só a consome, não a implementa.
@@ -2830,7 +3352,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.0.0**
+**Projeto criado com Claude SDD v3.1.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

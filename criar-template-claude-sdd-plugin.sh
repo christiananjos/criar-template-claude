@@ -91,8 +91,8 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 
 case "$STACK" in
     dotnet)                 SEMGREP_CONFIG="--config p/csharp" ;;
-    react)                  SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/react" ;;
-    angular|vue)            SEMGREP_CONFIG="--config p/javascript --config p/typescript" ;;
+    react)                  SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/react --config p/secrets" ;;
+    angular|vue)            SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/secrets" ;;
 esac
 
 # ============================================================================
@@ -873,6 +873,15 @@ Com base em `docs/SPEC.md` e no relatório do orchestrator-sdd, gere três docum
 - Camada de acesso a API — cliente HTTP centralizado, tratamento de erro e loading, se a spec descrever endpoints externos a consumir
 - Roteamento das páginas principais
 - Padrões escolhidos e por quê
+- **Requisitos de segurança de autenticação** (sempre incluir, mesmo que a spec não peça explicitamente): rate
+  limiting/throttling nos endpoints de login e reset de senha, expiração de token e invalidação de sessão no
+  logout. Se a API for externa, documente isso como requisito para o time dono dela em vez de omitir — siga
+  `.claude/rules/frontend-security.md`
+- **Direção de arte** (sempre incluir, antes do specialist implementar qualquer tela): par tipográfico escolhido
+  e por quê (no máximo 2 famílias), paleta de cor com propósito/humor definido (nunca a paleta default de IA —
+  azul genérico + cinza), biblioteca de motion escolhida para scroll/transições (GSAP, Framer Motion, ou nenhuma
+  se o produto não pedir) e uma composição diferente planejada por seção da tela (não repetir a mesma grade de
+  cards em tudo) — siga `.claude/rules/frontend-design-direction.md`
 
 ### 2. TRACEABILITY_MATRIX.md
 Tabela mapeando cada requisito ao componente que vai implementá-lo:
@@ -891,6 +900,8 @@ Decisões arquiteturais relevantes (formato ADR curto):
 ## Regras Importantes
 
 - Siga `.claude/rules/frontend-components.md` para separação componente/estado — não repita essas convenções aqui
+- Siga `.claude/rules/frontend-security.md` para os requisitos de segurança de autenticação — não repita essas convenções aqui
+- Siga `.claude/rules/frontend-design-direction.md` para a direção de arte — não repita essas convenções aqui
 - Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
 - Salve os três arquivos em `output/` com os nomes exatos acima
@@ -1119,6 +1130,10 @@ Depois de gerar os testes, se `knowledge/` existir, crie um arquivo por caso de 
 
 - **Testes unitários** — Vitest + Testing Library (ou equivalente da stack)
 - **Testes E2E** (se aplicável) — Playwright, cobrindo o fluxo principal descrito na spec
+- **Se o app tiver autenticação**: um teste E2E dedicado de invalidação de sessão (`.claude/rules/frontend-security.md`)
+  — faz login, limpa cookies/localStorage/sessionStorage (equivalente a "Clear site data" do DevTools), recarrega
+  a página e tenta acessar uma rota privada; o teste falha se a rota privada continuar acessível ou se algum
+  dado de sessão sobreviver à limpeza
 
 ## O Que Cada Teste Deve Cobrir
 
@@ -1183,6 +1198,7 @@ implementadas no código realmente correspondem ao que foi consolidado dos docum
 - **Design Patterns** — uso apropriado (nem excesso, nem falta)
 - **Performance** — queries N+1, alocações desnecessárias
 - **Segurança** — validação de entrada, exposição de dados sensíveis, injeção de SQL
+__FRONTEND_DESIGN_CRITERIA__
 
 ## Formato de Saída
 
@@ -1202,7 +1218,7 @@ Salve em `output/6-code-review.md`:
 | 🔴 Crítico | ... | ... | ... |
 | 🟡 Médio | ... | ... | ... |
 | 🟢 Menor | ... | ... | ... |
-
+__FRONTEND_DESIGN_SECTION__
 ## Recomendação
 [Prosseguir para build / Corrigir itens críticos antes de prosseguir]
 ```
@@ -1212,7 +1228,49 @@ Salve em `output/6-code-review.md`:
 - Seja construtivo — aponte o problema E a solução sugerida
 - Priorize problemas críticos (segurança, bugs) sobre estilo
 - Não reescreva o código você mesmo; apenas reporte
+__FRONTEND_DESIGN_RULE__
 AGENTEOF
+
+if [ "$STACK" != "dotnet" ]; then
+    CRITERIA_FILE=$(mktemp)
+    cat > "$CRITERIA_FILE" << 'CRITERIAEOF'
+- **Direção de Arte** (`.claude/rules/frontend-design-direction.md`) — sinais de layout genérico de IA: mesmo
+  card/seção repetido sem variação, só 1 família de fonte usada em todo o app, paleta limitada ao azul/cinza
+  default do Tailwind sem customização, copy genérica ("Bem-vindo ao nosso site", "Lorem ipsum", "Get Started")
+CRITERIAEOF
+    SECTION_FILE=$(mktemp)
+    cat > "$SECTION_FILE" << 'SECTIONEOF'
+
+## Ressalvas de Direção de Arte (não-bloqueante)
+| Sinal de genericidade | Encontrado? | Onde |
+|------------------------|-------------|------|
+| Seção/card repetido sem variação | ✅ / ❌ | |
+| Só 1 família de fonte no app inteiro | ✅ / ❌ | |
+| Paleta default (azul/cinza Tailwind sem customização) | ✅ / ❌ | |
+| Copy genérica ("Bem-vindo ao nosso site" etc.) | ✅ / ❌ | |
+
+SECTIONEOF
+    RULE_FILE=$(mktemp)
+    cat > "$RULE_FILE" << 'RULEFEOF'
+- Ressalvas de Direção de Arte não bloqueiam o pipeline (é qualidade/gosto, não bug) — reporte com ⚠️ mesmo se o restante estiver ✅ APROVADO.
+RULEFEOF
+
+    sed -i "/__FRONTEND_DESIGN_CRITERIA__/{
+        r $CRITERIA_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    sed -i "/__FRONTEND_DESIGN_SECTION__/{
+        r $SECTION_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    sed -i "/__FRONTEND_DESIGN_RULE__/{
+        r $RULE_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+    rm -f "$CRITERIA_FILE" "$SECTION_FILE" "$RULE_FILE"
+else
+    sed -i "/__FRONTEND_DESIGN_CRITERIA__/d;/__FRONTEND_DESIGN_RULE__/d;s/__FRONTEND_DESIGN_SECTION__//" ""$PROJECT_DIR/.claude/agents/code-review-sdd.md""
+fi
 
 cat > ""$PROJECT_DIR/.claude/agents/build-test-validator.md"" << 'AGENTEOF'
 ---
@@ -1316,6 +1374,7 @@ segurança agora e o que precisa de decisão humana antes de seguir para commits
    achado sumiu e que nada novo foi introduzido) e, se existir suíte de testes gerada por `test-validator`, rode
    também os comandos de build/teste da stack (mesmos comandos que `build-test-validator` teria usado) para
    confirmar que a correção não quebrou nada.
+__FRONTEND_SECURITY_STEP__
 
 ## Formato de Saída
 
@@ -1335,7 +1394,7 @@ Salve em `output/8-security-scan.md`:
 ## Achados Médios/Baixos (reportados, não corrigidos)
 | Severidade | Arquivo | Linha | Regra | Descrição |
 |------------|---------|-------|-------|-----------|
-
+__FRONTEND_SECURITY_SECTION__
 ## Correções Aplicadas
 - [Arquivo e o que mudou, em uma linha por correção]
 
@@ -1355,8 +1414,58 @@ Salve em `output/8-security-scan.md`:
   ❌ REPROVADO — isso interrompe o pipeline antes de `commit-message-generator`, seguindo a mesma regra de gate
   técnico que `compliance-validator`, `code-review-sdd` e `build-test-validator` já usam.
 - Não invente achados nem gravidade — baseie-se só no que o Semgrep reportou de fato.
+__FRONTEND_SECURITY_RULE__
 AGENTEOF
 sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+
+if [ "$STACK" != "dotnet" ]; then
+    STEP_FILE=$(mktemp)
+    cat > "$STEP_FILE" << 'STEPEOF'
+7. **Rode o checklist de segurança frontend** (`.claude/rules/frontend-security.md`), reproduzindo de forma
+   determinística os 3 pontos que normalmente só são vistos inspecionando o site publicado:
+   - **Segredos no bundle**: `grep -rn` em `src/` por padrões de chave/segredo hardcoded (`api[_-]?key`,
+     `secret`, `token *=`, connection string) fora de variáveis com o prefixo público da stack. Tudo que cair
+     em variável de ambiente empacotada pro cliente é, por definição, público — trate como achado se parecer
+     um segredo de verdade.
+   - **Sessão/logout**: leia o fluxo de logout e os guards de rota gerados — confirme que logout limpa cookies,
+     `localStorage` e `sessionStorage` (não só uma flag), e que toda rota privada valida um token real, não
+     apenas a presença de uma variável local.
+   - **Rate limiting**: confirme em `output/TECHNICAL_SPECIFICATION.md` e no código gerado que login/cadastro/
+     reset de senha preveem rate limiting. Se a API é externa, confirme que o specialist sinalizou isso como
+     requisito do backend — se não sinalizou, registre como achado.
+STEPEOF
+    SECTION_FILE=$(mktemp)
+    cat > "$SECTION_FILE" << 'SECTIONEOF'
+
+## Checklist de Segurança Frontend
+| Item | Status | Observação |
+|------|--------|------------|
+| Segredos fora do bundle | ✅ / ❌ | |
+| Logout limpa sessão + rotas validam token real | ✅ / ❌ | |
+| Rate limiting em login/cadastro/reset (próprio ou sinalizado como requisito externo) | ✅ / ❌ | |
+
+SECTIONEOF
+    RULE_FILE=$(mktemp)
+    cat > "$RULE_FILE" << 'RULEFEOF'
+- Se qualquer item do Checklist de Segurança Frontend estiver ❌, marque o status geral como ❌ REPROVADO — mesma regra de gate dos achados Critical/High do Semgrep.
+RULEFEOF
+
+    sed -i "/__FRONTEND_SECURITY_STEP__/{
+        r $STEP_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    sed -i "/__FRONTEND_SECURITY_SECTION__/{
+        r $SECTION_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    sed -i "/__FRONTEND_SECURITY_RULE__/{
+        r $RULE_FILE
+        d
+    }" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+    rm -f "$STEP_FILE" "$SECTION_FILE" "$RULE_FILE"
+else
+    sed -i "/__FRONTEND_SECURITY_STEP__/d;/__FRONTEND_SECURITY_RULE__/d;s/__FRONTEND_SECURITY_SECTION__//" ""$PROJECT_DIR/.claude/agents/security-scan-sdd.md""
+fi
 
 cat > ""$PROJECT_DIR/.claude/agents/commit-message-generator.md"" << 'AGENTEOF'
 ---
@@ -1521,6 +1630,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Forms** com validação (React Hook Form + Zod, ou equivalente)
 - **Pages** em Next.js seguindo o App Router
 - **Client de API** centralizado (fetch/axios com tratamento de erro padronizado)
+- **Animações scroll-triggered** com Framer Motion nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
 
 ## Padrões Obrigatórios
 
@@ -1534,6 +1644,8 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
+- Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-react-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.tsx`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
@@ -1575,6 +1687,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Reactive Forms** com validação
 - **Routing** para as páginas principais da aplicação
 - **Interceptors** para tratamento centralizado de erro e autenticação (se aplicável)
+- **Animações scroll-triggered** com GSAP nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
 
 ## Padrões Obrigatórios
 
@@ -1588,6 +1701,8 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
+- Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-angular-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/app/tarefas/tarefa-list.component.ts`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
@@ -1629,6 +1744,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Forms** com validação (VeeValidate + Zod, ou equivalente)
 - **Vue Router** para as páginas principais da aplicação
 - **Pinia** para estado compartilhado, se necessário
+- **Animações scroll-triggered** com GSAP nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
 
 ## Padrões Obrigatórios
 
@@ -1641,6 +1757,8 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
+- Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-vue-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.vue`)
 - Não gere testes aqui — isso é responsabilidade do `test-validator`
 AGENTEOF
@@ -2497,6 +2615,97 @@ $FRONTEND_RULE_PATHS
 - Código pronto para produção, sem placeholders ou \`TODO\`.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-components.md criado${NC}"
+    fi
+
+    if [ -f "$PROJECT_DIR/.claude/rules/frontend-security.md" ]; then
+        echo -e "${YELLOW}⏭️  .claude/rules/frontend-security.md já existe — mantido sem alterações${NC}"
+    else
+cat > "$PROJECT_DIR/.claude/rules/frontend-security.md" << RULEEOF
+---
+paths:
+$FRONTEND_RULE_PATHS
+---
+
+# Segurança de Frontend — $STACK_LABEL
+
+Baseado nos 3 pontos de checagem manual (DevTools) que todo app publicado deveria passar antes de ir pra
+produção. O objetivo aqui é a IA já implementar certo, em vez do usuário ter que descobrir isso depois
+inspecionando o site no ar.
+
+## 1. Variáveis de ambiente / segredos nunca vão pro bundle do cliente
+- Tudo que é empacotado pro frontend (variáveis com o prefixo público da stack — \`VITE_*\`, \`NEXT_PUBLIC_*\`,
+  \`NG_APP_*\`, \`VUE_APP_*\` etc.) é **público**, visível em DevTools → Sources → Search in all files, mesmo
+  minificado. Nunca coloque API key privada, secret de terceiro, connection string ou token de serviço numa
+  variável dessas.
+- Segredo de verdade (chave de API paga, secret de integração) só existe no backend/BFF que a spec descrever —
+  o frontend consome um endpoint que já esconde o segredo, nunca chama o serviço terceiro diretamente com a
+  chave embutida.
+- Se não houver como evitar (ex.: chave pública de um SDK de terceiro, tipo Google Maps), documente no
+  relatório que aquela exposição é esperada e por quê — não deixe implícito.
+
+## 2. Logout precisa realmente encerrar a sessão
+- Logout limpa **todo** o estado de sessão do lado do cliente: cookies de auth, \`localStorage\` e
+  \`sessionStorage\` — não só uma flag isolada tipo \`isLoggedIn\`.
+- Toda rota/página privada valida um token real (existência **e** validade/expiração), nunca só a presença de
+  uma variável local em memória ou um guard puramente client-side que pode ser burlado limpando um único item.
+- Token expirado ou ausente deve redirecionar para login antes de renderizar qualquer dado privado — não
+  renderize a página e só depois checar.
+
+## 3. Rate limiting em autenticação não é opcional
+- Toda rota de login, cadastro e reset de senha precisa prever proteção contra tentativas repetidas
+  (rate limiting/throttling, bloqueio progressivo, ou equivalente).
+- Se a API consumida é externa (projeto/time de backend diferente), o frontend não implementa isso sozinho —
+  mas o specialist **sinaliza explicitamente no relatório** que o backend precisa garantir rate limiting nesses
+  endpoints. Nunca omita esse ponto silenciosamente só porque não é código deste repositório.
+- Se o app tiver algum backend próprio no mesmo pipeline (ex.: BFF), implemente rate limiting real ali, não só
+  um debounce cosmético no botão de submit do formulário.
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/frontend-security.md criado${NC}"
+    fi
+
+    if [ -f "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" ]; then
+        echo -e "${YELLOW}⏭️  .claude/rules/frontend-design-direction.md já existe — mantido sem alterações${NC}"
+    else
+cat > "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" << RULEEOF
+---
+paths:
+$FRONTEND_RULE_PATHS
+---
+
+# Direção de Arte — $STACK_LABEL
+
+Objetivo: sair de layout genérico de IA (cards iguais, hero previsível, fontes óbvias, grid sem hierarquia)
+para algo com direção de arte real. Siga isto ao criar ou revisar qualquer tela.
+
+## 1. Hierarquia e Tipografia
+- No máximo 2 famílias de fonte, com contraste real de peso/tamanho entre título, subtítulo e corpo.
+- Nunca use títulos genéricos tipo "Bem-vindo ao nosso site" — escreva copy específica, com voz própria, baseada
+  no conteúdo real da spec.
+
+## 2. Layout
+- Quebre a grade padrão — nem tudo em cards iguais de 3 colunas.
+- Use variação de espaçamento, sobreposição de elementos e assimetria proposital.
+- Cada seção deve ter uma composição diferente da anterior, não o mesmo padrão repetido.
+
+## 3. Movimento e Interação
+- Use a biblioteca de motion definida na Direção de Arte da especificação técnica (GSAP, ou Framer Motion em
+  React) para animações disparadas por scroll.
+- Considere sticky sections e parallax sutil no hero e nas transições entre blocos.
+- Só avalie um elemento 3D (Three.js) se fizer sentido pro produto e não pesar a performance — não é padrão,
+  é exceção.
+
+## 4. Cor e Atmosfera
+- Defina uma paleta com propósito — nunca a paleta default de IA (azul genérico + cinza) sem justificativa.
+- Use contraste alto entre fundo escuro/claro conforme a seção, pra criar ritmo visual.
+
+## 5. Revisão Crítica (obrigatória antes de salvar o output)
+Depois de gerar qualquer tela, responda a si mesmo antes de entregar — se a resposta apontar problema, corrija
+antes de salvar, não apenas relate:
+- Isso pareceria um template comprado por R\$50 ou algo com direção de arte?
+- Algum elemento está repetido sem necessidade (mesmo card, mesmo ícone, mesmo espaçamento)?
+- O scroll conta uma história ou é só uma lista de seções empilhadas?
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/frontend-design-direction.md criado${NC}"
     fi
 fi
 

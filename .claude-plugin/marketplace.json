@@ -7,14 +7,17 @@
   "plugins": [
     {
       "name": "sdd",
+      "displayName": "christiananjos-cria-template-claude",
       "source": "./",
       "description": "Monta a estrutura de projeto SDD (.NET, Angular, React ou Vue — uma stack por vez), seguindo as convenções oficiais do Claude Code, com agentes especializados que implementam, testam e validam código automaticamente.",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "author": {
         "name": "Christian Anjos"
       },
       "category": "project-scaffolding",
       "tags": [
+        "christiananjos",
+        "criar-template-claude",
         "sdd",
         "spec-driven-development",
         "clean-architecture",

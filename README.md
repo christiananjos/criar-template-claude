@@ -106,7 +106,9 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 
 ## Agentes
 
-Todo projeto sai com 10 agentes fixos (mais `knowledge-bootstrap`, Fase 0) e o specialist da stack escolhida.
+Todo projeto sai com 9 agentes sempre presentes (`knowledge-bootstrap` como Fase 0 dedicada + os 8 do
+pipeline principal) e o specialist da stack escolhida — mais `swagger-tester`, só no `.NET`. No total: 11
+agentes num projeto `.NET`, 10 num projeto de frontend.
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
 `01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-commit-message-generator.md`
 no frontend ou `10-swagger-tester.md` no `.NET`) — o prefixo é só pra facilitar a leitura da pasta; o
@@ -130,6 +132,20 @@ recriar os numerados, evitando arquivo duplicado.
 | `swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
 
 `commit-message-generator` e `swagger-tester` usam Haiku por serem etapas de baixo risco; os demais usam Sonnet.
+
+## Comandos avulsos (fora do `/orchestrator`)
+
+Além do pipeline em si, todo projeto gerado sai com comandos soltos em `.claude/commands/`, para chamar a
+qualquer momento, fora de uma rodada do `/orchestrator`:
+
+| Comando | Stacks | O que faz |
+|---|---|---|
+| `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. |
+| `/raio-x-projeto` | só `.NET` | Varredura técnica completa de um projeto legado sem documentação — arquitetura, banco de dados, interfaces, services e infraestrutura — gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. |
+
+`/raio-x-projeto` só é gerado em projetos `.NET` porque seu roteiro de investigação é específico da stack
+(`.csproj`, `DbContext`/EF Core, MediatR, Clean Architecture em C#) — não aparece em projetos Angular, React
+ou Vue.
 
 ## Skills — especialistas extras (só stack `.NET`)
 
@@ -176,7 +192,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
-- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
+- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e, só no `.NET`, `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
 - **`.claude/skills/`** — só em projetos `.NET`: 4 skills de especialistas extras (`dba-expert`, `cicd-pipeline-expert`, `tech-leader`, `dotnet-security-expert`), ver seção "Skills" acima.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
@@ -194,11 +210,13 @@ criar-template-claude/
 ├── commands/
 │   ├── comecar.md                        # /comecar — gera/acopla a estrutura SDD no projeto
 │   └── atualizar-versao.md                # /atualizar-versao — atualiza este plugin instalado para a versão mais recente
-├── .claude/commands/bump-versao.md       # só neste repo (dev) — não vai para quem instala o plugin
+├── .claude/commands/                     # só neste repo (dev) — não vai para quem instala o plugin
+│   ├── bump-versao.md
+│   └── commit.md
 └── criar-template-claude-sdd-plugin.sh   # script de scaffolding
 ```
 
-Cada projeto **gerado** recebe sua própria estrutura `.claude/commands/` + `.claude/agents/` + `.claude/rules/` — ver seções acima.
+Cada projeto **gerado** recebe sua própria estrutura `.claude/commands/` + `.claude/agents/` + `.claude/rules/` — ver seções acima. Repare que o `.claude/commands/commit.md` deste repo (uso interno, pra manter o próprio template) é um arquivo diferente do `/commit` que o script grava dentro de cada projeto **gerado** — mesmo nome, conteúdo ajustado a cada contexto.
 
 ## Contribuindo
 

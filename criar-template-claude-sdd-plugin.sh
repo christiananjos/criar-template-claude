@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.3.0
+# 🚀 Criar Template Claude SDD v3.3.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -100,7 +100,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.3.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.3.1${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -3445,7 +3445,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.3.0**
+**Projeto criado com Claude SDD v3.3.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -3791,11 +3791,14 @@ const target = process.argv[1];
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(target, "utf-8")); } catch { settings = {}; }
 settings.hooks = settings.hooks || {};
-settings.hooks.Stop = Array.isArray(settings.hooks.Stop) ? settings.hooks.Stop : [];
-const hasTokenHook = settings.hooks.Stop.some((h) => typeof h.command === "string" && h.command.includes("generate-token-report.cjs"));
+let stopGroups = Array.isArray(settings.hooks.Stop) ? settings.hooks.Stop : [];
+// normaliza grupos no formato antigo/quebrado (hook solto sem o wrapper "hooks": [...])
+stopGroups = stopGroups.map((g) => (g && Array.isArray(g.hooks)) ? g : { hooks: [g] });
+const hasTokenHook = stopGroups.some((g) => Array.isArray(g.hooks) && g.hooks.some((h) => typeof h.command === "string" && h.command.includes("generate-token-report.cjs")));
 if (!hasTokenHook) {
-  settings.hooks.Stop.push({ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"", timeout: 15 });
+  stopGroups.push({ hooks: [{ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"", timeout: 15 }] });
 }
+settings.hooks.Stop = stopGroups;
 settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
 settings.extraKnownMarketplaces.ponytail = { source: { source: "github", repo: "DietrichGebert/ponytail" } };
 settings.enabledPlugins = settings.enabledPlugins || {};
@@ -3809,9 +3812,13 @@ cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
   "hooks": {
     "Stop": [
       {
-        "type": "command",
-        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"",
-        "timeout": 15
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"",
+            "timeout": 15
+          }
+        ]
       }
     ]
   },

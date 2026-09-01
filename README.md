@@ -21,6 +21,13 @@ Os comandos ficam disponíveis como `/sdd:comecar` e `/sdd:atualizar-versao` —
 do plugin (`christiananjos/criar-template-claude` é só o repositório/marketplace; o plugin em si se chama
 `sdd`).
 
+## Comandos do plugin
+
+| Comando | O que faz |
+|---|---|
+| `/sdd:comecar` | Gera a estrutura SDD num projeto novo, ou acopla o pipeline a um projeto já existente sem sobrescrever código — ver seções "Uso" e "Acoplar num projeto já existente". |
+| `/sdd:atualizar-versao` | Sincroniza o marketplace e atualiza este plugin instalado para a versão mais recente numa tacada só — ver seção "Mantendo o plugin atualizado". |
+
 ## Mantendo o plugin atualizado
 
 Marketplaces de terceiros (como este) vêm com auto-update **desligado por padrão** no Claude Code — só os

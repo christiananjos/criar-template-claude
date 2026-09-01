@@ -95,7 +95,7 @@ misturados. Isso muda o que é gerado — o `orchestrator.md`, `.claude/commands
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
-O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `compliance-validator`, `code-review-sdd`, `build-test-validator` ou `security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
+O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `01-orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
 ## Acoplar num projeto já existente
 
@@ -107,38 +107,38 @@ essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do pr
 - **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
 - **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `knowledge/embeddings/chunks/`, `.claude/`) são acrescentadas, sem duplicar em reexecuções.
 - **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
-- **`architect-sdd` e os `*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
+- **`02-architect-sdd` e os `03-*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 
 Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o que falta implementar) e rodar `/orchestrator`.
 
 ## Agentes
 
-Todo projeto sai com 9 agentes sempre presentes (`knowledge-bootstrap` como Fase 0 dedicada + os 8 do
-pipeline principal) e o specialist da stack escolhida — mais `swagger-tester`, só no `.NET`. No total: 11
+Todo projeto sai com 9 agentes sempre presentes (`00-knowledge-bootstrap` como Fase 0 dedicada + os 8 do
+pipeline principal) e o specialist da stack escolhida — mais `10-swagger-tester`, só no `.NET`. No total: 11
 agentes num projeto `.NET`, 10 num projeto de frontend.
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
 `01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-commit-message-generator.md`
-no frontend ou `10-swagger-tester.md` no `.NET`) — o prefixo é só pra facilitar a leitura da pasta; o
-`name:` no frontmatter de cada agente (usado para invocação) não muda. Ao reacoplar o pipeline (`MODO = existente`)
-a um projeto gerado por uma versão anterior do template, o script remove os nomes antigos sem prefixo antes de
-recriar os numerados, evitando arquivo duplicado.
+no frontend ou `10-swagger-tester.md` no `.NET`), e o `name:` no frontmatter de cada agente (usado para
+invocação) leva o mesmo prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre idênticos.
+Ao reacoplar o pipeline (`MODO = existente`) a um projeto gerado por uma versão anterior do template, o script
+remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arquivo duplicado.
 
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
-| `knowledge-bootstrap` | Fase 0 — consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) | sempre |
-| `orchestrator-sdd` | Valida a especificação | sempre |
-| `architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
-| `dotnet-specialist` | Implementa o backend .NET 10 | só stack `dotnet` |
-| `react-specialist` / `angular-specialist` / `vue-specialist` | Implementa o frontend | só a stack correspondente |
-| `compliance-validator` | Audita conformidade com a spec | sempre |
-| `test-validator` | Gera testes automatizados | sempre |
-| `code-review-sdd` | Revisa qualidade e SOLID | sempre |
-| `build-test-validator` | Valida build e testes | sempre |
-| `security-scan-sdd` | Roda scan de segurança estática (Semgrep) e corrige achados Critical/High que não alterem comportamento observável | sempre |
-| `commit-message-generator` | Gera commits semânticos | sempre |
-| `swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
+| `00-knowledge-bootstrap` | Fase 0 — consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) | sempre |
+| `01-orchestrator-sdd` | Valida a especificação | sempre |
+| `02-architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
+| `03-dotnet-specialist` | Implementa o backend .NET 10 | só stack `dotnet` |
+| `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend | só a stack correspondente |
+| `04-compliance-validator` | Audita conformidade com a spec | sempre |
+| `05-test-validator` | Gera testes automatizados | sempre |
+| `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
+| `07-build-test-validator` | Valida build e testes | sempre |
+| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) e corrige achados Critical/High que não alterem comportamento observável | sempre |
+| `09-commit-message-generator` | Gera commits semânticos | sempre |
+| `10-swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
 
-`commit-message-generator` e `swagger-tester` usam Haiku por serem etapas de baixo risco; os demais usam Sonnet.
+`09-commit-message-generator` e `10-swagger-tester` usam Haiku por serem etapas de baixo risco; os demais usam Sonnet.
 
 ## Comandos avulsos (fora do `/orchestrator`)
 
@@ -148,7 +148,7 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 | Comando | Stacks | O que faz |
 |---|---|---|
 | `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. |
-| `/raio-x-projeto` | só `.NET` | Varredura técnica completa de um projeto legado sem documentação — arquitetura, banco de dados, interfaces, services e infraestrutura — gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. |
+| `/raio-x-projeto` | só `.NET` | Varredura técnica completa de um projeto legado sem documentação — arquitetura, banco de dados, interfaces, services e infraestrutura — gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. |
 
 `/raio-x-projeto` só é gerado em projetos `.NET` porque seu roteiro de investigação é específico da stack
 (`.csproj`, `DbContext`/EF Core, MediatR, Clean Architecture em C#) — não aparece em projetos Angular, React
@@ -175,7 +175,7 @@ gerados pelo template.
 ## Base de Conhecimento (Knowledge Engine)
 
 Se você tiver documentação já pronta do projeto (Word, PDF, planilhas, imagens, atas de reunião), coloque tudo
-em `docs/raw/` antes de chamar `/orchestrator`. A Fase 0 (`knowledge-bootstrap`) lê e consolida todo esse material
+em `docs/raw/` antes de chamar `/orchestrator`. A Fase 0 (`00-knowledge-bootstrap`) lê e consolida todo esse material
 em `knowledge/vault/` — uma base de conhecimento em Markdown, compatível com Obsidian (pastas por domínio,
 links `[[internos]]`, glossário e índice), além de um grafo de relacionamentos (`knowledge/graph/`), chunks
 prontos para busca semântica (`knowledge/embeddings/`) e um resumo por área (`knowledge/cache/`) para os

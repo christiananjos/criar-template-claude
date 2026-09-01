@@ -78,7 +78,7 @@ No modo `existente`, o script:
 - **Não sobrescreve** código em `src/`, nem `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline).
 - Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + `permissions` + plugin ponytail) em vez de sobrescrever, preservando o que já estava configurado.
 - Sempre (re)cria `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/` (vazia) e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
-- Os agentes de arquitetura e implementação (`architect-sdd`, `*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
+- Os agentes de arquitetura e implementação (`02-architect-sdd`, `03-*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
 
 E então:
 1. Confirme o resultado, mencionando a stack (ex: "React 18 + TypeScript (somente frontend)" ou ".NET 10 (Clean Architecture, somente backend)") e o modo usado (novo projeto vs. pipeline acoplado a um projeto existente).
@@ -129,7 +129,7 @@ depois. `CLAUDE.md` e `.mcp.json` só são criados se ainda não existirem (mesm
 `README.md`/`COMECE-AQUI.md`/`docs/SPEC.md`), e `claude --worktree nome-da-frente` deixa rodar duas frentes do
 pipeline em paralelo sem os agentes esbarrarem nos mesmos arquivos.
 
-Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/orchestrator` (Fase 0 — `knowledge-bootstrap`)
+Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/orchestrator` (Fase 0 — `00-knowledge-bootstrap`)
 transforma tudo numa Base de Conhecimento estruturada em `knowledge/vault/`, compatível com Obsidian, que
 os demais agentes passam a consultar como fonte única de verdade. Se `docs/raw/` ficar vazia, essa fase é pulada
 automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
@@ -140,6 +140,6 @@ O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.c
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`compliance-validator`, `code-review-sdd`, `build-test-validator` ou `security-scan-sdd`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `01-orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
 
 

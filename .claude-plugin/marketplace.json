@@ -10,7 +10,7 @@
       "displayName": "christiananjos-cria-template-claude",
       "source": "./",
       "description": "Monta a estrutura de projeto SDD (.NET, Angular, React ou Vue — uma stack por vez), seguindo as convenções oficiais do Claude Code, com agentes especializados que implementam, testam e validam código automaticamente.",
-      "version": "3.3.1",
+      "version": "3.5.0",
       "author": {
         "name": "Christian Anjos"
       },

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.3.1
+# 🚀 Criar Template Claude SDD v3.5.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -86,6 +86,10 @@ case "$STACK" in
     vue)     STACK_LABEL="Vue 3 (somente frontend)"; SPECIALIST_AGENT="vue-specialist" ;;
 esac
 
+# Nome registrado no frontmatter (usado para invocação) — sempre com o prefixo 03-, já que o
+# specialist é sempre o passo 3 do pipeline, igual ao nome do arquivo .claude/agents/03-*.md
+SPECIALIST_AGENT_NAME="03-$SPECIALIST_AGENT"
+
 SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
 SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 
@@ -100,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.3.1${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.5.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -407,7 +411,7 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 
 cat > ""$PROJECT_DIR/.claude/agents/00-knowledge-bootstrap.md"" << 'AGENTEOF'
 ---
-name: knowledge-bootstrap
+name: 00-knowledge-bootstrap
 description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -431,7 +435,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
 
 1. **Crie `knowledge/templates/` se ainda não existir** (projeto novo ou primeira vez que esta fase roda) — cinco
    templates Obsidian estáticos, usados como base nos passos seguintes e por outros agentes do pipeline mais
-   adiante (`architect-sdd` cria ADRs, `test-validator` cria casos de teste). Se a pasta já existir com algum
+   adiante (`02-architect-sdd` cria ADRs, `05-test-validator` cria casos de teste). Se a pasta já existir com algum
    desses arquivos (execução de uma fase 0 anterior), **não sobrescreva** — eles podem ter sido ajustados
    manualmente pelo usuário. Conteúdo de cada template:
 
@@ -654,7 +658,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
    }
    ```
 8. **Verifique `docs/SPEC.md`**: se ainda estiver com o conteúdo padrão do template (não editado pelo usuário),
-   preencha-o com base no que foi consolidado no vault, para que `orchestrator-sdd` tenha uma spec normalizada
+   preencha-o com base no que foi consolidado no vault, para que `01-orchestrator-sdd` tenha uma spec normalizada
    para validar. Se `docs/SPEC.md` já tiver conteúdo real escrito pelo usuário, **não sobrescreva** — apenas
    sinalize no relatório se houver divergência entre o SPEC.md e o que os documentos em `docs/raw/` dizem.
 
@@ -705,7 +709,7 @@ AGENTEOF
 
 cat > ""$PROJECT_DIR/.claude/agents/01-orchestrator-sdd.md"" << 'AGENTEOF'
 ---
-name: orchestrator-sdd
+name: 01-orchestrator-sdd
 description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
@@ -719,7 +723,7 @@ Validar a especificação bruta em `docs/SPEC.md` antes que qualquer arquitetura
 
 ## Knowledge Engine
 
-Se existir `knowledge/index.json`, o `knowledge-bootstrap` já rodou. Leia `knowledge/vault/Index.md` e os
+Se existir `knowledge/index.json`, o `00-knowledge-bootstrap` já rodou. Leia `knowledge/vault/Index.md` e os
 documentos em `knowledge/vault/00 - Projeto/` e `knowledge/vault/01 - Regras de Negócio/` — use-os como
 contexto adicional, não só o `docs/SPEC.md`, já que ele pode ter sido gerado a partir do vault. Se
 `knowledge/` não existir, valide normalmente só com `docs/SPEC.md`.
@@ -770,7 +774,7 @@ AGENTEOF
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
 ---
-name: architect-sdd
+name: 02-architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
 tools: Read, Write, Grep, Glob
 model: sonnet
@@ -838,7 +842,7 @@ AGENTEOF
 else
     cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
 ---
-name: architect-sdd
+name: 02-architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
 tools: Read, Write, Grep, Glob
 model: sonnet
@@ -916,12 +920,12 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Salve os três arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 fi
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md""
 
 if [ "$STACK" = "dotnet" ]; then
 cat > ""$PROJECT_DIR/.claude/agents/03-dotnet-specialist.md"" << 'AGENTEOF'
 ---
-name: dotnet-specialist
+name: 03-dotnet-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 10 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -979,16 +983,16 @@ Repository Pattern, DTOs, convenção de nomenclatura PT/EN, código pronto para
 
 ## Regras Importantes
 
-- Siga exatamente a arquitetura definida por `architect-sdd` — não improvise camadas novas
+- Siga exatamente a arquitetura definida por `02-architect-sdd` — não improvise camadas novas
 - Todo código deve compilar conceitualmente (sintaxe C# correta, usings corretos)
 - Salve os arquivos gerados em `output/3-dotnet-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/Domain/Entities/Tarefa.cs`)
-- Não gere testes aqui — isso é responsabilidade do `test-validator`
+- Não gere testes aqui — isso é responsabilidade do `05-test-validator`
 AGENTEOF
 fi
 
 cat > ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md"" << 'AGENTEOF'
 ---
-name: compliance-validator
+name: 04-compliance-validator
 description: Use this agent after __SPECIALIST__ has produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Code was just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
@@ -1048,12 +1052,12 @@ Salve em `output/4-compliance.md`:
 - Não corrija o código você mesmo; apenas reporte
 AGENTEOF
 sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md""
-sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md""
+sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md""
 
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/05-test-validator.md"" << 'AGENTEOF'
 ---
-name: test-validator
+name: 05-test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the backend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
 tools: Read, Write, Grep, Glob
 model: sonnet
@@ -1116,7 +1120,7 @@ AGENTEOF
 else
     cat > ""$PROJECT_DIR/.claude/agents/05-test-validator.md"" << 'AGENTEOF'
 ---
-name: test-validator
+name: 05-test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
 tools: Read, Write, Grep, Glob
 model: sonnet
@@ -1183,7 +1187,7 @@ fi
 
 cat > ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md"" << 'AGENTEOF'
 ---
-name: code-review-sdd
+name: 06-code-review-sdd
 description: Use this agent after test-validator has generated tests, to review the overall code quality, SOLID compliance, and identify improvements before build validation. Use PROACTIVELY as step 6 of the SDD pipeline. Examples: <example>Context: Tests were just generated. user: "Os testes estão prontos, revisa a qualidade do código" assistant: "Vou usar o agente code-review-sdd para revisar SOLID, clean code e segurança no código gerado." <commentary>Code review happens after tests exist so reviewers can also assess test quality, not just production code.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
@@ -1283,7 +1287,7 @@ fi
 
 cat > ""$PROJECT_DIR/.claude/agents/07-build-test-validator.md"" << 'AGENTEOF'
 ---
-name: build-test-validator
+name: 07-build-test-validator
 description: Use this agent after code-review-sdd has approved the code, to simulate build and test execution validation, checking for compilation issues and coverage thresholds. Use PROACTIVELY as step 7 of the SDD pipeline. Examples: <example>Context: Code review passed. user: "Revisão aprovada, valida o build" assistant: "Vou usar o agente build-test-validator para validar que o código compila e os testes passam." <commentary>Build validation is the last technical gate before commit messages are generated.</commentary></example>
 tools: Read, Bash, Grep, Glob
 model: sonnet
@@ -1305,7 +1309,7 @@ possam afetar build/deploy. Isso é secundário aqui — sua fonte principal con
 - **Sintaxe** — o código está sintaticamente correto na linguagem/stack do projeto?
 - **Usings/Imports** — todas as dependências referenciadas estão declaradas?
 - **Consistência de nomes** — classes/métodos/componentes referenciados existem de fato no código gerado?
-- **Cobertura declarada** — bate com o que foi reportado por `test-validator`?
+- **Cobertura declarada** — bate com o que foi reportado por `05-test-validator`?
 - **Warnings potenciais** — tipagem, código morto, variáveis não usadas
 
 > Nota: Como você não tem acesso a um compilador/bundler real neste ambiente, faça uma revisão estática rigorosa simulando o que a ferramenta de build reportaria.
@@ -1341,7 +1345,7 @@ AGENTEOF
 
 cat > ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md"" << 'AGENTEOF'
 ---
-name: security-scan-sdd
+name: 08-security-scan-sdd
 description: Use this agent after build-test-validator has confirmed the build passes, to run a deterministic static-analysis security scan (Semgrep) over the generated code before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para rodar o Semgrep sobre o código gerado antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -1380,8 +1384,8 @@ segurança agora e o que precisa de decisão humana antes de seguir para commits
    autenticação/autorização, formato de resposta), **não aplique** — marque o achado como bloqueante no
    relatório em vez de decidir sozinho por conta do usuário.
 6. **Revalide** — se você aplicou alguma correção, rode o mesmo comando do passo 2 de novo (confirma que o
-   achado sumiu e que nada novo foi introduzido) e, se existir suíte de testes gerada por `test-validator`, rode
-   também os comandos de build/teste da stack (mesmos comandos que `build-test-validator` teria usado) para
+   achado sumiu e que nada novo foi introduzido) e, se existir suíte de testes gerada por `05-test-validator`, rode
+   também os comandos de build/teste da stack (mesmos comandos que `07-build-test-validator` teria usado) para
    confirmar que a correção não quebrou nada.
 __FRONTEND_SECURITY_STEP__
 
@@ -1420,8 +1424,8 @@ __FRONTEND_SECURITY_SECTION__
 - Nunca escaneie `.` inteiro — sempre escopado em `src/`.
 - Nunca corrija Medium/Low; nunca corrija Critical/High que altere comportamento observável sem sinalizar.
 - Se houver qualquer achado Critical/High **não corrigido** (bloqueante) ao final, marque o status como
-  ❌ REPROVADO — isso interrompe o pipeline antes de `commit-message-generator`, seguindo a mesma regra de gate
-  técnico que `compliance-validator`, `code-review-sdd` e `build-test-validator` já usam.
+  ❌ REPROVADO — isso interrompe o pipeline antes de `09-commit-message-generator`, seguindo a mesma regra de gate
+  técnico que `04-compliance-validator`, `06-code-review-sdd` e `07-build-test-validator` já usam.
 - Não invente achados nem gravidade — baseie-se só no que o Semgrep reportou de fato.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
@@ -1478,7 +1482,7 @@ fi
 
 cat > ""$PROJECT_DIR/.claude/agents/09-commit-message-generator.md"" << 'AGENTEOF'
 ---
-name: commit-message-generator
+name: 09-commit-message-generator
 description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 9 of the SDD pipeline. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build, pass tests, and clear the security gate.</commentary></example>
 tools: Read, Grep, Glob
 model: haiku
@@ -1533,7 +1537,7 @@ AGENTEOF
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/10-swagger-tester.md"" << 'AGENTEOF'
 ---
-name: swagger-tester
+name: 10-swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
 tools: Read, Grep, Glob
 model: haiku
@@ -1547,7 +1551,7 @@ Gerar um workflow completo de testes manuais da API implementada, pronto para us
 
 ## O Que Você Gera
 
-Para cada endpoint definido em `docs/SPEC.md` e implementado por `dotnet-specialist`:
+Para cada endpoint definido em `docs/SPEC.md` e implementado por `03-dotnet-specialist`:
 
 1. **Exemplo de requisição cURL** completo (com headers, body quando aplicável)
 2. **Cenário de sucesso** — payload válido e resposta esperada
@@ -2129,7 +2133,7 @@ fi
 if [ "$STACK" = "react" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-react-specialist.md"" << 'AGENTEOF'
 ---
-name: react-specialist
+name: 03-react-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -2178,7 +2182,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-react-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.tsx`)
-- Não gere testes aqui — isso é responsabilidade do `test-validator`
+- Não gere testes aqui — isso é responsabilidade do `05-test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente react-specialist adicionado (React 18)${NC}"
 fi
@@ -2186,7 +2190,7 @@ fi
 if [ "$STACK" = "angular" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-angular-specialist.md"" << 'AGENTEOF'
 ---
-name: angular-specialist
+name: 03-angular-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -2235,7 +2239,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-angular-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/app/tarefas/tarefa-list.component.ts`)
-- Não gere testes aqui — isso é responsabilidade do `test-validator`
+- Não gere testes aqui — isso é responsabilidade do `05-test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente angular-specialist adicionado (Angular)${NC}"
 fi
@@ -2243,7 +2247,7 @@ fi
 if [ "$STACK" = "vue" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-vue-specialist.md"" << 'AGENTEOF'
 ---
-name: vue-specialist
+name: 03-vue-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
@@ -2291,7 +2295,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-vue-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.vue`)
-- Não gere testes aqui — isso é responsabilidade do `test-validator`
+- Não gere testes aqui — isso é responsabilidade do `05-test-validator`
 AGENTEOF
     echo -e "${GREEN}✅ Agente vue-specialist adicionado (Vue 3)${NC}"
 fi
@@ -2386,7 +2390,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 ## ⚠️ Regras de Execução
 
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
+- **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
 - **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Security Scan` já ter aprovado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
@@ -2511,7 +2515,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 ## ⚠️ Regras de Execução
 
-- **Fase 0 é condicional**: `knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
+- **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
 
@@ -2548,7 +2552,7 @@ projeto (diferente de `output/`, que é por rodada).
 /orchestrator
 ```
 ORCHEOF
-    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/.claude/commands/orchestrator.md""
+    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/.claude/commands/orchestrator.md""
 fi
 echo -e "${GREEN}✅ .claude/commands/orchestrator.md criado${NC}"
 
@@ -2581,7 +2585,7 @@ Stack deste projeto: **.NET 10 (somente backend)**
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `docs/raw/` tiver arquivos
+   `00-knowledge-bootstrap`, se `docs/raw/` tiver arquivos
 
 ## 📚 Estrutura
 
@@ -2591,19 +2595,19 @@ Stack deste projeto: **.NET 10 (somente backend)**
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
-| # | Agente | Responsabilidade |
-|---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
-| 1 | `orchestrator-sdd` | Valida a especificação |
-| 2 | `architect-sdd` | Gera arquitetura técnica |
-| 3 | `dotnet-specialist` | Implementa backend .NET |
-| 4 | `compliance-validator` | Valida conformidade com a spec |
-| 5 | `test-validator` | Gera testes automatizados |
-| 6 | `code-review-sdd` | Revisa qualidade do código |
-| 7 | `build-test-validator` | Valida build e testes |
-| 8 | `security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
-| 9 | `commit-message-generator` | Gera commits semânticos |
-| 10 | `swagger-tester` | Gera workflow de testes de API |
+| Agente | Responsabilidade |
+|--------|-------------------|
+| `00-knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
+| `01-orchestrator-sdd` | Valida a especificação |
+| `02-architect-sdd` | Gera arquitetura técnica |
+| `03-dotnet-specialist` | Implementa backend .NET |
+| `04-compliance-validator` | Valida conformidade com a spec |
+| `05-test-validator` | Gera testes automatizados |
+| `06-code-review-sdd` | Revisa qualidade do código |
+| `07-build-test-validator` | Valida build e testes |
+| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| `09-commit-message-generator` | Gera commits semânticos |
+| `10-swagger-tester` | Gera workflow de testes de API |
 
 ## 🧩 Comandos avulsos
 
@@ -2650,7 +2654,7 @@ Stack deste projeto: **__STACK_LABEL__**
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
-   `knowledge-bootstrap`, se `docs/raw/` tiver arquivos
+   `00-knowledge-bootstrap`, se `docs/raw/` tiver arquivos
 
 ## 📚 Estrutura
 
@@ -2660,20 +2664,20 @@ Stack deste projeto: **__STACK_LABEL__**
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
-Este projeto é **somente frontend** — não há agente de backend .NET nem de teste de API (`swagger-tester`).
+Este projeto é **somente frontend** — não há agente de backend .NET nem de teste de API (`10-swagger-tester`).
 
-| # | Agente | Responsabilidade |
-|---|--------|-------------------|
-| 0 | `knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
-| 1 | `orchestrator-sdd` | Valida a especificação |
-| 2 | `architect-sdd` | Gera arquitetura técnica |
-| 3 | `__SPECIALIST__` | Implementa o frontend |
-| 4 | `compliance-validator` | Valida conformidade com a spec |
-| 5 | `test-validator` | Gera testes automatizados |
-| 6 | `code-review-sdd` | Revisa qualidade do código |
-| 7 | `build-test-validator` | Valida build e testes |
-| 8 | `security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
-| 9 | `commit-message-generator` | Gera commits semânticos |
+| Agente | Responsabilidade |
+|--------|-------------------|
+| `00-knowledge-bootstrap` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) |
+| `01-orchestrator-sdd` | Valida a especificação |
+| `02-architect-sdd` | Gera arquitetura técnica |
+| `__SPECIALIST__` | Implementa o frontend |
+| `04-compliance-validator` | Valida conformidade com a spec |
+| `05-test-validator` | Gera testes automatizados |
+| `06-code-review-sdd` | Revisa qualidade do código |
+| `07-build-test-validator` | Valida build e testes |
+| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| `09-commit-message-generator` | Gera commits semânticos |
 
 ## 🧩 Comando avulso
 
@@ -2693,7 +2697,7 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 
 **Comece aqui:** `/orchestrator`
 CMDREADMEEOF
-    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT/g" ""$PROJECT_DIR/.claude/commands/README.md""
+    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/commands/README.md""
 fi
 echo -e "${GREEN}✅ .claude/commands/README.md criado${NC}"
 
@@ -3345,7 +3349,7 @@ if [ "$STACK" = "dotnet" ]; then
     ├── API/
     └── Tests/"
 else
-    SRC_TREE="└── src/              (código do frontend, implementado pelo agente $SPECIALIST_AGENT)"
+    SRC_TREE="└── src/              (código do frontend, implementado pelo agente $SPECIALIST_AGENT_NAME)"
 fi
 
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
@@ -3445,7 +3449,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.3.1**
+**Projeto criado com Claude SDD v3.5.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -3538,10 +3542,121 @@ function fmt(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+// Formata valor monetário com separador de milhar/decimal conforme a convenção de cada moeda
+// (US$ 1,234.56 — ponto decimal; R$ 1.234,56 — vírgula decimal).
+function fmtMoney(n, symbol, decimalSep, thousandSep) {
+  if (typeof n !== "number" || Number.isNaN(n)) return "n/d";
+  const fixed = n.toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSep);
+  return `${symbol} ${withThousands}${decimalSep}${decPart}`;
+}
+const fmtUsd = (n) => fmtMoney(n, "US$", ".", ",");
+const fmtBrl = (n) => fmtMoney(n, "R$", ",", ".");
+
+// Data/hora local (não UTC) — evita o relatório mostrar um horário 3h à frente para quem está
+// no fuso do Brasil (UTC-3). Usa os getters locais do Date, então segue o fuso da própria máquina.
+function formatLocal(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ---- Preços por token (US$ por milhão de tokens) ----
+// Tabela de referência da API da Anthropic — cotada em 2026-06-24. Modelos lançados depois
+// caem no fallback por família (prefixo do id) mais próximo; ajuste esta tabela se os preços
+// oficiais mudarem. Isto é uma ESTIMATIVA no valor de tarifa de API — quem usa plano
+// Pro/Max (assinatura) não é cobrado por token, então o valor aqui não é uma fatura real.
+const PRICING = [
+  { match: /^claude-fable-5-1/, in: 10, out: 50 },
+  { match: /^claude-mythos-5-1/, in: 10, out: 50 },
+  { match: /^claude-fable-5\b/, in: 10, out: 50 },
+  { match: /^claude-mythos-5\b/, in: 10, out: 50 },
+  { match: /^claude-opus-5/, in: 5, out: 25 },
+  { match: /^claude-opus-4-8/, in: 5, out: 25 },
+  { match: /^claude-opus-4-7/, in: 5, out: 25 },
+  { match: /^claude-opus-4-6/, in: 5, out: 25 },
+  { match: /^claude-opus/, in: 15, out: 75 }, // fallback p/ Opus pré-4.6 (4.1, 4, ...)
+  { match: /^claude-sonnet-5/, in: 2, out: 10 },
+  { match: /^claude-sonnet-4-6/, in: 3, out: 15 },
+  { match: /^claude-sonnet/, in: 3, out: 15 }, // fallback p/ outros Sonnet
+  { match: /^claude-haiku-4-5/, in: 1, out: 5 },
+  { match: /^claude-haiku/, in: 0.8, out: 4 }, // fallback p/ outros Haiku
+];
+
+function priceForModel(modelId) {
+  if (typeof modelId !== "string") return null;
+  for (const p of PRICING) {
+    if (p.match.test(modelId)) return p;
+  }
+  return null;
+}
+
+// Cotação fixa USD -> BRL. O hook roda 100% offline (sem chamada de rede), então a cotação não
+// se atualiza sozinha — ajuste esta constante manualmente se quiser mais precisão.
+// Definida em 2026-09-01.
+const USD_TO_BRL = 5.3;
+
+// Custo estimado (USD) de um bucket de uso { input_tokens, output_tokens, cache_5m, cache_1h, cache_read }
+// para um modelo específico, aplicando os multiplicadores padrão de cache da Anthropic sobre o
+// preço de input (escrita 5min = 1.25x, escrita 1h = 2x, leitura = 0.1x).
+function costUsdForModelUsage(modelId, u) {
+  const price = priceForModel(modelId);
+  if (!price) return null;
+  const perTokIn = price.in / 1e6;
+  const perTokOut = price.out / 1e6;
+  return (
+    u.input_tokens * perTokIn +
+    u.output_tokens * perTokOut +
+    u.cache_5m * perTokIn * 1.25 +
+    u.cache_1h * perTokIn * 2 +
+    u.cache_read * perTokIn * 0.1
+  );
+}
+
+// Soma o custo estimado de um Map<modelId, usageBucket>. Retorna também a lista de modelos com
+// uso > 0 mas sem preço conhecido (custo desses fica de fora do total — relatório sinaliza isso).
+function costFromByModel(byModel) {
+  let usd = 0;
+  const unknown = [];
+  for (const [model, u] of byModel.entries()) {
+    const c = costUsdForModelUsage(model, u);
+    if (c === null) {
+      if (u.input_tokens || u.output_tokens || u.cache_5m || u.cache_1h || u.cache_read) unknown.push(model);
+      continue;
+    }
+    usd += c;
+  }
+  return { usd, unknown };
+}
+
+function emptyUsage() {
+  return {
+    totals: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    byModel: new Map(),
+  };
+}
+
+// Combina um usage { totals, byModel } dentro de um acumulador do mesmo formato.
+function mergeUsage(acc, src) {
+  if (!src) return;
+  for (const k of Object.keys(acc.totals)) acc.totals[k] += src.totals[k] || 0;
+  for (const [model, u] of src.byModel.entries()) {
+    if (!acc.byModel.has(model)) acc.byModel.set(model, { input_tokens: 0, output_tokens: 0, cache_5m: 0, cache_1h: 0, cache_read: 0 });
+    const m = acc.byModel.get(model);
+    m.input_tokens += u.input_tokens;
+    m.output_tokens += u.output_tokens;
+    m.cache_5m += u.cache_5m;
+    m.cache_1h += u.cache_1h;
+    m.cache_read += u.cache_read;
+  }
+}
+
 // Soma o uso (dedup por message.id) de todas as linhas "assistant" de um transcript .jsonl,
-// opcionalmente só considerando mensagens com timestamp > sinceMs.
+// opcionalmente só considerando mensagens com timestamp > sinceMs. Retorna totais gerais e uso
+// detalhado por modelo (necessário pra estimar custo, já que cada modelo tem preço diferente).
 function sumTranscriptUsage(filePath, sinceMs) {
   const totals = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  const byModel = new Map();
   const seen = new Set();
   let content;
   try {
@@ -3568,18 +3683,28 @@ function sumTranscriptUsage(filePath, sinceMs) {
     if (seen.has(msg.id)) continue;
     seen.add(msg.id);
     for (const k of Object.keys(totals)) totals[k] += usage[k] || 0;
+
+    const model = typeof msg.model === "string" ? msg.model : "desconhecido";
+    if (!byModel.has(model)) byModel.set(model, { input_tokens: 0, output_tokens: 0, cache_5m: 0, cache_1h: 0, cache_read: 0 });
+    const m = byModel.get(model);
+    m.input_tokens += usage.input_tokens || 0;
+    m.output_tokens += usage.output_tokens || 0;
+    m.cache_read += usage.cache_read_input_tokens || 0;
+    const cc = usage.cache_creation;
+    if (cc && (typeof cc.ephemeral_5m_input_tokens === "number" || typeof cc.ephemeral_1h_input_tokens === "number")) {
+      m.cache_5m += cc.ephemeral_5m_input_tokens || 0;
+      m.cache_1h += cc.ephemeral_1h_input_tokens || 0;
+    } else {
+      // Transcript antigo, sem detalhamento por janela de cache — assume a janela padrão (5min).
+      m.cache_5m += usage.cache_creation_input_tokens || 0;
+    }
   }
-  return totals;
+  return { totals, byModel };
 }
 
 function totalOf(u) {
   if (!u) return 0;
   return (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
-}
-
-function addInto(acc, u) {
-  if (!u) return;
-  for (const k of Object.keys(acc)) acc[k] += u[k] || 0;
 }
 
 function main() {
@@ -3688,50 +3813,70 @@ function main() {
   // Agrupa por label (caso o mesmo agente tenha rodado mais de uma vez nesta rodada)
   const grouped = new Map();
   for (const { label, usage } of perAgent) {
-    if (!grouped.has(label)) grouped.set(label, { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 });
-    addInto(grouped.get(label), usage);
+    if (!grouped.has(label)) grouped.set(label, emptyUsage());
+    mergeUsage(grouped.get(label), usage);
   }
 
-  const grandTotalAcc = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
-  addInto(grandTotalAcc, mainUsage);
-  for (const u of grouped.values()) addInto(grandTotalAcc, u);
-  const grandTotal = totalOf(grandTotalAcc);
+  const grandUsage = emptyUsage();
+  mergeUsage(grandUsage, mainUsage);
+  for (const u of grouped.values()) mergeUsage(grandUsage, u);
+  const grandTotal = totalOf(grandUsage.totals);
+  const grandCost = costFromByModel(grandUsage.byModel);
+  const grandCostBrl = grandCost.usd * USD_TO_BRL;
 
   // ---- Monta o relatório ----
   const now = new Date();
-  const stamp = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  const stamp = formatLocal(now);
 
   const lines = [];
   lines.push("# Relatório de Uso de Tokens");
   lines.push("");
-  lines.push("_Gerado e atualizado automaticamente pelo hook `Stop` após cada execução completa do pipeline `/orchestrator`. Números vêm diretamente dos transcripts da sessão — não são estimados pelo modelo._");
+  lines.push("_Gerado e atualizado automaticamente pelo hook `Stop` após cada execução completa do pipeline `/orchestrator`. Números vêm diretamente dos transcripts da sessão — não são estimados pelo modelo. Horário local da máquina._");
   lines.push("");
   lines.push(`## Última rodada — ${stamp}`);
   lines.push("");
   lines.push("| Métrica | Tokens |");
   lines.push("|---|---|");
-  lines.push(`| Entrada (input) | ${fmt(grandTotalAcc.input_tokens)} |`);
-  lines.push(`| Saída (output) | ${fmt(grandTotalAcc.output_tokens)} |`);
-  lines.push(`| Cache — criação | ${fmt(grandTotalAcc.cache_creation_input_tokens)} |`);
-  lines.push(`| Cache — leitura | ${fmt(grandTotalAcc.cache_read_input_tokens)} |`);
+  lines.push(`| Entrada (input) | ${fmt(grandUsage.totals.input_tokens)} |`);
+  lines.push(`| Saída (output) | ${fmt(grandUsage.totals.output_tokens)} |`);
+  lines.push(`| Cache — criação | ${fmt(grandUsage.totals.cache_creation_input_tokens)} |`);
+  lines.push(`| Cache — leitura | ${fmt(grandUsage.totals.cache_read_input_tokens)} |`);
   lines.push(`| **Total** | **${fmt(grandTotal)}** |`);
   lines.push("");
+  lines.push("| Custo estimado | Valor |");
+  lines.push("|---|---|");
+  lines.push(`| Dólar (USD) | ${fmtUsd(grandCost.usd)} |`);
+  lines.push(`| Real (BRL) | ${fmtBrl(grandCostBrl)} |`);
+  lines.push("");
+  lines.push(
+    `_Estimativa a preço de tarifa de API (US$/milhão de tokens, cotação fixa US$ 1 = R$ ${USD_TO_BRL.toFixed(2).replace(".", ",")}) — não é uma fatura real, e não reflete plano de assinatura (Pro/Max) nem descontos._`
+  );
+  lines.push("");
   const mainOk = mainUsage !== null;
+  const warnings = [];
   if (!mainOk || !subagentsOk) {
     const parts = [];
     if (!mainOk) parts.push("uso do agente principal");
     if (!subagentsOk) parts.push("uso de um ou mais subagentes");
-    lines.push(`> ⚠️ Não foi possível ler o ${parts.join(" e o ")} desta rodada (arquivo indisponível ou formato mudou). O total acima pode estar subestimado.`);
+    warnings.push(`⚠️ Não foi possível ler o ${parts.join(" e o ")} desta rodada (arquivo indisponível ou formato mudou). O total acima pode estar subestimado.`);
+  }
+  if (grandCost.unknown.length > 0) {
+    warnings.push(`⚠️ Sem preço cadastrado para: ${grandCost.unknown.join(", ")}. O custo estimado acima não inclui o uso desses modelos.`);
+  }
+  for (const w of warnings) {
+    lines.push(`> ${w}`);
     lines.push("");
   }
   lines.push("### Por agente");
   lines.push("");
-  lines.push("| Agente | Tokens |");
-  lines.push("|---|---|");
-  lines.push(`| orchestrator (agente principal) | ${mainUsage ? fmt(totalOf(mainUsage)) : "n/d"} |`);
-  const sortedAgents = [...grouped.entries()].sort((a, b) => totalOf(b[1]) - totalOf(a[1]));
+  lines.push("| Agente | Tokens | Custo (USD) |");
+  lines.push("|---|---|---|");
+  const mainCost = mainUsage ? costFromByModel(mainUsage.byModel) : null;
+  lines.push(`| orchestrator (agente principal) | ${mainUsage ? fmt(totalOf(mainUsage.totals)) : "n/d"} | ${mainCost ? fmtUsd(mainCost.usd) : "n/d"} |`);
+  const sortedAgents = [...grouped.entries()].sort((a, b) => totalOf(b[1].totals) - totalOf(a[1].totals));
   for (const [label, usage] of sortedAgents) {
-    lines.push(`| ${label} | ${fmt(totalOf(usage))} |`);
+    const cost = costFromByModel(usage.byModel);
+    lines.push(`| ${label} | ${fmt(totalOf(usage.totals))} | ${fmtUsd(cost.usd)} |`);
   }
   lines.push("");
 
@@ -3739,7 +3884,7 @@ function main() {
   let historyRows = [];
   try {
     const prev = fs.readFileSync(reportPath, "utf-8");
-    const marker = "| Data | Total de tokens |";
+    const marker = "| Data | Total de tokens | Custo (USD) |";
     const idx = prev.indexOf(marker);
     if (idx !== -1) {
       const after = prev.slice(idx + marker.length);
@@ -3754,9 +3899,9 @@ function main() {
 
   lines.push("## Histórico de rodadas");
   lines.push("");
-  lines.push("| Data | Total de tokens |");
-  lines.push("|---|---|");
-  lines.push(`| ${stamp} | ${fmt(grandTotal)} |`);
+  lines.push("| Data | Total de tokens | Custo (USD) |");
+  lines.push("|---|---|---|");
+  lines.push(`| ${stamp} | ${fmt(grandTotal)} | ${fmtUsd(grandCost.usd)} |`);
   for (const row of historyRows) lines.push(row);
   lines.push("");
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.6.0
+# 🚀 Criar Template Claude SDD v3.7.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.6.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.7.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -3668,7 +3668,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.6.0**
+**Projeto criado com Claude SDD v3.7.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -4043,6 +4043,29 @@ function main() {
   const grandCost = costFromByModel(grandUsage.byModel);
   const grandCostBrl = grandCost.usd * USD_TO_BRL;
 
+  // ---- Acumulado: soma de TODAS as rodadas já registradas por este relatório ----
+  // Guardado no arquivo de estado (não recalculado a partir do histórico visível do relatório,
+  // que mantém só as últimas ~30 rodadas) — assim o total de baixo nunca perde rodadas antigas
+  // mesmo depois que elas saem da tabela de histórico.
+  let cumulative = state.cumulative;
+  if (!cumulative || typeof cumulative !== "object" || !cumulative.totals) {
+    // Primeira rodada com esta funcionalidade neste projeto — começa a acumular a partir de agora.
+    // Não dá pra reconstruir com precisão o detalhamento input/output/cache de rodadas anteriores
+    // a esta versão do hook, já que o histórico visível guarda só o total e o custo por rodada.
+    cumulative = {
+      since: new Date().toISOString(),
+      totals: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      costUsd: 0,
+      runs: 0,
+    };
+  }
+  for (const k of Object.keys(cumulative.totals)) cumulative.totals[k] += grandUsage.totals[k] || 0;
+  cumulative.costUsd += grandCost.usd;
+  cumulative.runs += 1;
+  const cumulativeTotal = totalOf(cumulative.totals);
+  const cumulativeCostBrl = cumulative.costUsd * USD_TO_BRL;
+  const cumulativeSinceStamp = formatLocal(new Date(cumulative.since));
+
   // ---- Monta o relatório ----
   const now = new Date();
   const stamp = formatLocal(now);
@@ -4106,11 +4129,19 @@ function main() {
     const marker = "| Data | Total de tokens | Custo (USD) |";
     const idx = prev.indexOf(marker);
     if (idx !== -1) {
-      const after = prev.slice(idx + marker.length);
-      historyRows = after
-        .split("\n")
-        .filter((l) => l.trim().startsWith("|") && !l.includes("---"))
-        .slice(0, 29); // mantém só as últimas rodadas junto com a nova
+      const after = prev.slice(idx + marker.length).split("\n");
+      if (after[0] === "") after.shift(); // artefato do slice: o 1º item é sempre "" (cortou em cima do \n do cabeçalho)
+      // Só a tabela imediatamente após o cabeçalho — para no primeiro "|---" (linha separadora,
+      // já pulada) e no primeiro fim de bloco (linha em branco), sem varrer o resto do arquivo.
+      // Isso importa desde que a seção "Total acumulado" passou a existir depois desta tabela:
+      // sem esse limite, linhas de outras tabelas mais abaixo entrariam como se fossem histórico.
+      for (const l of after) {
+        const trimmed = l.trim();
+        if (trimmed.startsWith("|---")) continue;
+        if (!trimmed.startsWith("|")) break;
+        historyRows.push(l);
+        if (historyRows.length >= 29) break; // mantém só as últimas rodadas junto com a nova
+      }
     }
   } catch {
     historyRows = [];
@@ -4124,6 +4155,26 @@ function main() {
   for (const row of historyRows) lines.push(row);
   lines.push("");
 
+  lines.push("## Total acumulado (todas as rodadas)");
+  lines.push("");
+  lines.push(
+    `_Soma de todas as ${fmt(cumulative.runs)} rodada(s) que este relatório já registrou, desde ${cumulativeSinceStamp}. Recalculado automaticamente a cada nova rodada — nunca perde rodadas antigas, mesmo as que já saíram da tabela de histórico acima._`
+  );
+  lines.push("");
+  lines.push("| Métrica | Tokens |");
+  lines.push("|---|---|");
+  lines.push(`| Entrada (input) | ${fmt(cumulative.totals.input_tokens)} |`);
+  lines.push(`| Saída (output) | ${fmt(cumulative.totals.output_tokens)} |`);
+  lines.push(`| Cache — criação | ${fmt(cumulative.totals.cache_creation_input_tokens)} |`);
+  lines.push(`| Cache — leitura | ${fmt(cumulative.totals.cache_read_input_tokens)} |`);
+  lines.push(`| **Total** | **${fmt(cumulativeTotal)}** |`);
+  lines.push("");
+  lines.push("| Custo estimado acumulado | Valor |");
+  lines.push("|---|---|");
+  lines.push(`| Dólar (USD) | ${fmtUsd(cumulative.costUsd)} |`);
+  lines.push(`| Real (BRL) | ${fmtBrl(cumulativeCostBrl)} |`);
+  lines.push("");
+
   try {
     fs.mkdirSync(outputDir, { recursive: true });
     fs.writeFileSync(reportPath, lines.join("\n"), "utf-8");
@@ -4133,7 +4184,7 @@ function main() {
 
   try {
     fs.mkdirSync(hooksDir, { recursive: true });
-    fs.writeFileSync(statePath, JSON.stringify({ lastRunTimestampMs: maxOutputMtime }), "utf-8");
+    fs.writeFileSync(statePath, JSON.stringify({ lastRunTimestampMs: maxOutputMtime, cumulative }), "utf-8");
   } catch {
     // se não salvar o checkpoint, a próxima rodada recalcula um período maior — não é grave
   }

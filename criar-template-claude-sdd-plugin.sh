@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.7.0
+# 🚀 Criar Template Claude SDD v3.7.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.7.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.7.1${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -3668,7 +3668,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.7.0**
+**Projeto criado com Claude SDD v3.7.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -4273,19 +4273,20 @@ const generic = [
   "Read",
   "Grep",
   "Glob",
-  "Write(output/**)",
   "Edit(output/**)",
-  "Write(docs/**)",
   "Edit(docs/**)",
-  "Write(knowledge/**)",
   "Edit(knowledge/**)",
-  "Write(src/**)",
   "Edit(src/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
   "Bash(command -v semgrep)",
   "Bash(pip install semgrep*)",
   "Bash(semgrep *)",
 ];
+// Remove regras "Write(...)" de rodadas antigas deste script (não batem com nada no sistema de
+// permissões — só "Edit(path)" cobre as ferramentas de escrita, Write incluída; ver aviso do
+// próprio Claude Code ao carregar um settings.json com regra Write()). Idempotente: não mexe em
+// nenhuma outra regra que o usuário tenha adicionado por fora deste script.
+settings.permissions.allow = settings.permissions.allow.filter((r) => !/^Write\(/.test(r));
 for (const rule of [...generic, ...stackBash]) {
   if (!settings.permissions.allow.includes(rule)) settings.permissions.allow.push(rule);
 }

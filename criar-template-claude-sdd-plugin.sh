@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.5.0
+# 🚀 Criar Template Claude SDD v3.6.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.5.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.6.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1625,6 +1625,10 @@ Atua como um DBA sênior cobrindo SQL Server / Azure SQL e PostgreSQL. Use o eng
 2. **Classifique a tarefa**: modelagem de schema, otimização de query, segurança de migration, ou operação (backup/replicação/monitoramento). Vá direto para a seção correspondente abaixo.
 3. **Sempre pergunte ou infira**: tamanho das tabelas (número de linhas), proporção leitura/escrita e índices atuais antes de recomendar mudanças de índice — indexação é um trade-off (custo de escrita vs velocidade de leitura), nunca um ganho gratuito.
 
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/05 - Banco de Dados/` e `knowledge/vault/06 - Arquitetura/` como referência — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada pergunta. Só faça uma busca ampla no código (migrations, DbContext, scripts SQL) quando `knowledge/` não existir ou não tiver referência suficiente pra responder.
+
 ## Modelagem de Schema
 
 - Normalize por padrão (3FN); desnormalize apenas com uma razão explícita de performance de leitura.
@@ -1734,6 +1738,10 @@ Cobre Azure DevOps e GitHub Actions. Pergunte qual plataforma se não estiver cl
 1. **Identifique a plataforma** (Azure DevOps vs GitHub Actions) e se é um pipeline novo ou correção de um existente.
 2. **Identifique a stack** — para esse usuário, assuma .NET por padrão (soluções Clean Architecture) a menos que ele diga o contrário: `dotnet build`, `dotnet test`, `dotnet publish` são os steps principais.
 3. Carregue `references/azure-devops.md` ou `references/github-actions.md` para sintaxe YAML específica da plataforma antes de escrever código de pipeline — não chute nomes de task ou versões de action de memória.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/07 - Integrações/` como referência (serviços, ambientes, dependências externas já mapeados) — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada pergunta. Só faça uma busca ampla no repositório (YAML de pipeline existente, workflows) quando `knowledge/` não existir ou não tiver referência suficiente.
 
 ## Princípios de design de pipeline
 
@@ -1966,6 +1974,10 @@ Atua como um líder técnico sênior/staff: toma e documenta trade-offs de arqui
 1. **Classifique o pedido**: decisão de arquitetura, code review, mentoria/pessoas, ou priorização (dívida técnica vs features). Vá direto pra seção correspondente.
 2. Sempre traga os trade-offs de forma explícita — o valor de um líder técnico está em nomear o que se está abrindo mão, não só o que se está ganhando. Nunca apresente uma única resposta "correta" pra uma questão de arquitetura sem considerar as alternativas.
 
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/10 - ADR/` (decisões já tomadas) e `knowledge/vault/06 - Arquitetura/` como referência antes de propor uma nova decisão ou revisar código — evita contradizer uma decisão já registrada e usa menos tokens do que reler o projeto inteiro. Só faça uma busca ampla no código/histórico do Git quando `knowledge/` não existir ou não tiver referência suficiente.
+
 ## Decisões de Arquitetura (ADRs)
 
 Quando pedirem pra decidir entre abordagens ou documentar uma decisão, use essa estrutura:
@@ -2015,6 +2027,10 @@ Atua como um especialista sênior em segurança de aplicações, focado no ecoss
 1. **Classifique o pedido**: revisão de código existente, dúvida de implementação (ex: "como faço X com segurança"), ou configuração de scanning/CI de segurança. Vá direto pra seção correspondente.
 2. Ao revisar código, sempre indique **severidade** (Crítico/Alto/Médio/Baixo), **arquivo/linha** e se a correção **altera comportamento observável** (validação, autenticação, output) — mudanças que alteram comportamento devem ser sinalizadas antes de aplicadas, nunca aplicadas silenciosamente.
 3. Para dúvidas de implementação, sempre dê o código C#/.NET idiomático, não pseudocódigo genérico.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/01 - Regras de Negócio/` e `knowledge/vault/06 - Arquitetura/` como referência (quem acessa o quê, fronteiras de autorização já mapeadas) — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada revisão. Só faça uma busca ampla no código quando `knowledge/` não existir ou não tiver referência suficiente pra confirmar um achado.
 
 ## Autenticação e Autorização
 
@@ -2120,7 +2136,210 @@ Use este checklist ao fazer uma revisão de segurança completa de um projeto ou
 - [ ] Toda chamada HTTP server-side com URL vinda do usuário valida contra allowlist de hosts/esquemas.
 - [ ] Serviços internos (metadata endpoints de cloud, bancos internos) não são alcançáveis a partir de uma URL arbitrária fornecida pelo usuário.
 DOTNETSECCHECKLISTOWASPDOTNETMDEOF
-    echo -e "${GREEN}✅ .claude/skills/ criado (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert)${NC}"
+    mkdir -p "$PROJECT_DIR/.claude/skills/qa-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/qa-expert/SKILL.md"" << 'QAEXPERTSKILLEOF'
+---
+name: qa-expert
+description: Especialista em qualidade de software (QA) — estratégia e plano de testes, design de casos de teste (particionamento de equivalência, valor limite, tabela de decisão), testes automatizados de backend .NET (xUnit, testes de integração, Testcontainers), testes de API, testes exploratórios, gestão de bugs e métricas de qualidade. Use esta skill sempre que o usuário pedir plano de teste, casos de teste, estratégia de QA, revisão de cobertura de teste, teste de API, teste de integração .NET, triagem/report de bug, ou perguntar "como eu testo isso" fora do contexto de frontend React/Next.js — mesmo sem dizer explicitamente "QA" ou "qualidade".
+---
+
+# QA Expert
+
+Atua como um especialista sênior em qualidade de software, com foco em backend .NET, estratégia de teste e processo de QA. Para testes de componentes/hooks React ou Next.js especificamente, este usuário já tem a skill `frontend-tests` — prefira aquela quando o escopo for puramente frontend; use esta skill para backend, API, estratégia geral de teste e processo de QA.
+
+## Fluxo de trabalho
+
+1. **Classifique o pedido**: estratégia/plano de teste, design de casos de teste, automação de teste backend (.NET), teste de API, teste exploratório, ou triagem de bug/métrica. Vá direto pra seção correspondente.
+2. Ao propor testes, sempre priorize por **risco e valor de negócio**, não por cobertura de linha — 100% de cobertura com asserts fracos vale menos que 70% cobrindo os fluxos críticos de verdade.
+3. Para testes automatizados, sempre dê código C#/.NET idiomático (xUnit é o padrão de fato no ecossistema .NET moderno), não pseudocódigo genérico.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/09 - Casos de Teste/`, `knowledge/vault/01 - Regras de Negócio/` e `knowledge/vault/11 - Bugs Conhecidos/` como referência — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada plano/caso de teste. Só faça uma busca ampla no código/testes existentes quando `knowledge/` não existir ou não tiver referência suficiente.
+
+## Estratégia e Plano de Testes
+
+- **Pirâmide de testes**: priorize testes unitários (rápidos, baratos, muitos) na base, testes de integração no meio (menos, mais lentos, validam a integração real entre camadas), e testes end-to-end no topo (poucos, caros, cobrem só os fluxos críticos de ponta a ponta). Um projeto com muitos E2E e poucos unitários é sinal de pirâmide invertida — mais lento e frágil de manter.
+- **Plano de teste**: pra uma feature nova, estruture em: escopo (o que será e não será testado), riscos identificados, casos de teste priorizados por criticidade, ambiente/dados necessários, critério de saída (quando considerar "testado o suficiente").
+- **Matriz de risco**: para decidir profundidade de teste, cruze impacto (o que quebra se isso falhar) com probabilidade (quão provável é o cenário) — área de alto impacto + alta probabilidade recebe teste automatizado + exploratório; baixo impacto + baixa probabilidade pode ficar só com teste manual ocasional.
+
+## Design de Casos de Teste
+
+- **Particionamento de equivalência**: agrupe entradas que deveriam se comportar da mesma forma (ex: para um campo idade 0-120, "válido" é uma partição, "negativo" é outra, "acima de 120" é outra) — teste um representante de cada partição em vez de testar todo valor possível.
+- **Análise de valor limite**: teste nos limites exatos das partições (ex: para idade válida 18-65, teste 17, 18, 65, 66) — é onde a maioria dos bugs de validação mora.
+- **Tabela de decisão**: para regras de negócio com múltiplas condições combinadas (ex: desconto depende de tipo de cliente + valor do pedido + época do ano), monte uma tabela cobrindo as combinações relevantes em vez de testar condições isoladamente — combinações são onde bugs de regra de negócio escondem.
+- **Casos negativos e de erro**: todo caso de teste positivo (fluxo feliz) deve ter pelo menos um caso negativo correspondente (entrada inválida, recurso não encontrado, permissão negada, timeout de dependência externa).
+
+## Testes Automatizados de Backend .NET
+
+- **Testes unitários (xUnit)**: isolam uma unidade (classe/método) de suas dependências via mock (Moq ou NSubstitute). Nomeie testes descrevendo comportamento, não implementação: `Deve_RetornarErro_QuandoPedidoJaFoiCancelado` é melhor que `TestCancelarPedido2`.
+- **Testes de integração**: validam a integração real entre camadas (ex: repositório + banco de dados real). Use `WebApplicationFactory<T>` do ASP.NET Core pra subir a aplicação em memória durante o teste, testando a API de ponta a ponta sem precisar de um servidor real rodando.
+- **Testcontainers**: para testes de integração que precisam de um banco real (não in-memory, que mascara diferenças de comportamento do SQL), suba um container Docker efêmero do banco (SQL Server, PostgreSQL) só para a duração do teste — mais fiel à produção do que provider in-memory do EF Core, que não valida constraints e queries SQL reais.
+- **Padrão AAA**: estruture todo teste em Arrange (preparar), Act (executar a ação testada), Assert (verificar o resultado) — deixa o teste legível e fácil de revisar em code review.
+- **Testes de arquitetura**: para projetos Clean Architecture, considere testes automatizados de regra de dependência (ex: com `NetArchTest`) que falham o build se `Domain` referenciar `Infrastructure` — transforma uma regra de arquitetura em algo verificável, não só documentado.
+
+## Testes de API
+
+- Valide contrato (status code, schema do response, headers) além do conteúdo — uma API que muda de schema sem quebrar o teste é um teste incompleto.
+- Teste autenticação/autorização explicitamente: chamada sem token → 401; chamada com token de usuário sem permissão → 403; nunca assuma que "funcionou pro usuário autorizado" cobre o caso não autorizado.
+- Para APIs com contrato compartilhado entre times (frontend/mobile consumindo o backend), considere teste de contrato (ex: Pact) além do teste de integração tradicional, pra pegar breaking changes antes do deploy.
+
+## Testes Exploratórios
+
+- Sessões de teste exploratório são estruturadas por **charter** (objetivo da sessão, ex: "explorar o fluxo de checkout buscando problemas de validação de formulário"), não roteiro fixo — a diferença de teste exploratório pra teste scriptado é justamente a liberdade de investigar o que a sessão revela.
+- Técnicas úteis: teste de tour (percorrer o sistema como um usuário real faria, incluindo caminhos não óbvios), teste de sabotagem (interromper conexão, recarregar página no meio de uma ação, testar duplo clique em botão de submit).
+- Documente achados durante a sessão, não só no final — bugs encontrados em exploração são fáceis de esquecer o contexto exato de reprodução se anotados depois.
+
+## Gestão de Bugs e Métricas
+
+- **Report de bug eficaz**: título descritivo do sintoma (não da causa presumida), passos de reprodução numerados, resultado esperado vs resultado obtido, ambiente/versão, evidência (log, screenshot, request/response da API).
+- **Severidade vs prioridade**: severidade é sobre o impacto técnico (crítico = sistema fora do ar; baixo = problema cosmético); prioridade é sobre quando corrigir (pode ser um bug de baixa severidade mas alta prioridade se afeta um cliente importante numa demo amanhã). Não confunda os dois eixos.
+- **Métricas de qualidade úteis**: taxa de bugs escapados pra produção (encontrados depois do release vs antes), tempo médio de detecção, cobertura de teste nos fluxos críticos (não cobertura de linha genérica). Evite métricas de vaidade como "número total de casos de teste" sem contexto de qualidade desses casos.
+
+## Reference files
+
+- `references/checklist-plano-teste.md` — checklist estruturado pra montar um plano de teste completo de uma feature nova, do design de caso à definição de critério de saída.
+
+Leia o arquivo de referência ao estruturar um plano de teste completo, pra não pular etapa.
+QAEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/qa-expert/references/checklist-plano-teste.md"" << 'QAEXPERTCHECKLISTMDEOF'
+# Checklist de Plano de Teste
+
+Use este checklist ao estruturar o plano de teste completo de uma feature nova.
+
+## 1. Escopo
+- [ ] O que será testado está claramente listado (funcionalidades, integrações, plataformas/navegadores se aplicável).
+- [ ] O que **não** será testado nesta rodada está explícito (evita ambiguidade sobre cobertura assumida).
+- [ ] Dependências externas envolvidas (APIs de terceiros, filas, outros serviços) estão identificadas.
+
+## 2. Análise de risco
+- [ ] Áreas de alto impacto de negócio identificadas (o que mais dói se quebrar).
+- [ ] Áreas de alta complexidade técnica identificadas (mais propensas a bug por natureza).
+- [ ] Cruzamento impacto x probabilidade feito pra priorizar onde investir mais teste.
+
+## 3. Casos de teste
+- [ ] Fluxo feliz (caminho principal, entrada válida) coberto.
+- [ ] Casos negativos/de erro (entrada inválida, recurso inexistente, permissão negada) cobertos.
+- [ ] Valores limite testados (mínimo, máximo, um abaixo, um acima).
+- [ ] Combinações de regras de negócio relevantes cobertas (via tabela de decisão se a complexidade justificar).
+- [ ] Casos de concorrência/condição de corrida considerados, se a feature envolve múltiplos usuários/processos simultâneos.
+
+## 4. Automação
+- [ ] Definido o que será automatizado (unitário/integração) vs o que ficará manual/exploratório.
+- [ ] Testes automatizados novos seguem o padrão AAA e nomenclatura descritiva de comportamento.
+- [ ] Dados de teste (fixtures, seeds) definidos e isolados entre execuções (sem dependência de ordem de execução ou estado deixado por outro teste).
+
+## 5. Ambiente e dados
+- [ ] Ambiente de teste definido (local, staging, com quais dados).
+- [ ] Massa de dados necessária identificada e disponível antes do início dos testes.
+- [ ] Acesso/credenciais necessários pra testar todos os perfis de usuário relevantes (admin, usuário comum, etc.) garantidos.
+
+## 6. Critério de saída
+- [ ] Definido o que significa "testado o suficiente" (ex: todos os casos críticos passando, sem bug de severidade alta/crítica aberto).
+- [ ] Bugs conhecidos e aceitos pra este release (se houver) documentados explicitamente, não deixados implícitos.
+
+## 7. Comunicação
+- [ ] Responsável por cada frente de teste (automação, exploratório, regressão) identificado.
+- [ ] Canal/processo definido pra reportar bugs encontrados durante a execução do plano.
+QAEXPERTCHECKLISTMDEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/aws-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md"" << 'AWSEXPERTSKILLEOF'
+---
+name: aws-expert
+description: Especialista em arquitetura e operação AWS — computação (EC2, ECS, Lambda, Elastic Beanstalk), armazenamento (S3), banco de dados (RDS, DynamoDB, Aurora), rede (VPC, Security Groups, Load Balancers), IAM e segurança, deploy de aplicações .NET na AWS (SDK, Lambda para .NET, CDK/CloudFormation), e otimização de custo. Use esta skill sempre que o usuário mencionar EC2, ECS, Lambda, S3, RDS, DynamoDB, VPC, IAM, CloudFormation, CDK, Elastic Beanstalk, CloudWatch, ou perguntar "como hospedo isso na AWS", "qual serviço da AWS usar pra X", ou pedir revisão de uma arquitetura AWS — mesmo sem dizer explicitamente "AWS" ou "cloud".
+---
+
+# Especialista em AWS
+
+Atua como um arquiteto de soluções AWS sênior, com atenção especial a aplicações .NET (já que esse é o contexto principal do usuário), mas cobrindo a plataforma de forma geral.
+
+## Fluxo de trabalho
+
+1. **Classifique o pedido**: escolha de serviço (qual usar pra X), desenho de arquitetura, deploy de aplicação .NET, ou troubleshooting/otimização de algo já existente. Vá direto pra seção correspondente.
+2. Ao recomendar um serviço, sempre explique o trade-off frente à alternativa mais óbvia — a AWS quase sempre tem 2-3 formas de resolver o mesmo problema, e a escolha certa depende de escala, orçamento e operação do time.
+3. Para o contexto deste usuário: ele trabalha primariamente com Azure/.NET Clean Architecture, então ao comparar serviços é útil mapear o equivalente Azure quando ajudar a situar (ex: "S3 é o equivalente ao Blob Storage").
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/07 - Integrações/` como referência (serviços já usados, integrações externas já mapeadas) — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada pergunta. Só faça uma busca ampla no código/infraestrutura (CDK, CloudFormation, appsettings) quando `knowledge/` não existir ou não tiver referência suficiente.
+
+## Computação
+
+- **EC2**: instância de VM tradicional — use quando precisar de controle total do SO, software legado que não containeriza bem, ou requisitos de licenciamento específicos.
+- **ECS (Fargate ou EC2)**: orquestração de containers. Fargate remove a gestão de instância (serverless de container) — prefira Fargate por padrão a menos que haja razão de custo/controle pra gerenciar as instâncias EC2 subjacentes.
+- **Lambda**: função serverless orientada a evento. Ideal pra cargas de trabalho intermitentes, processamento de eventos (S3, SQS, API Gateway), ou APIs de baixo/médio tráfego. .NET tem cold start mais alto que Node/Python — para APIs com tráfego constante, ECS/Fargate costuma ser melhor escolha que Lambda.
+- **Elastic Beanstalk**: PaaS que abstrai EC2 + load balancer + auto scaling. Bom pra times que querem "fazer deploy e esquecer" sem lidar com Kubernetes/ECS diretamente — mais próximo da experiência do Azure App Service.
+- **EKS**: Kubernetes gerenciado. Só recomende se o time já tem expertise em Kubernetes ou precisa de portabilidade multi-cloud — overhead operacional real comparado a ECS pra times pequenos.
+
+## Armazenamento e Banco de Dados
+
+- **S3**: armazenamento de objeto — equivalente ao Azure Blob Storage. Use classes de armazenamento (`Standard`, `Standard-IA`, `Glacier`) conforme a frequência de acesso pra otimizar custo.
+- **RDS**: banco relacional gerenciado (SQL Server, PostgreSQL, MySQL). Pra um projeto .NET Clean Architecture já usando EF Core com SQL Server ou PostgreSQL, RDS é o caminho direto de migração — o driver/connection string muda pouco, a gestão de infraestrutura (backup, patching, failover) é que passa a ser da AWS.
+- **Aurora**: variante do RDS com engine proprietária compatível com MySQL/PostgreSQL, melhor performance e escalabilidade — considere quando RDS padrão não escalar o suficiente.
+- **DynamoDB**: banco NoSQL chave-valor/documento, totalmente gerenciado e serverless. Não é substituto direto de um banco relacional — use quando o padrão de acesso é bem definido (poucas queries, alta escala, baixa latência) e o time aceita modelar em torno de partition key/sort key em vez de normalização relacional.
+
+## Rede e Segurança
+
+- **VPC**: rede isolada — equivalente ao Azure Virtual Network. Toda arquitetura de produção deve ter subnets públicas (load balancer) e privadas (aplicação/banco) separadas, com o banco nunca exposto diretamente à internet.
+- **Security Groups**: firewall stateful por recurso — regra padrão é negar tudo e liberar só a porta/origem necessária (ex: banco só aceita conexão do Security Group da aplicação, não de qualquer IP).
+- **IAM**: gestão de identidade e permissão. Princípio de menor privilégio sempre — nunca use a role/usuário root pra operação do dia a dia, e prefira IAM Roles (atribuídas a recursos como EC2/ECS/Lambda) a credenciais estáticas (access key/secret) sempre que possível, para eliminar secret de longa duração no código.
+- **Secrets Manager / Parameter Store**: para connection strings e credenciais de aplicação — equivalente funcional ao Azure Key Vault. Parameter Store (SSM) é gratuito pra parâmetros simples; Secrets Manager tem rotação automática nativa, mais indicado pra credenciais de banco.
+
+## Deploy de aplicações .NET na AWS
+
+- **AWS SDK for .NET**: pacote `AWSSDK.*` (ex: `AWSSDK.S3`, `AWSSDK.DynamoDBv2`) — configuração via `IAmazonS3`, `IAmazonDynamoDB` etc. injetados via DI, seguindo o mesmo padrão de injeção de dependência que Clean Architecture já usa pra outras infraestruturas.
+- **Lambda para .NET**: usa o pacote `Amazon.Lambda.AspNetCoreServer` pra rodar uma API ASP.NET Core inteira dentro de uma função Lambda via API Gateway — permite reusar a mesma aplicação Clean Architecture sem reescrever pra um handler de função isolado.
+- **Deploy via CDK ou CloudFormation**: CDK (AWS Cloud Development Kit) permite escrever infraestrutura como código em C# (`Amazon.CDK` no .NET) — mais natural pra esse usuário do que aprender YAML puro de CloudFormation do zero, já que reaproveita conhecimento de C#.
+- **CodePipeline/CodeBuild**: CI/CD nativo da AWS — mas se o repositório já está no Azure DevOps ou GitHub, geralmente é mais simples manter o pipeline lá (Azure DevOps/GitHub Actions) e só fazer o *deploy* apontar pra AWS, em vez de migrar o pipeline inteiro pro ecossistema AWS.
+
+## Otimização de custo
+
+- Comece sempre pelo AWS Cost Explorer pra identificar onde o gasto está concentrado antes de otimizar às cegas.
+- EC2/RDS: Reserved Instances ou Savings Plans pra cargas previsíveis de longo prazo (1-3 anos) reduzem custo significativamente frente a on-demand.
+- Lambda/Fargate: já são pay-per-use — o principal vetor de custo ali é código ineficiente (timeout alto, memória superdimensionada) mais do que escolha de serviço.
+- S3: lifecycle rules pra mover objetos antigos automaticamente pra classes de armazenamento mais baratas (Standard-IA, Glacier) conforme a idade do objeto.
+
+## Reference files
+
+- `references/checklist-arquitetura-aws.md` — checklist rápido de revisão pra validar uma arquitetura AWS antes de ir pra produção (rede, segurança, resiliência, custo).
+
+Leia o arquivo de referência ao revisar uma arquitetura AWS proposta ou existente, pra não pular categoria de checagem.
+AWSEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/aws-expert/references/checklist-arquitetura-aws.md"" << 'AWSEXPERTCHECKLISTMDEOF'
+# Checklist de Revisão de Arquitetura AWS
+
+Use este checklist antes de considerar uma arquitetura AWS pronta pra produção.
+
+## Rede
+- [ ] VPC com subnets públicas e privadas separadas.
+- [ ] Banco de dados e recursos internos vivem em subnet privada, sem IP público.
+- [ ] NAT Gateway configurado se recursos em subnet privada precisam de saída pra internet (ex: baixar pacotes).
+- [ ] Load Balancer (ALB/NLB) na frente de qualquer serviço com múltiplas instâncias/tasks.
+
+## Segurança
+- [ ] Security Groups seguem menor privilégio (nenhuma porta aberta pra `0.0.0.0/0` além de HTTP/HTTPS no load balancer público).
+- [ ] Nenhuma credencial estática (access key/secret) hardcoded em código ou variável de ambiente commitada — usar IAM Roles atribuídas ao recurso sempre que possível.
+- [ ] Secrets (connection string, API keys) vêm do Secrets Manager ou Parameter Store, não de config commitada.
+- [ ] Criptografia em repouso habilitada (S3, RDS, EBS) e em trânsito (TLS/HTTPS obrigatório).
+- [ ] MFA habilitado pra usuários IAM com acesso ao console, especialmente contas com privilégio administrativo.
+
+## Resiliência
+- [ ] Recursos críticos (RDS, ECS) distribuídos em pelo menos 2 Availability Zones.
+- [ ] Auto Scaling configurado pra computação (ECS/EC2) com métricas razoáveis (CPU, latência, tamanho de fila).
+- [ ] Backup automático habilitado no RDS com retenção adequada ao RPO do negócio.
+- [ ] Health checks configurados no Load Balancer/ECS pra remover automaticamente instâncias não saudáveis.
+
+## Observabilidade
+- [ ] CloudWatch Logs configurado pra aplicação (não só métricas de infraestrutura).
+- [ ] Alarmes CloudWatch pra métricas críticas (CPU alta, erro 5xx, fila crescendo) com notificação (SNS) configurada.
+- [ ] X-Ray ou alternativa de tracing distribuído, se a arquitetura tiver múltiplos serviços chamando uns aos outros.
+
+## Custo
+- [ ] Tags de custo (ambiente, projeto, responsável) aplicadas nos recursos pra rastreamento no Cost Explorer.
+- [ ] Nenhum recurso órfão (EBS volumes não anexados, Elastic IPs não usados, snapshots antigos) acumulando custo.
+- [ ] Lifecycle rules configuradas no S3 pra dados que não precisam ficar em Standard indefinidamente.
+AWSEXPERTCHECKLISTMDEOF
+    echo -e "${GREEN}✅ .claude/skills/ criado (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert, qa-expert, aws-expert)${NC}"
 fi
 
 
@@ -3433,7 +3652,7 @@ Este projeto já sai alinhado à estrutura de projeto recomendada pela documenta
 - **\`.claude/rules/\`** — convenções (Clean Architecture, componentes/estado, etc.) que só entram no contexto
   quando o Claude mexe em arquivos que batem o padrão certo, em vez de pesar em toda sessão.
 - **\`.claude/settings.json\`** — já sai com um bloco \`permissions\` liberando leitura e as ações que o
-  próprio pipeline precisa (escrita em \`output/\`, \`docs/\`, \`knowledge/\`, build/test da stack), pra
+  próprio pipeline precisa (escrita em \`output/\`, \`docs/\`, \`knowledge/\`, \`src/\`, build/test da stack), pra
   \`/orchestrator\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
   durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, pessoal e fora do git.
 
@@ -3449,7 +3668,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.5.0**
+**Projeto criado com Claude SDD v3.6.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -4009,6 +4228,8 @@ const generic = [
   "Edit(docs/**)",
   "Write(knowledge/**)",
   "Edit(knowledge/**)",
+  "Write(src/**)",
+  "Edit(src/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
   "Bash(command -v semgrep)",
   "Bash(pip install semgrep*)",
@@ -4020,7 +4241,7 @@ for (const rule of [...generic, ...stackBash]) {
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
 ' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
 
-echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, build/test da stack, scan do semgrep)${NC}"
+echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, src/, build/test da stack, scan do semgrep)${NC}"
 
 # ============================================================================
 # CRIAR .gitignore

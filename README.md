@@ -156,7 +156,7 @@ ou Vue.
 
 ## Skills — especialistas extras (só stack `.NET`)
 
-Todo projeto `.NET` sai também com 4 skills em `.claude/skills/`, complementares aos agentes do pipeline —
+Todo projeto `.NET` sai também com 6 skills em `.claude/skills/`, complementares aos agentes do pipeline —
 não são chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você
 invocar manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem:
 
@@ -166,11 +166,18 @@ invocar manualmente) durante ou depois de uma rodada, para dúvidas que vão al�
 | `cicd-pipeline-expert` | Pipelines Azure DevOps e GitHub Actions — YAML, estratégias de deploy (blue-green/canary/rolling), políticas de branch |
 | `tech-leader` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
 | `dotnet-security-expert` | Segurança de aplicações .NET — auth (JWT/Identity), OWASP Top 10, gestão de secrets, SAST com Semgrep |
+| `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes automatizados de backend .NET (xUnit, Testcontainers), testes de API, testes exploratórios, gestão de bugs |
+| `aws-expert` | Arquitetura e operação AWS — EC2/ECS/Lambda, S3, RDS/DynamoDB, VPC/IAM, deploy de apps .NET (SDK, Lambda, CDK), otimização de custo |
 
 Stacks de frontend (`Angular`/`React`/`Vue`) não recebem essas skills — o conteúdo é específico de backend
-.NET (EF Core, ASP.NET Core, pipelines de API). Essas mesmas 4 skills também existem globalmente em
+.NET (EF Core, ASP.NET Core, pipelines de API). Essas mesmas 6 skills também existem globalmente em
 `~/.claude/skills/` nesta máquina, disponíveis em qualquer sessão do Claude Code, não só dentro de projetos
 gerados pelo template.
+
+Todas as 6 seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
+`knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
+do `vault/` relevante ao assunto — e só cai pra busca ampla no código/projeto se a referência ali não for
+suficiente. Isso evita reler o projeto inteiro a cada consulta e usa os tokens de forma mais eficiente.
 
 ## Base de Conhecimento (Knowledge Engine)
 
@@ -200,11 +207,11 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
 - **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e, só no `.NET`, `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
-- **`.claude/skills/`** — só em projetos `.NET`: 4 skills de especialistas extras (`dba-expert`, `cicd-pipeline-expert`, `tech-leader`, `dotnet-security-expert`), ver seção "Skills" acima.
+- **`.claude/skills/`** — só em projetos `.NET`: 6 skills de especialistas extras (`dba-expert`, `cicd-pipeline-expert`, `tech-leader`, `dotnet-security-expert`, `qa-expert`, `aws-expert`), ver seção "Skills" acima.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, build/test da stack, scan do Semgrep), além do hook de tokens e do plugin ponytail.
+- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, scan do Semgrep), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
 ## Estrutura do plugin

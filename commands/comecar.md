@@ -136,7 +136,7 @@ automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
 
 Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
 
-O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado (`extraKnownMarketplaces` + `enabledPlugins`), que ajuda a reduzir o consumo de tokens da sessão — carrega automaticamente ao abrir o projeto, sem instalação manual.
+O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado (`extraKnownMarketplaces` + `enabledPlugins`), que ajuda a reduzir o consumo de tokens da sessão. Isso registra o marketplace e a intenção de habilitá-lo, mas não instala o plugin sozinho — a partir do Claude Code v2.1.195, um plugin de fonte externa só carrega depois de instalado pelo menos uma vez. Na primeira abertura do projeto, é preciso rodar `claude plugin install ponytail@ponytail` (ou aceitar quando o Claude Code avisar que ele não está instalado); dali em diante fica habilitado automaticamente.
 
 ## Observação
 

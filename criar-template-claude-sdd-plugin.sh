@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.7.1
+# 🚀 Criar Template Claude SDD v3.8.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.7.1${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.8.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -723,10 +723,12 @@ Validar a especificação bruta em `docs/SPEC.md` antes que qualquer arquitetura
 
 ## Knowledge Engine
 
-Se existir `knowledge/index.json`, o `00-knowledge-bootstrap` já rodou. Leia `knowledge/vault/Index.md` e os
-documentos em `knowledge/vault/00 - Projeto/` e `knowledge/vault/01 - Regras de Negócio/` — use-os como
-contexto adicional, não só o `docs/SPEC.md`, já que ele pode ter sido gerado a partir do vault. Se
-`knowledge/` não existir, valide normalmente só com `docs/SPEC.md`.
+Se existir `knowledge/cache/analyst.json`, leia-o primeiro — é um resumo já filtrado de requisitos, regras de
+negócio e glossário. Complemente lendo `knowledge/vault/00 - Projeto/` e
+`knowledge/vault/01 - Regras de Negócio/` (ou `knowledge/vault/Index.md`, se o cache não existir mas
+`knowledge/index.json` sim) se precisar de mais detalhe. Use isso como contexto adicional, não só o
+`docs/SPEC.md`, já que ele pode ter sido gerado a partir do vault. Se `knowledge/` não existir, valide
+normalmente só com `docs/SPEC.md`.
 
 ## O Que Você Faz
 
@@ -1358,6 +1360,14 @@ Você é o **Security Scan-SDD**, responsável pelo gate de segurança estática
 Rodar o Semgrep sobre o código gerado em `src/` e decidir, achado a achado, o que pode ser corrigido com
 segurança agora e o que precisa de decisão humana antes de seguir para commits ou testes de API.
 
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro pra julgar se um achado é falso positivo ou faz sentido no contexto,
+verifique primeiro se `knowledge/` existe. Leia `knowledge/vault/01 - Regras de Negócio/` e
+`knowledge/vault/06 - Arquitetura/` como referência (quem acessa o quê, fronteiras de autorização já
+mapeadas) — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada achado. Só faça uma busca
+ampla no código quando `knowledge/` não existir ou não tiver referência suficiente pra confirmar um achado.
+
 ## Passo a Passo
 
 1. **Verifique se o Semgrep está disponível**:
@@ -1548,6 +1558,13 @@ Você é o **Swagger Tester**, especialista em documentação e testes de API vi
 ## Sua Missão
 
 Gerar um workflow completo de testes manuais da API implementada, pronto para uso em Postman/Insomnia ou cURL.
+
+## Knowledge Engine
+
+Antes de inferir convenções de contrato/resposta do zero, verifique primeiro se `knowledge/` existe. Leia
+`knowledge/vault/04 - APIs/` como referência — contratos e formatos de resposta já documentados evitam
+redescobrir tudo a cada execução. Só faça uma busca ampla no código/spec quando `knowledge/` não existir ou
+não tiver referência suficiente pra um endpoint específico.
 
 ## O Que Você Gera
 
@@ -3635,11 +3652,14 @@ $SRC_TREE
 
 ## 🧵 Plugin ponytail (redução de tokens)
 
-Este projeto já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado em
+Este projeto já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado em
 \`.claude/settings.json\` (\`extraKnownMarketplaces\` + \`enabledPlugins\`) — ele ajuda a reduzir o consumo de
-tokens durante as sessões do Claude Code. Não precisa instalar nada manualmente: ao abrir este projeto no
-Claude Code, o plugin já é carregado automaticamente. Para conferir se está ativo, rode \`/plugin\` dentro do
-projeto e veja se \`ponytail@ponytail\` aparece habilitado.
+tokens durante as sessões do Claude Code. Isso registra o marketplace e a intenção de habilitá-lo, mas
+**não instala o plugin sozinho**: a partir do Claude Code v2.1.195, um plugin de fonte externa só carrega
+depois de instalado pelo menos uma vez. Na primeira vez que abrir este projeto, rode
+\`claude plugin install ponytail@ponytail\` (ou aceite quando o Claude Code avisar que ele não está
+instalado) — dali em diante fica habilitado automaticamente nas próximas sessões. Para conferir se está
+ativo, rode \`/plugin\` dentro do projeto e veja se \`ponytail@ponytail\` aparece habilitado.
 
 ## 🧠 CLAUDE.md, .mcp.json, rules e permissões
 
@@ -3668,7 +3688,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.7.1**
+**Projeto criado com Claude SDD v3.8.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -3687,6 +3707,18 @@ cat > "$PROJECT_DIR/COMECE-AQUI.md" << COMECEEOF
 # 🚀 Comece Aqui
 
 Bem-vindo ao seu projeto SDD! Stack: $STACK_LABEL
+
+## 🧵 Antes de Começar: Ative o Plugin ponytail
+
+Este projeto já vem com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado em
+\`.claude/settings.json\`, mas ele ainda não está instalado — isso é um passo único. Rode agora:
+
+\`\`\`
+claude plugin install ponytail@ponytail
+\`\`\`
+
+(ou aceite quando o Claude Code avisar que ele não está instalado). Depois disso ele fica habilitado
+automaticamente em toda sessão futura, ajudando a reduzir o consumo de tokens do pipeline.
 
 ## ⚡ Passos Simples
 

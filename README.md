@@ -200,7 +200,7 @@ Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.clau
 
 ## Plugin ponytail (redução de tokens)
 
-Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) habilitado — o `.claude/settings.json` do projeto já vem com `extraKnownMarketplaces` e `enabledPlugins` apontando pra ele, então não é preciso instalar nada manualmente: ao abrir o projeto criado no Claude Code, o ponytail já carrega junto e passa a atuar reduzindo o consumo de tokens da sessão. Para conferir se está ativo dentro do projeto gerado, rode `/plugin` e veja `ponytail@ponytail` habilitado. (Este repositório-template, por ser só o gerador de estrutura, não precisa do ponytail — a habilitação é escrita apenas no projeto gerado.)
+Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado — o `.claude/settings.json` do projeto já vem com `extraKnownMarketplaces` e `enabledPlugins` apontando pra ele. Isso registra o marketplace e a intenção de habilitá-lo, mas **não instala o plugin sozinho**: a partir do Claude Code v2.1.195, um plugin de fonte externa (como este, hospedado no GitHub) só carrega depois de instalado pelo menos uma vez. Na primeira vez que abrir o projeto gerado, rode `claude plugin install ponytail@ponytail` (ou aceite quando o Claude Code avisar que ele não está instalado) — dali em diante, `enabledPlugins` mantém ele habilitado automaticamente nas próximas sessões. Para conferir se está ativo, rode `/plugin` e veja `ponytail@ponytail` habilitado. (Este repositório-template, por ser só o gerador de estrutura, não precisa do ponytail — a configuração é escrita apenas no projeto gerado.)
 
 ## Estrutura de projeto oficial do Claude Code
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.8.0
+# 🚀 Criar Template Claude SDD v3.9.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.8.0${NC}                     ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.9.0${NC}                     ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -3354,6 +3354,20 @@ $CLAUDE_BUILD_STEPS
 - \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
   duplicar uma convenção aqui)
 
+## Knowledge Engine como fonte de verdade
+
+Depois que a Fase 0 (\`00-knowledge-bootstrap\`) já rodou pelo menos uma vez e \`knowledge/\` existe: para
+qualquer consulta a regra de negócio, funcionalidade, API, teste ou decisão de arquitetura — dentro ou fora do
+\`/orchestrator\` — use primeiro \`knowledge/\` (cache do agente em \`knowledge/cache/\` → \`knowledge/vault/\` →
+\`knowledge/graph/\`, nessa ordem) em vez de reler os documentos brutos em \`docs/raw/\`; eles ficam ali só como
+origem/rastreabilidade. Só volte a \`docs/raw/\` (ou pergunte ao usuário) se a informação não estiver no
+Knowledge Engine, e nesse caso registre a lacuna no vault.
+
+Sempre que implementar algo novo (endpoint, tela, regra, fluxo, decisão), verifique se \`knowledge/vault/\`
+precisa ser atualizado para refletir o que mudou. Se atualizar, rode
+\`node .claude/scripts/knowledge-engine-build.cjs\` para reconstruir \`knowledge/graph/\` e
+\`knowledge/embeddings/\` — assim o contexto acumulado não se perde entre sessões e entre agentes.
+
 ## Fluxo
 
 Rode \`/orchestrator\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
@@ -3688,7 +3702,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.8.0**
+**Projeto criado com Claude SDD v3.9.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

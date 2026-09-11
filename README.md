@@ -150,11 +150,12 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 | Comando | Stacks | O que faz |
 |---|---|---|
 | `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. |
-| `/raio-x-projeto` | só `.NET` | Varredura técnica completa de um projeto legado sem documentação — arquitetura, banco de dados, interfaces, services e infraestrutura — gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. |
+| `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
-`/raio-x-projeto` só é gerado em projetos `.NET` porque seu roteiro de investigação é específico da stack
-(`.csproj`, `DbContext`/EF Core, MediatR, Clean Architecture em C#) — não aparece em projetos Angular, React
-ou Vue.
+O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
+`.csproj`, `DbContext`/EF Core e violação de camada; a de frontend procura `package.json`, mapa de rotas,
+store, cliente HTTP e configuração de build. O contrato de saída é o mesmo nos dois casos: um arquivo por tema
+em `docs/raw/`, que o `00-knowledge-bootstrap` consome na rodada seguinte.
 
 ## Skills — especialistas extras
 
@@ -221,7 +222,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
-- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e, só no `.NET`, `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
+- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
 - **`.claude/skills/`** — skills de especialistas extras em toda stack: `cicd-pipeline-expert`, `tech-leader`, `qa-expert` e `aws-expert` sempre; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.13.1
+# 🚀 Criar Template Claude SDD v3.14.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.13.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.14.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1807,6 +1807,7 @@ await page.route('**/api/tarefas', (route) => route.fulfill({ status: 500 }));
 AGENTEOF
 fi
 
+
 echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 
 # ============================================================================
@@ -3092,6 +3093,77 @@ fi
 if [ "$STACK" = "dotnet" ]; then
     echo -e "${GREEN}✅ Nenhum agente de frontend adicionado (somente backend)${NC}"
 fi
+# ============================================================================
+# SINCRONIZAÇÃO DO KNOWLEDGE ENGINE — regra comum a todos os agentes, em todas
+# as stacks. O vault é a memória do projeto e é de onde todo agente lê primeiro
+# (já fatiado por contexto, mais barato e mais preciso do que reler a
+# documentação bruta). Por isso todo agente termina conferindo se o que produziu
+# muda alguma nota — e atualiza antes de encerrar, pra não ficar nada em aberto.
+# ============================================================================
+
+for agent_file in "$PROJECT_DIR"/.claude/agents/*.md; do
+    agent_name=$(basename "$agent_file" .md)
+    # O 00 constrói o vault inteiro — a regra de sincronização já é a missão dele.
+    [ "$agent_name" = "00-knowledge-bootstrap" ] && continue
+
+    case "$agent_name" in
+        01-orchestrator-sdd)
+            OWNED='`00 - Projeto/` e `01 - Regras de Negócio/` — requisitos e regras que você identificou, ou cujo entendimento mudou' ;;
+        02-architect-sdd)
+            OWNED='`06 - Arquitetura/`, `07 - Integrações/` e `10 - ADR/` — estrutura, integrações e cada decisão tomada' ;;
+        03-dotnet-specialist)
+            OWNED='`04 - APIs/` e `05 - Banco de Dados/` — endpoints, contratos e entidades como ficaram implementados' ;;
+        03-*-specialist)
+            OWNED='`02 - Funcionalidades/` e `08 - UX/` — telas, estados e fluxos como ficaram implementados' ;;
+        04-compliance-validator)
+            OWNED='`01 - Regras de Negócio/` (regra que o código revelou de forma diferente do documentado) e `11 - Bugs Conhecidos/` (divergência encontrada que ficou em aberto)' ;;
+        05-test-validator)
+            OWNED='`09 - Casos de Teste/` — os casos gerados, usando `knowledge/templates/TestCase.md`' ;;
+        06-code-review-sdd)
+            OWNED='`11 - Bugs Conhecidos/` (achado que ficou sem correção) e `06 - Arquitetura/` (se a revisão mudou o entendimento de algum padrão do projeto)' ;;
+        07-build-test-validator)
+            OWNED='`11 - Bugs Conhecidos/` — falha de build ou teste que ficou pendente, com o comando que a reproduz' ;;
+        08-security-scan-sdd)
+            OWNED='`13 - Segurança/` — achados por severidade, o que foi corrigido e o que segue aberto' ;;
+        09-commit-message-generator)
+            OWNED='nenhuma pasta por padrão — mas, se ao dividir os commits você perceber algo implementado que não está documentado, registre em `02 - Funcionalidades/`' ;;
+        10-swagger-tester)
+            OWNED='`04 - APIs/` — endpoints, exemplos de requisição e respostas confirmadas nos testes' ;;
+        10-e2e-flow-tester)
+            OWNED='`09 - Casos de Teste/` — os fluxos E2E cobertos, usando `knowledge/templates/TestCase.md`' ;;
+        *)
+            OWNED='a pasta do vault correspondente ao que você produziu' ;;
+    esac
+
+    # Todo agente precisa poder gravar no vault e rodar o rebuild do Knowledge Engine.
+    sed -i "s/^tools: .*/tools: Read, Write, Edit, Bash, Grep, Glob/" "$agent_file"
+
+    cat >> "$agent_file" << 'SYNCEOF'
+
+## Sincronização do Knowledge Engine (obrigatório ao terminar)
+
+Antes de encerrar, pergunte-se: **o que eu acabei de produzir muda alguma coisa no vault?** Se `knowledge/`
+não existir, pule esta etapa e siga normalmente. Se existir:
+
+1. **Atualize (ou crie) as notas de __OWNED__**, refletindo o que passou a ser verdade agora.
+2. **Registre o que ficou em aberto como lacuna explícita** (dúvida, pendência, decisão adiada) — nunca
+   preencha com suposição.
+3. **Siga `.claude/rules/knowledge-vault.md`**: links `[[...]]` entre notas relacionadas, fonte declarada,
+   assunto consolidado num arquivo só em vez de duplicado.
+4. **Rode `node .claude/scripts/knowledge-engine-build.cjs`** depois de editar, pra reconstruir o grafo e os
+   chunks — nunca escreva `knowledge/graph/` ou `knowledge/embeddings/` na mão.
+5. **Diga no seu relatório final o que foi atualizado no vault** — ou, se nada mudou, escreva "vault já
+   sincronizado, nada a atualizar". Não deixe isso implícito.
+
+Nesta etapa, escreva apenas em `knowledge/` e no seu próprio arquivo em `output/` — não altere código aqui.
+
+Por que isso importa: na próxima rodada, todo agente lê o vault antes de olhar o código ou a documentação
+bruta, porque ele já vem fatiado por contexto — é mais rápido, gasta menos tokens e evita reinterpretar o
+mesmo documento de novo. Vault desatualizado faz o pipeline inteiro trabalhar em cima de informação velha.
+SYNCEOF
+    sed -i "s#__OWNED__#$OWNED#" "$agent_file"
+done
+
 
 # ============================================================================
 # CRIAR .claude/commands/orchestrator.md — conteúdo específico por stack
@@ -4097,6 +4169,13 @@ paths:
 - Se o mesmo assunto aparecer em documentos diferentes, consolide num único arquivo em vez de duplicar.
 - Depois de editar o vault, rode `node .claude/scripts/knowledge-engine-build.cjs` para reconstruir o grafo e
   os chunks de embeddings — não escreva `knowledge/graph/` ou `knowledge/embeddings/` manualmente.
+- **O vault é a fonte de conhecimento do projeto, não a documentação bruta.** Todo agente lê `knowledge/`
+  primeiro (cache e vault, já fatiados por contexto) e só recorre a `docs/raw/`, `docs/SPEC.md` ou ao código
+  quando o vault não existe ou não cobre o assunto.
+- **Toda implementação atualiza o vault.** Qualquer agente que produza ou altere algo (código, arquitetura,
+  testes, achados de segurança) confere ao terminar se aquilo muda alguma nota e atualiza antes de encerrar —
+  cada agente tem a seção "Sincronização do Knowledge Engine" dizendo quais pastas são dele. Se nada mudou,
+  ele diz isso explicitamente no relatório, para não restar dúvida se foi esquecido.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/knowledge-vault.md criado${NC}"
 fi
@@ -4360,7 +4439,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.13.1**
+**Projeto criado com Claude SDD v3.14.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

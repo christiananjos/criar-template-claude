@@ -7,7 +7,7 @@ Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.
 1. `/comecar` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, roda um scan de segurança estática (Semgrep), gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
+4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
 5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
 
 ## Instalação
@@ -134,7 +134,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `05-test-validator` | Gera testes automatizados | sempre |
 | `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
 | `07-build-test-validator` | Valida build e testes | sempre |
-| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) e corrige achados Critical/High que não alterem comportamento observável | sempre |
+| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS), corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF com issues prontas para o GitHub | sempre |
 | `09-commit-message-generator` | Gera commits semânticos | sempre |
 | `10-swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
 
@@ -213,7 +213,7 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, scan do Semgrep), além do hook de tokens e do plugin ponytail.
+- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, scan do Semgrep, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
 ## Estrutura do plugin

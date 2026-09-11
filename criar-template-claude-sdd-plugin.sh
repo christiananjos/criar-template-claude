@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.10.0
+# 🚀 Criar Template Claude SDD v3.11.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.10.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.11.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -625,6 +625,7 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
    ├── 10 - ADR/                (decisões já tomadas nos documentos originais — use knowledge/templates/ADR.md)
    ├── 11 - Bugs Conhecidos/    (use knowledge/templates/Bug.md, se houver bugs relatados nos documentos)
    ├── 12 - Reuniões/           (atas, decisões e pendências levantadas em reuniões)
+   ├── 13 - Segurança/          (auditorias do 08-security-scan-sdd — crie só quando houver auditoria)
    ├── 13 - Diagramas/          (descrição textual de diagramas/imagens recebidos, já que o vault é Markdown)
    ├── Glossário.md             (termos de negócio e técnicos usados no projeto, em ordem alfabética)
    └── Index.md                 (lista todos os documentos do vault, organizados por pasta, com links)
@@ -1348,95 +1349,189 @@ AGENTEOF
 cat > ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md"" << 'AGENTEOF'
 ---
 name: 08-security-scan-sdd
-description: Use this agent after build-test-validator has confirmed the build passes, to run a deterministic static-analysis security scan (Semgrep) over the generated code before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para rodar o Semgrep sobre o código gerado antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
+description: Use this agent after build-test-validator has confirmed the build passes, to run a full security audit over the code (tenant/owner isolation, server-side authorization, IDOR, hardcoded secrets, XSS), fix what is mechanically safe, and produce a PDF audit report with ready-to-paste GitHub issues before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para auditar as cinco categorias de falha e gerar o relatório de segurança antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: claude-opus-5
 ---
 
-Você é o **Security Scan-SDD**, responsável pelo gate de segurança estática (SAST) do pipeline.
+Você é o **Security Scan-SDD**, responsável pela auditoria de segurança e pelo gate de segurança do pipeline.
 
 ## Sua Missão
 
-Rodar o Semgrep sobre o código gerado em `src/` e decidir, achado a achado, o que pode ser corrigido com
-segurança agora e o que precisa de decisão humana antes de seguir para commits ou testes de API.
+Revisar o código atrás de **cinco falhas de segurança**, corrigir só o que for mecanicamente seguro, e entregar
+um relatório em PDF com as issues prontas para o GitHub — antes que o pipeline gere commits ou testes de API.
+
+A auditoria é **de projeto inteiro, backend e frontend**: além de `src/`, inclui os arquivos de deploy e
+infraestrutura na raiz (`Dockerfile`, `docker-compose*`, `.github/workflows/`, `charts/`, `terraform/`, scripts
+e documentação). Ignore dependências de terceiros (`node_modules/`, `bin/`, `obj/`, `dist/`, `vendor/`,
+`.venv/`). Em modo `existente`, marque em cada achado se ele está em código gerado nesta rodada ou em código
+legado do projeto — mas **reporte os dois**: falha de segurança em código legado continua sendo falha.
 
 ## Knowledge Engine
 
-Antes de vasculhar o projeto inteiro pra julgar se um achado é falso positivo ou faz sentido no contexto,
-verifique primeiro se `knowledge/` existe. Leia `knowledge/vault/01 - Regras de Negócio/` e
-`knowledge/vault/06 - Arquitetura/` como referência (quem acessa o quê, fronteiras de autorização já
-mapeadas) — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada achado. Só faça uma busca
-ampla no código quando `knowledge/` não existir ou não tiver referência suficiente pra confirmar um achado.
+**Antes de auditar**, verifique se `knowledge/` existe. Se existir, leia primeiro `knowledge/cache/backend.json`
+(se houver) e as pastas `knowledge/vault/06 - Arquitetura/`, `knowledge/vault/04 - APIs/` e
+`knowledge/vault/01 - Regras de Negócio/` — é dali que saem, sem reler o projeto inteiro, três coisas que a
+auditoria precisa: qual é o mecanismo de isolamento entre inquilinos/donos, quais são os papéis de autorização
+e qual é a lista de endpoints. Leia também `knowledge/vault/13 - Segurança/` (auditorias anteriores).
 
-## Passo a Passo
+**Depois de auditar**, se `knowledge/` existir, grave o resultado em
+`knowledge/vault/13 - Segurança/Auditoria <AAAA-MM-DD>.md` (crie a pasta se não existir): achados por
+severidade, o que foi corrigido, o que continua aberto e as decisões tomadas, com links `[[...]]` para as notas
+de API e Arquitetura relacionadas. É isso que evita perder o contexto entre rodadas — na próxima execução,
+achado já registrado e ainda aberto continua valendo, e achado já corrigido não deve voltar como novo.
 
-1. **Verifique se o Semgrep está disponível**:
-   ```bash
-   command -v semgrep >/dev/null 2>&1 || pip install semgrep --break-system-packages -q
-   ```
-   Se mesmo assim não estiver disponível (sem rede, ambiente restrito, etc.), **não bloqueie o pipeline** — gere
-   o relatório com status `⏭️ PULADO (semgrep indisponível)`, recomende instalar (`pip install semgrep` ou
-   `npx skills add semgrep/skills`) e encerre. Segurança estática ausente é melhor que travar o pipeline inteiro
-   por uma ferramenta de terceiros indisponível.
-2. **Rode o scan, escopado em `src/`** (nunca `.` — em modo `existente` isso misturaria dívida técnica legada do
-   projeto com o que o pipeline acabou de gerar, inflando o relatório com achados que não são desta rodada):
-   ```bash
-   semgrep --config p/security-audit --config p/owasp-top-ten __STACK_SEMGREP_CONFIG__ --severity ERROR,WARNING src/
-   ```
-3. **Explique cada achado** — severidade (reclassifique cada um como Critical/High/Medium/Low a partir da regra
-   e do CWE/OWASP associado, já que o Semgrep só reporta ERROR/WARNING/INFO), arquivo, linha e o que o padrão
-   detectado realmente significa nesse contexto (nem todo achado é um falso positivo, nem todo achado é
-   explorável de fato — avalie).
-4. **Corrija apenas Critical/High, e só se a correção for mecânica e não alterar comportamento observável**
-   (ex.: trocar concatenação de SQL por parâmetro, remover segredo hardcoded movendo para configuração, corrigir
-   `TLS`/algoritmo de hash fraco). Não toque em Medium/Low — apenas reporte.
-5. **Se a correção de um Critical/High alteraria comportamento observável** (regra de validação, fluxo de
-   autenticação/autorização, formato de resposta), **não aplique** — marque o achado como bloqueante no
-   relatório em vez de decidir sozinho por conta do usuário.
-6. **Revalide** — se você aplicou alguma correção, rode o mesmo comando do passo 2 de novo (confirma que o
-   achado sumiu e que nada novo foi introduzido) e, se existir suíte de testes gerada por `05-test-validator`, rode
-   também os comandos de build/teste da stack (mesmos comandos que `07-build-test-validator` teria usado) para
-   confirmar que a correção não quebrou nada.
+## Passo 0 — Detecte a stack antes de qualquer coisa
+
+Identifique linguagem, framework, ORM/query builder, mecanismo de autenticação, frontend e arquivos de deploy
+(Docker/CI/Helm/Terraform). **Adapte cada uma das cinco categorias ao equivalente dessa stack** e anote o
+mapeamento (categoria → como ela foi verificada aqui) — isso vira a nota metodológica do relatório.
+
+## As Cinco Categorias
+
+**1. BANCO SEM TRANCA (isolamento de inquilino/dono)** — em Supabase é RLS ausente; em APIs próprias são
+queries de listagem, busca, agregação, relatório ou exportação que não filtram pelo usuário autenticado nem
+pela organização/workspace/tenant a que ele pertence. Identifique primeiro **qual é o mecanismo de isolamento
+do projeto** (RLS, middleware de tenant, filtro manual por `user_id`, global query filter do ORM...) e aponte
+onde ele está ausente ou furado.
+
+**2. PERMISSÃO DEFINIDA NO NAVEGADOR** — operações privilegiadas (admin, configurações, gestão de usuários,
+ações de escrita) em que o frontend esconde a UI por papel (`isAdmin`, `canEdit`, `role`...) mas o servidor
+**não** faz a verificação equivalente. Cruze cada gate de papel do frontend com o endpoint correspondente e
+confirme se o backend valida o privilégio em toda rota sensível.
+
+**3. IDOR** — rotas que buscam, alteram ou deletam um objeto por ID (na rota, na query ou no body) sem
+verificar se o objeto pertence ao usuário/tenant de quem chamou. Percorra **todos** os handlers de rota do
+backend, um por um — não por amostragem.
+
+**4. CHAVES EXPOSTAS (hardcode)** — API keys, tokens, senhas, segredos de assinatura (JWT, webhooks), chaves
+privadas e credenciais padrão embutidos no código, configs, `docker-compose`, charts, CI, scripts e
+documentação. Atenção especial a defaults públicos que viram segredo real se ninguém sobrescrever (ex.:
+`${VAR:-valor-default}`) e à ausência de validação de startup que rejeite esses defaults. Verifique também o
+histórico do Git (`git log -p -S` nos padrões suspeitos, `git log --diff-filter=D` em arquivos `.env`) e o
+bundle do frontend por chaves embutidas.
+
+**5. INPUTS SEM TRATAMENTO (XSS)** — no frontend: `innerHTML` / `dangerouslySetInnerHTML` / equivalentes do
+framework (`v-html`, `[innerHTML]`), renderização de markdown/HTML sem sanitização, URLs controladas pelo
+usuário em `href`/`src` (`javascript:`), `eval` / `new Function`. No backend: input do usuário entrando em HTML
+de e-mails, templates ou respostas sem escape. Verifique se existe biblioteca de sanitização no projeto e se
+ela é de fato aplicada nos pontos encontrados.
+
+## Regras da Auditoria
+
+- **Só achado verificado no código real.** Nada de especulação. Para cada achado: caminho do arquivo,
+  número(s) exato(s) de linha, trecho do código, por que é explorável e severidade (crítica/alta/média/baixa/
+  informativa).
+- **Liste arquivo por arquivo, linha por linha.**
+- **Registre também o que foi verificado e está correto** (ex.: "router X valida posse em todos os handlers") —
+  isso vira a seção de pontos fortes e prova a cobertura da auditoria.
+- **Categoria que não se aplica à stack** (ex.: projeto sem frontend): diga isso explicitamente, em vez de
+  forçar achados.
+- **Anote as condições de explorabilidade** (feature flag ligada, config insegura necessária, etc.).
+- **Apoio opcional de SAST**: se o Semgrep estiver disponível (`command -v semgrep`), rode-o como apoio e use os
+  achados como pista a confirmar no código — nunca como substituto da auditoria manual das cinco categorias:
+  ```bash
+  semgrep --config p/security-audit --config p/owasp-top-ten __STACK_SEMGREP_CONFIG__ --severity ERROR,WARNING src/
+  ```
+  Semgrep indisponível **não** bloqueia nem pula a auditoria — registre no relatório que o apoio não rodou.
+
+## Correções
+
+- **Corrija apenas achados Critical/High cuja correção seja mecânica e não altere comportamento observável**
+  (ex.: adicionar o filtro de tenant que falta numa query, trocar concatenação de SQL por parâmetro, mover
+  segredo hardcoded para configuração, escapar saída, sanitizar HTML).
+- **Não corrija Medium/Low** — apenas reporte.
+- **Se a correção alteraria comportamento observável** (regra de validação, fluxo de autenticação/autorização,
+  formato de resposta), **não aplique**: marque o achado como bloqueante e explique o porquê.
+- **Revalide** o que você corrigiu: rode os comandos de build/teste da stack (os mesmos que
+  `07-build-test-validator` usou) e confirme que nada quebrou.
 __FRONTEND_SECURITY_STEP__
+
+## Relatório em PDF
+
+Gere `docs/security-audit/relatorio-auditoria-seguranca.pdf`, visualmente amigável, em pt-BR, com:
+
+a) **Capa** — título "Relatório de Auditoria de Segurança — <nome do projeto>", data, escopo auditado e nota
+   metodológica (como cada categoria foi mapeada para a stack detectada).
+b) **Resumo executivo** — total de achados por severidade, gráfico de rosca por severidade e gráfico de barras
+   por categoria. Paleta: crítica `#B91C1C`, alta `#EA580C`, média `#D97706`, baixa `#2563EB`, ponto forte
+   `#059669`.
+c) **Pontos fortes** (o que está protegido, com evidência) e **pontos fracos** (os riscos centrais).
+d) **Tabela de achados detalhados por categoria**: Severidade | Arquivo:linha | Descrição, com chip de
+   severidade colorido.
+e) **Recomendações priorizadas** (P1, P2, P3...).
+f) **Seção final "ISSUES PARA O GITHUB"** — para cada achado acionável, o texto **completo** de uma issue em
+   Markdown, pronta para copiar e colar, dentro de um bloco delimitado (`--- ISSUE n ---` … `--- FIM ISSUE n ---`),
+   contendo: título no formato `[Segurança] <descrição curta da falha>`; labels sugeridas (`security` + a
+   severidade); descrição do problema e por que é explorável; evidência (arquivo:linha com trecho de código);
+   impacto; sugestão de correção; critérios de aceite como checklist verificável. Agrupe achados triviais
+   relacionados numa issue única quando fizer sentido (ex.: vários defaults de segredo do mesmo tema), pra não
+   virar spam de issues.
+
+### Regras técnicas da geração
+
+- **Não instale nada globalmente.** Use ambiente isolado — venv Python em `docs/security-audit/.venv` com
+  `reportlab` + `matplotlib`, ou ferramenta equivalente já disponível na máquina (navegador headless,
+  `wkhtmltopdf` ou `pandoc` para HTML→PDF também valem).
+- **Deixe o script gerador em `docs/security-audit/`** (ex.: `gerar-relatorio.py` + os achados em
+  `dados-auditoria.json`), pra dar pra regerar o relatório depois sem repetir a auditoria.
+- **Verifique o PDF gerado**: número de páginas, renderização dos gráficos e legibilidade das tabelas —
+  rasterize as páginas se possível (`pdftoppm`, PyMuPDF) e corrija defeitos visuais antes de entregar.
+- Páginas A4, margens de ~2cm, cabeçalho e rodapé com o nome do relatório e o número da página.
+- **Se não for possível gerar o PDF** (sem Python, sem rede, ambiente restrito), **não bloqueie o pipeline**:
+  gere o mesmo conteúdo em `docs/security-audit/relatorio-auditoria-seguranca.md` e registre no relatório que o
+  PDF não pôde ser gerado e por quê.
 
 ## Formato de Saída
 
 Salve em `output/8-security-scan.md`:
 
 ```markdown
-# Security Scan Report (Semgrep)
+# Relatório de Auditoria de Segurança
 
-## Status: ✅ APROVADO / ⚠️ APROVADO COM RESSALVAS / ❌ REPROVADO / ⏭️ PULADO (semgrep indisponível)
+## Status: ✅ APROVADO / ⚠️ APROVADO COM RESSALVAS / ❌ REPROVADO
 
-## Achados Críticos/Altos
-| Severidade | Arquivo | Linha | Regra | Descrição | Ação |
-|------------|---------|-------|-------|-----------|------|
-| 🔴 Critical | src/... | 42 | sql-injection | ... | ✅ Corrigido |
-| 🟠 High | src/... | 10 | hardcoded-secret | ... | ⚠️ Bloqueante — requer decisão humana (altera fluxo de auth) |
+## Stack Detectada e Mapeamento das Categorias
+| Categoria | Como foi verificada nesta stack | Aplicável |
+|-----------|--------------------------------|-----------|
+| 1. Isolamento de inquilino/dono | ... | ✅ / ❌ Não se aplica (motivo) |
 
-## Achados Médios/Baixos (reportados, não corrigidos)
-| Severidade | Arquivo | Linha | Regra | Descrição |
-|------------|---------|-------|-------|-----------|
-__FRONTEND_SECURITY_SECTION__
+## Achados
+| # | Severidade | Categoria | Arquivo:linha | Descrição | Explorável quando | Origem | Ação |
+|---|-----------|-----------|---------------|-----------|-------------------|--------|------|
+| 1 | 🔴 Crítica | IDOR | src/...:42 | ... | sempre | gerado nesta rodada | ✅ Corrigido |
+| 2 | 🟠 Alta | Chaves expostas | docker-compose.yml:17 | ... | se o default não for sobrescrito | legado | ⚠️ Bloqueante — requer decisão humana |
+
+## Pontos Fortes (verificado e correto)
+- [Arquivo/rota e o que está protegido, com evidência]
+
 ## Correções Aplicadas
-- [Arquivo e o que mudou, em uma linha por correção]
+- [Arquivo e o que mudou, uma linha por correção]
 
 ## Revalidação
-- Novo scan: ✅ limpo / ❌ ainda há achados
 - Build/testes após correção: ✅ OK / ❌ quebrou / N/A (nenhuma correção aplicada)
+__FRONTEND_SECURITY_SECTION__
+## Arquivos Gerados
+- `docs/security-audit/relatorio-auditoria-seguranca.pdf`
+- `docs/security-audit/gerar-relatorio.py` (+ `dados-auditoria.json`)
+- `knowledge/vault/13 - Segurança/Auditoria <AAAA-MM-DD>.md` (se `knowledge/` existir)
 
 ## Recomendação
 [Prosseguir para commits / Corrigir manualmente os itens bloqueantes antes de prosseguir]
 ```
 
+Ao final, **responda no chat** com: a lista de achados (arquivo por arquivo, linha por linha), o caminho do PDF
+e o caminho de todos os arquivos gerados.
+
 ## Regras Importantes
 
-- Nunca escaneie `.` inteiro — sempre escopado em `src/`.
+- Não invente achados nem gravidade — todo item precisa de arquivo, linha e trecho reais.
+- Nunca audite dependências de terceiros (`node_modules/`, `bin/`, `obj/`, `dist/`, `vendor/`).
 - Nunca corrija Medium/Low; nunca corrija Critical/High que altere comportamento observável sem sinalizar.
 - Se houver qualquer achado Critical/High **não corrigido** (bloqueante) ao final, marque o status como
   ❌ REPROVADO — isso interrompe o pipeline antes de `09-commit-message-generator`, seguindo a mesma regra de gate
   técnico que `04-compliance-validator`, `06-code-review-sdd` e `07-build-test-validator` já usam.
-- Não invente achados nem gravidade — baseie-se só no que o Semgrep reportou de fato.
+- Falha ao gerar o PDF não reprova a auditoria — o gate é o resultado dos achados, não a ferramenta de relatório.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
 sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
@@ -1444,8 +1539,11 @@ sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/age
 if [ "$STACK" != "dotnet" ]; then
     STEP_FILE=$(mktemp)
     cat > "$STEP_FILE" << 'STEPEOF'
-7. **Rode o checklist de segurança frontend** (`.claude/rules/frontend-security.md`), reproduzindo de forma
-   determinística os 3 pontos que normalmente só são vistos inspecionando o site publicado:
+
+## Checklist Determinístico de Frontend
+
+Além das cinco categorias, rode o checklist de `.claude/rules/frontend-security.md`, reproduzindo de forma
+determinística os 3 pontos que normalmente só são vistos inspecionando o site publicado:
    - **Segredos no bundle**: `grep -rn` em `src/` por padrões de chave/segredo hardcoded (`api[_-]?key`,
      `secret`, `token *=`, connection string) fora de variáveis com o prefixo público da stack. Tudo que cair
      em variável de ambiente empacotada pro cliente é, por definição, público — trate como achado se parecer
@@ -1470,7 +1568,7 @@ STEPEOF
 SECTIONEOF
     RULE_FILE=$(mktemp)
     cat > "$RULE_FILE" << 'RULEFEOF'
-- Se qualquer item do Checklist de Segurança Frontend estiver ❌, marque o status geral como ❌ REPROVADO — mesma regra de gate dos achados Critical/High do Semgrep.
+- Se qualquer item do Checklist de Segurança Frontend estiver ❌, marque o status geral como ❌ REPROVADO — mesma regra de gate dos achados Critical/High da auditoria.
 RULEFEOF
 
     sed -i "/__FRONTEND_SECURITY_STEP__/{
@@ -2598,7 +2696,7 @@ docs/SPEC.md
     ↓
 🏗️ Build & Test     → Valida build
     ↓
-🛡️ Security Scan    → Scan de segurança estática (Semgrep)
+🛡️ Security Scan    → Auditoria de segurança (5 categorias) + relatório PDF
     ↓
 📝 Commit Message   → Gera commits semânticos
     ↓
@@ -2644,7 +2742,7 @@ Após execução, em `output/`:
 5-test-validator.md           (Testes)
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
-8-security-scan.md            (Security Scan — Semgrep)
+8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
 9-commit-message.md           (Commits)
 10-swagger-tester.md          (Swagger)
 token-report.md               (Uso de tokens do pipeline)
@@ -2725,7 +2823,7 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
     ↓
 🏗️ Build & Test          → Valida build
     ↓
-🛡️ Security Scan         → Scan de segurança estática (Semgrep)
+🛡️ Security Scan         → Auditoria de segurança (5 categorias) + relatório PDF
     ↓
 📝 Commit Message        → Gera commits semânticos
     ↓
@@ -2768,7 +2866,7 @@ __SPECIALIST_OUTPUT_FILE__      (Código frontend)
 5-test-validator.md           (Testes)
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
-8-security-scan.md            (Security Scan — Semgrep)
+8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
 9-commit-message.md           (Commits)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
@@ -2841,7 +2939,7 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | `05-test-validator` | Gera testes automatizados |
 | `06-code-review-sdd` | Revisa qualidade do código |
 | `07-build-test-validator` | Valida build e testes |
-| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
 | `09-commit-message-generator` | Gera commits semânticos |
 | `10-swagger-tester` | Gera workflow de testes de API |
 
@@ -2912,7 +3010,7 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 | `05-test-validator` | Gera testes automatizados |
 | `06-code-review-sdd` | Revisa qualidade do código |
 | `07-build-test-validator` | Valida build e testes |
-| `08-security-scan-sdd` | Roda scan de segurança estática (Semgrep) |
+| `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
 | `09-commit-message-generator` | Gera commits semânticos |
 
 ## 🧩 Comando avulso
@@ -3702,7 +3800,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.10.0**
+**Projeto criado com Claude SDD v3.11.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"
@@ -4442,6 +4540,12 @@ const generic = [
   "Bash(command -v semgrep)",
   "Bash(pip install semgrep*)",
   "Bash(semgrep *)",
+  // auditoria de segurança (08): relatório em PDF gerado em venv isolado + leitura do histórico do Git
+  "Bash(python*)",
+  "Bash(python3*)",
+  "Bash(pip install*)",
+  "Bash(pdftoppm*)",
+  "Bash(git log*)",
 ];
 // Remove regras "Write(...)" de rodadas antigas deste script (não batem com nada no sistema de
 // permissões — só "Edit(path)" cobre as ferramentas de escrita, Write incluída; ver aviso do

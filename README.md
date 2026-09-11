@@ -196,7 +196,9 @@ de embeddings); os chunks já ficam prontos para quem quiser plugar esse passo d
 
 ## Relatório de tokens
 
-Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`) que, ao final de cada rodada do `/orchestrator`, atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente — lido direto dos transcripts da sessão, sem estimativa do modelo.
+Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`) que, ao final de cada rodada do `/orchestrator`, atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente e por modelo — lido direto dos transcripts da sessão, sem estimativa do modelo.
+
+O custo é calculado pelo modelo que realmente respondeu cada mensagem, então o relatório continua correto seja qual for o modelo de cada agente, inclusive se você trocar. A conta considera leitura e escrita de cache (com o multiplicador de cada modelo), fast mode, inferência restrita aos EUA e buscas na web (cobradas à parte, US$ 10 por 1.000). Modelo que ainda não estiver na tabela de preços entra pelo preço do modelo mais recente da mesma família, e o relatório avisa que aquele valor é aproximado — a tabela fica em `PRICING`, no topo de `.claude/hooks/generate-token-report.cjs`.
 
 ## Plugin ponytail (redução de tokens)
 

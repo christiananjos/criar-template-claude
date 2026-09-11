@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.11.0
+# 🚀 Criar Template Claude SDD v3.12.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.11.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.12.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1622,14 +1622,7 @@ tipo(escopo): descrição curta no imperativo
 
 Divida o código gerado em commits logicamente coesos (não um commit gigante). Exemplo:
 
-```
-feat(domain): adicionar entidade Tarefa e regras de validação
-feat(application): implementar casos de uso de criação e listagem de tarefas
-feat(infrastructure): configurar EF Core e repositório de tarefas
-feat(api): adicionar controllers REST para tarefas
-test(application): adicionar testes unitários dos casos de uso de tarefas
-docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
-```
+__STACK_COMMIT_EXAMPLES__
 
 ## Formato de Saída
 
@@ -1713,13 +1706,117 @@ curl -X POST ... -d '{ "titulo": "" }'
 - Inclua sempre pelo menos um cenário de erro por endpoint
 - Use dados de exemplo realistas e coerentes com o domínio da spec
 AGENTEOF
+else
+    cat > ""$PROJECT_DIR/.claude/agents/10-e2e-flow-tester.md"" << 'AGENTEOF'
+---
+name: 10-e2e-flow-tester
+description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete end-to-end test workflow for the implemented frontend flows (Playwright or Cypress), including the session-invalidation check required by the project's frontend security rules. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta o roteiro de testes dos fluxos" assistant: "Vou usar o agente e2e-flow-tester para gerar o workflow completo de testes end-to-end dos fluxos implementados." <commentary>This is the final agent in the cascade, producing the artifact developers use to validate the app end to end.</commentary></example>
+tools: Read, Grep, Glob
+model: sonnet
+---
+
+Você é o **E2E Flow Tester**, especialista em testes end-to-end de aplicações web.
+
+## Sua Missão
+
+Gerar o roteiro completo de testes end-to-end dos fluxos implementados, pronto pra rodar no Playwright (ou no
+Cypress, se o projeto já usar) — no frontend, é o equivalente ao workflow de testes de API que um backend
+entrega no fim do pipeline.
+
+## Knowledge Engine
+
+Antes de inferir fluxos do zero, verifique primeiro se `knowledge/` existe. Leia
+`knowledge/vault/02 - Funcionalidades/`, `knowledge/vault/08 - UX/` e `knowledge/vault/09 - Casos de Teste/`
+como referência — telas, estados e casos já documentados evitam redescobrir tudo a cada execução. Depois de
+gerar o roteiro, se `knowledge/` existir, registre os casos novos em `knowledge/vault/09 - Casos de Teste/`
+usando `knowledge/templates/TestCase.md` como base.
+
+## O Que Você Gera
+
+Para cada fluxo de usuário descrito em `docs/SPEC.md` e implementado no código:
+
+1. **Fluxo feliz** — passos, seletores, dados de entrada e a asserção que prova que o fluxo terminou.
+2. **Cenários de erro** — validação de formulário, falha da API (resposta 500, 401 e timeout simulados por
+   mock de rota), permissão negada, lista vazia.
+3. **Estado inicial** — sessão e dados que o teste precisa, e como preparar (fixture, `storageState`, mock de
+   rede). Cada teste tem que montar o próprio estado.
+
+Além dos fluxos da spec, gere sempre:
+
+- **Smoke suite** — o subconjunto de 3 a 5 casos que cabe no tempo de um pull request, marcado como tal.
+- **Invalidação de sessão** (se o app tiver autenticação) — depois do logout, voltar a uma rota protegida
+  (inclusive pelo botão voltar do navegador) tem que levar ao login, e o token não pode seguir em
+  `localStorage`, `sessionStorage` ou cookie. É exigência de `.claude/rules/frontend-security.md`.
+- **Acessibilidade básica** dos fluxos principais (checagem com axe), se o projeto já tiver a dependência.
+
+## Formato de Saída
+
+Salve em `output/10-e2e-flow-tester.md`:
+
+```markdown
+# Workflow de Testes E2E
+
+## Pré-requisitos
+- Comando para subir a app e rodar a suíte (ex.: `npm run dev` + `npx playwright test`)
+- Massa de dados / usuários de teste necessários
+
+## Fluxo: Criar tarefa (smoke)
+
+**Estado inicial:** usuário autenticado (`storageState` de sessão válida), lista vazia.
+
+### Cenário de sucesso
+| # | Passo | Asserção |
+|---|-------|----------|
+| 1 | Abrir `/tarefas` | título "Minhas tarefas" visível |
+| 2 | Clicar em "Nova tarefa" | formulário visível |
+| 3 | Preencher título e salvar | item aparece na lista, toast de sucesso |
+
+\`\`\`ts
+test('cria uma tarefa', async ({ page }) => {
+  await page.goto('/tarefas');
+  await page.getByRole('button', { name: 'Nova tarefa' }).click();
+  await page.getByLabel('Título').fill('Fazer relatório');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Fazer relatório' })).toBeVisible();
+});
+\`\`\`
+
+### Cenário de erro — API fora do ar
+\`\`\`ts
+await page.route('**/api/tarefas', (route) => route.fulfill({ status: 500 }));
+\`\`\`
+**Esperado:** mensagem de erro visível, sem tela branca e sem perder o que foi digitado.
+
+---
+[Repetir para cada fluxo]
+
+## Invalidação de Sessão
+[Roteiro do logout + tentativa de voltar à rota protegida + verificação do storage]
+```
+
+## Regras Importantes
+
+- Cubra todos os fluxos da especificação, não apenas os principais; inclua ao menos um cenário de erro por fluxo.
+- Use seletor por papel acessível (`getByRole`, `getByLabel`) ou `data-testid` — nunca classe CSS ou XPath
+  de estrutura, que quebram na primeira refatoração de markup.
+- Espera sempre por condição (`expect(...).toBeVisible()`), nunca `sleep`/`waitForTimeout` fixo.
+- Cada teste precisa ser independente e poder rodar sozinho, sem depender da ordem nem do estado deixado por outro.
+- Não invente rota, campo ou texto de botão: confirme em `src/` o que foi implementado de fato.
+- Use dados de exemplo realistas e coerentes com o domínio da spec.
+AGENTEOF
 fi
 
 echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 
 # ============================================================================
-# CRIAR .claude/skills/ — skills de especialistas extras, só para stack dotnet
-# (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert)
+# CRIAR .claude/skills/ — skills de especialistas extras.
+#
+# Todas as stacks recebem o mesmo conjunto: cicd-pipeline-expert, tech-leader,
+# qa-expert e aws-expert são criadas sempre, com os trechos específicos de stack
+# (comandos de build, YAML de pipeline, framework de teste, deploy) injetados
+# depois nos marcadores __STACK_*__. O que é específico de plataforma fica
+# restrito à stack correspondente: dba-expert e dotnet-security-expert só no
+# .NET; frontend-security-expert só em react/angular/vue.
 # ============================================================================
 
 if [ "$STACK" = "dotnet" ]; then
@@ -1837,11 +1934,14 @@ DBAEXPERTSQLSERVERMDEOF
 - Adicionar coluna com `DEFAULT` no Postgres 11+ é rápido (sem reescrever a tabela) para defaults constantes — mas cheque o SQL gerado pelo EF Core, pois versões antigas do provider podem não usar esse caminho.
 - Adicionar `NOT NULL` em uma tabela grande existente exige varredura completa para validar — considere `NOT VALID` + `VALIDATE CONSTRAINT` (duas etapas) para evitar um lock longo.
 DBAEXPERTPOSTGRESMDEOF
+fi
+
+# ---- Skills comuns a todas as stacks (trechos de stack vêm nos marcadores) ----
     mkdir -p "$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/SKILL.md"" << 'CICDEXPERTSKILLEOF'
 ---
 name: cicd-pipeline-expert
-description: Especialista em pipelines de CI/CD no Azure DevOps (pipelines YAML, Boards, Repos, Environments, gates de release) e GitHub Actions (workflows, actions reutilizáveis, environments) — automação de build/test/deploy, políticas de branch, estratégias de deployment (blue-green, canary, rolling), gestão de artefatos e steps específicos de build .NET. Use esta skill sempre que o usuário perguntar sobre YAML de pipeline, falha de build, estratégia de deploy, política de branch, gates de release, workflows do GitHub Actions, ou disser "como configuro CI/CD pra isso" — mesmo sem nomear uma plataforma específica.
+description: Especialista em pipelines de CI/CD no Azure DevOps (pipelines YAML, Boards, Repos, Environments, gates de release) e GitHub Actions (workflows, actions reutilizáveis, environments) — automação de build/test/deploy, políticas de branch, estratégias de deployment (blue-green, canary, rolling), gestão de artefatos e os steps de build específicos da stack deste projeto. Use esta skill sempre que o usuário perguntar sobre YAML de pipeline, falha de build, estratégia de deploy, política de branch, gates de release, workflows do GitHub Actions, ou disser "como configuro CI/CD pra isso" — mesmo sem nomear uma plataforma específica.
 ---
 
 # CI/CD Pipeline Expert
@@ -1851,7 +1951,8 @@ Cobre Azure DevOps e GitHub Actions. Pergunte qual plataforma se não estiver cl
 ## Fluxo de trabalho
 
 1. **Identifique a plataforma** (Azure DevOps vs GitHub Actions) e se é um pipeline novo ou correção de um existente.
-2. **Identifique a stack** — para esse usuário, assuma .NET por padrão (soluções Clean Architecture) a menos que ele diga o contrário: `dotnet build`, `dotnet test`, `dotnet publish` são os steps principais.
+2. **Identifique a stack e os comandos de build** — a stack deste projeto é:
+__STACK_CICD_BUILD_STEPS__
 3. Carregue `references/azure-devops.md` ou `references/github-actions.md` para sintaxe YAML específica da plataforma antes de escrever código de pipeline — não chute nomes de task ou versões de action de memória.
 
 ## Knowledge Engine
@@ -1862,7 +1963,7 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 
 - **Falhe rápido**: coloque as checagens mais baratas e com maior sinal primeiro (lint, restore, build) antes dos steps lentos (testes de integração, deploy).
 - **Separe build de release**: o build produz um artefato versionado e imutável uma vez; os estágios de release/deploy consomem esse mesmo artefato em cada ambiente (dev — staging — prod). Nunca rebuilde por ambiente — isso arrisca drift entre ambientes.
-- **Cacheie dependências**: pacotes NuGet (e npm/yarn se o repo tiver frontend) devem ser cacheados com chave baseada no hash do lockfile pra reduzir tempo de build.
+- **Cacheie dependências**: os pacotes que o projeto restaura a cada build devem ser cacheados com chave baseada no hash do lockfile, pra reduzir tempo de build.
 - **Privilégio mínimo**: service connections / secrets escopados por ambiente, não uma credencial única pra todo o pipeline.
 
 ## Estratégias de deployment
@@ -1870,102 +1971,32 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 - **Blue-green**: dois ambientes idênticos, troca de tráfego no load balancer/slot. Downtime quase zero, rollback instantâneo fácil (troca de volta). Boa recomendação padrão para Azure App Service (deployment slots) ou Kubernetes.
 - **Canary**: roteia uma pequena % do tráfego pra nova versão, observa métricas, aumenta gradualmente. Melhor pra pegar problemas sob carga real, mas precisa de infraestrutura de divisão de tráfego e monitoramento pra valer a pena.
 - **Rolling**: substitui instâncias gradualmente. Padrão na maioria dos orquestradores de container; mais simples de configurar, mas rollback é mais lento que blue-green.
-- Recomende blue-green como padrão pra maioria dos apps web .NET no Azure, a menos que o usuário precise especificamente de ramp gradual de tráfego (canary) ou tenha restrição de recursos (rolling).
+- Recomende blue-green como padrão pra maioria dos apps web no Azure, a menos que o usuário precise especificamente de ramp gradual de tráfego (canary) ou tenha restrição de recursos (rolling).
 
 ## Políticas de branch e Git flow
 
 - Mínimo pra um repo de time: exigir PR (sem push direto pra main), exigir pelo menos uma build validation passando, exigir pelo menos um reviewer aprovando.
-- Pra repos .NET Clean Architecture, condicione o build do PR a: `dotnet build` + `dotnet test` (testes unitários rápidos, testes de integração podem rodar async/pós-merge se forem lentos) + qualquer step de scan de segurança do Semgrep se configurado (veja a configuração de prompt do Semgrep desse usuário na memória se isso fizer parte do pedido).
+__STACK_CICD_PR_BUILD__
 - Trunk-based (branches de feature de vida curta, merges frequentes na main) geralmente é preferível a branches de vida longa no estilo GitFlow pra times fazendo deploy contínuo.
 
 ## Arquivos de referência
 
 - `references/azure-devops.md` — Estrutura de pipeline YAML, referência de tasks, environments/gates, configuração de política de Boards/Repos.
-- `references/github-actions.md` — Estrutura de workflow YAML, workflows reutilizáveis/composite actions, environments, actions comuns pra .NET.
+- `references/github-actions.md` — Estrutura de workflow YAML, workflows reutilizáveis/composite actions, environments, actions comuns da stack deste projeto.
 
 Leia a referência relevante antes de gerar YAML de pipeline — nomes e versões de task/action mudam e chutar produz pipelines quebrados.
 CICDEXPERTSKILLEOF
     cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references/azure-devops.md"" << 'CICDEXPERTAZUREDEVOPSMDEOF'
 # Referência Azure DevOps
 
-## Pipeline .NET básico (azure-pipelines.yml)
-
-```yaml
-trigger:
-  branches:
-    include:
-      - main
-      - develop
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-variables:
-  buildConfiguration: 'Release'
-
-stages:
-  - stage: Build
-    jobs:
-      - job: BuildAndTest
-        steps:
-          - task: UseDotNet@2
-            inputs:
-              packageType: 'sdk'
-              version: '8.x'
-          - task: DotNetCoreCLI@2
-            displayName: 'Restore'
-            inputs:
-              command: 'restore'
-          - task: DotNetCoreCLI@2
-            displayName: 'Build'
-            inputs:
-              command: 'build'
-              arguments: '--configuration $(buildConfiguration) --no-restore'
-          - task: DotNetCoreCLI@2
-            displayName: 'Test'
-            inputs:
-              command: 'test'
-              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
-          - task: DotNetCoreCLI@2
-            displayName: 'Publish'
-            inputs:
-              command: 'publish'
-              publishWebProjects: true
-              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-          - task: PublishBuildArtifacts@1
-            inputs:
-              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-              ArtifactName: 'drop'
-
-  - stage: DeployStaging
-    dependsOn: Build
-    jobs:
-      - deployment: DeployStaging
-        environment: 'staging'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - task: AzureWebApp@1
-                  inputs:
-                    azureSubscription: '<nome-da-service-connection>'
-                    appType: 'webApp'
-                    appName: '<nome-do-app>-staging'
-                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
-```
+__STACK_AZURE_PIPELINE_SAMPLE__
 
 ## Environments e gates
 
 - Environments (`Pipelines > Environments`) permitem anexar aprovações/checks por ambiente — ambientes de produção devem ter um check de aprovador obrigatório.
 - Deployment slots (App Service) habilitam blue-green: faça deploy pra um slot de staging, rode smoke tests, depois use a task `AzureAppServiceManage@0` pra trocar (swap) os slots.
 
-## Referência das principais tasks
-- `UseDotNet@2` — instala uma versão específica do SDK
-- `DotNetCoreCLI@2` — restore/build/test/publish/pack/push (cobre a maioria dos steps .NET)
-- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste o output do build entre stages
-- `AzureWebApp@1` — deploy pro Azure App Service
-- `AzureRmWebAppDeployment@4` — deploy mais avançado pro App Service (slots, método de deploy)
-- `Cache@2` — cacheia pacotes NuGet/npm entre execuções
+__STACK_AZURE_TASKS__
 
 ## Políticas de branch (Repos)
 Configure em `Project Settings > Repositories > Branch Policies` pra `main`:
@@ -1981,54 +2012,7 @@ CICDEXPERTAZUREDEVOPSMDEOF
     cat > ""$PROJECT_DIR/.claude/skills/cicd-pipeline-expert/references/github-actions.md"" << 'CICDEXPERTGITHUBACTIONSMDEOF'
 # Referência GitHub Actions
 
-## Workflow .NET básico (.github/workflows/build.yml)
-
-```yaml
-name: build-and-test
-
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.x'
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage"
-
-      - name: Publish
-        run: dotnet publish --configuration Release --output ./publish
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: drop
-          path: ./publish
-```
+__STACK_GH_WORKFLOW_SAMPLE__
 
 ## Job de deploy com proteção de environment
 
@@ -2057,14 +2041,9 @@ jobs:
 
 ## Workflows reutilizáveis vs composite actions
 - **Workflow reutilizável** (trigger `workflow_call`): melhor quando você quer compartilhar um grafo de jobs inteiro (ex: a mesma sequência de build+test+deploy) entre vários repos.
-- **Composite action**: melhor pra compartilhar um punhado de steps (ex: "configurar .NET + restore + cache") pra inserir em jobs/workflows diferentes.
+- **Composite action**: melhor pra compartilhar um punhado de steps (ex: "configurar o runtime + restore + cache") pra inserir em jobs/workflows diferentes.
 
-## Actions comuns pra .NET
-- `actions/setup-dotnet@v4` — instala o SDK
-- `actions/cache@v4` — cacheia NuGet/npm
-- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa output de build entre jobs
-- `azure/webapps-deploy@v3` — deploy pro Azure App Service
-- `azure/login@v2` — login OIDC no Azure (preferível a publish profiles/secrets de longa duração pra produção)
+__STACK_GH_ACTIONS__
 
 ## Proteção de branch
 `Settings > Branches > Branch protection rules` pra `main`:
@@ -2102,9 +2081,7 @@ Quando pedirem pra decidir entre abordagens ou documentar uma decisão, use essa
 3. **Decisão** — qual opção, e as razões específicas que pesaram (não só "é melhor").
 4. **Consequências** — o que isso facilita, o que isso dificulta ou impede mais pra frente. Seja honesto sobre as desvantagens da opção escolhida — uma decisão sem desvantagens listadas não foi realmente avaliada.
 
-Pro contexto específico desse usuário (Clean Architecture / .NET):
-- Tenha viés padrão pra fronteiras explícitas (separação application/domain/infrastructure), mas aponte isso como custo (mais arquivos, mais indireção) quando o problema não justificar esse rigor — ex: uma ferramenta interna pequena não precisa do mesmo cuidado que uma plataforma multi-time.
-- Ao avaliar "isso deveria ser um serviço separado" — parta do "não" por padrão, a menos que haja uma razão genuína de escala, cadência de deploy, ou propriedade de time; um monólito modular geralmente é o ponto de partida certo.
+__STACK_TECHLEADER_CONTEXT__
 
 ## Code Review (nível lead)
 
@@ -2126,6 +2103,7 @@ Além de correção/estilo, uma revisão em nível lead checa:
 - Enquadre a dívida técnica em termos do custo que ela está impondo agora (entrega mais lenta, taxa de incidentes, atrito no onboarding) em vez de "limpeza" abstrata — é isso que a torna comparável ao valor de uma feature numa conversa de priorização.
 - Distinga dívida que está compondo ativamente (piora a cada sprint que é ignorada) de dívida estática (incômoda mas estável) — dívida composta merece prioridade até sobre features de maior valor, dívida estática geralmente pode esperar.
 TECHLEADERSKILLEOF
+if [ "$STACK" = "dotnet" ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-security-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/SKILL.md"" << 'DOTNETSECSKILLEOF'
 ---
@@ -2251,22 +2229,24 @@ Use este checklist ao fazer uma revisão de segurança completa de um projeto ou
 - [ ] Toda chamada HTTP server-side com URL vinda do usuário valida contra allowlist de hosts/esquemas.
 - [ ] Serviços internos (metadata endpoints de cloud, bancos internos) não são alcançáveis a partir de uma URL arbitrária fornecida pelo usuário.
 DOTNETSECCHECKLISTOWASPDOTNETMDEOF
+fi
+
     mkdir -p "$PROJECT_DIR/.claude/skills/qa-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/qa-expert/SKILL.md"" << 'QAEXPERTSKILLEOF'
 ---
 name: qa-expert
-description: Especialista em qualidade de software (QA) — estratégia e plano de testes, design de casos de teste (particionamento de equivalência, valor limite, tabela de decisão), testes automatizados de backend .NET (xUnit, testes de integração, Testcontainers), testes de API, testes exploratórios, gestão de bugs e métricas de qualidade. Use esta skill sempre que o usuário pedir plano de teste, casos de teste, estratégia de QA, revisão de cobertura de teste, teste de API, teste de integração .NET, triagem/report de bug, ou perguntar "como eu testo isso" fora do contexto de frontend React/Next.js — mesmo sem dizer explicitamente "QA" ou "qualidade".
+description: Especialista em qualidade de software (QA) — estratégia e plano de testes, design de casos de teste (particionamento de equivalência, valor limite, tabela de decisão), testes automatizados da stack do projeto (unitários, integração e end-to-end), testes de API, testes exploratórios, gestão de bugs e métricas de qualidade. Use esta skill sempre que o usuário pedir plano de teste, casos de teste, estratégia de QA, revisão de cobertura de teste, teste de API, teste de integração, triagem/report de bug, ou perguntar "como eu testo isso" — mesmo sem dizer explicitamente "QA" ou "qualidade".
 ---
 
 # QA Expert
 
-Atua como um especialista sênior em qualidade de software, com foco em backend .NET, estratégia de teste e processo de QA. Para testes de componentes/hooks React ou Next.js especificamente, este usuário já tem a skill `frontend-tests` — prefira aquela quando o escopo for puramente frontend; use esta skill para backend, API, estratégia geral de teste e processo de QA.
+Atua como um especialista sênior em qualidade de software: estratégia de teste, design de casos de teste, automação e processo de QA, aplicados à stack deste projeto.
 
 ## Fluxo de trabalho
 
-1. **Classifique o pedido**: estratégia/plano de teste, design de casos de teste, automação de teste backend (.NET), teste de API, teste exploratório, ou triagem de bug/métrica. Vá direto pra seção correspondente.
+1. **Classifique o pedido**: estratégia/plano de teste, design de casos de teste, automação de teste, teste de API, teste exploratório, ou triagem de bug/métrica. Vá direto pra seção correspondente.
 2. Ao propor testes, sempre priorize por **risco e valor de negócio**, não por cobertura de linha — 100% de cobertura com asserts fracos vale menos que 70% cobrindo os fluxos críticos de verdade.
-3. Para testes automatizados, sempre dê código C#/.NET idiomático (xUnit é o padrão de fato no ecossistema .NET moderno), não pseudocódigo genérico.
+3. Para testes automatizados, dê sempre código idiomático da stack e do framework de teste que o projeto já usa, não pseudocódigo genérico.
 
 ## Knowledge Engine
 
@@ -2285,13 +2265,7 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 - **Tabela de decisão**: para regras de negócio com múltiplas condições combinadas (ex: desconto depende de tipo de cliente + valor do pedido + época do ano), monte uma tabela cobrindo as combinações relevantes em vez de testar condições isoladamente — combinações são onde bugs de regra de negócio escondem.
 - **Casos negativos e de erro**: todo caso de teste positivo (fluxo feliz) deve ter pelo menos um caso negativo correspondente (entrada inválida, recurso não encontrado, permissão negada, timeout de dependência externa).
 
-## Testes Automatizados de Backend .NET
-
-- **Testes unitários (xUnit)**: isolam uma unidade (classe/método) de suas dependências via mock (Moq ou NSubstitute). Nomeie testes descrevendo comportamento, não implementação: `Deve_RetornarErro_QuandoPedidoJaFoiCancelado` é melhor que `TestCancelarPedido2`.
-- **Testes de integração**: validam a integração real entre camadas (ex: repositório + banco de dados real). Use `WebApplicationFactory<T>` do ASP.NET Core pra subir a aplicação em memória durante o teste, testando a API de ponta a ponta sem precisar de um servidor real rodando.
-- **Testcontainers**: para testes de integração que precisam de um banco real (não in-memory, que mascara diferenças de comportamento do SQL), suba um container Docker efêmero do banco (SQL Server, PostgreSQL) só para a duração do teste — mais fiel à produção do que provider in-memory do EF Core, que não valida constraints e queries SQL reais.
-- **Padrão AAA**: estruture todo teste em Arrange (preparar), Act (executar a ação testada), Assert (verificar o resultado) — deixa o teste legível e fácil de revisar em code review.
-- **Testes de arquitetura**: para projetos Clean Architecture, considere testes automatizados de regra de dependência (ex: com `NetArchTest`) que falham o build se `Domain` referenciar `Infrastructure` — transforma uma regra de arquitetura em algo verificável, não só documentado.
+__STACK_QA_AUTOMATION__
 
 ## Testes de API
 
@@ -2361,18 +2335,18 @@ QAEXPERTCHECKLISTMDEOF
     cat > ""$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md"" << 'AWSEXPERTSKILLEOF'
 ---
 name: aws-expert
-description: Especialista em arquitetura e operação AWS — computação (EC2, ECS, Lambda, Elastic Beanstalk), armazenamento (S3), banco de dados (RDS, DynamoDB, Aurora), rede (VPC, Security Groups, Load Balancers), IAM e segurança, deploy de aplicações .NET na AWS (SDK, Lambda para .NET, CDK/CloudFormation), e otimização de custo. Use esta skill sempre que o usuário mencionar EC2, ECS, Lambda, S3, RDS, DynamoDB, VPC, IAM, CloudFormation, CDK, Elastic Beanstalk, CloudWatch, ou perguntar "como hospedo isso na AWS", "qual serviço da AWS usar pra X", ou pedir revisão de uma arquitetura AWS — mesmo sem dizer explicitamente "AWS" ou "cloud".
+description: Especialista em arquitetura e operação AWS — computação (EC2, ECS, Lambda, Elastic Beanstalk), armazenamento (S3), banco de dados (RDS, DynamoDB, Aurora), rede (VPC, Security Groups, Load Balancers), IAM e segurança, deploy da aplicação deste projeto na AWS (CDK/CloudFormation), e otimização de custo. Use esta skill sempre que o usuário mencionar EC2, ECS, Lambda, S3, RDS, DynamoDB, VPC, IAM, CloudFormation, CDK, Elastic Beanstalk, CloudWatch, ou perguntar "como hospedo isso na AWS", "qual serviço da AWS usar pra X", ou pedir revisão de uma arquitetura AWS — mesmo sem dizer explicitamente "AWS" ou "cloud".
 ---
 
 # Especialista em AWS
 
-Atua como um arquiteto de soluções AWS sênior, com atenção especial a aplicações .NET (já que esse é o contexto principal do usuário), mas cobrindo a plataforma de forma geral.
+Atua como um arquiteto de soluções AWS sênior, cobrindo a plataforma de forma geral e com atenção especial ao que a stack deste projeto precisa pra rodar na AWS.
 
 ## Fluxo de trabalho
 
-1. **Classifique o pedido**: escolha de serviço (qual usar pra X), desenho de arquitetura, deploy de aplicação .NET, ou troubleshooting/otimização de algo já existente. Vá direto pra seção correspondente.
+1. **Classifique o pedido**: escolha de serviço (qual usar pra X), desenho de arquitetura, deploy da aplicação, ou troubleshooting/otimização de algo já existente. Vá direto pra seção correspondente.
 2. Ao recomendar um serviço, sempre explique o trade-off frente à alternativa mais óbvia — a AWS quase sempre tem 2-3 formas de resolver o mesmo problema, e a escolha certa depende de escala, orçamento e operação do time.
-3. Para o contexto deste usuário: ele trabalha primariamente com Azure/.NET Clean Architecture, então ao comparar serviços é útil mapear o equivalente Azure quando ajudar a situar (ex: "S3 é o equivalente ao Blob Storage").
+3. Ao comparar serviços, é útil mapear o equivalente no Azure quando isso ajudar a situar quem vem de lá (ex: "S3 é o equivalente ao Blob Storage").
 
 ## Knowledge Engine
 
@@ -2382,14 +2356,14 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 
 - **EC2**: instância de VM tradicional — use quando precisar de controle total do SO, software legado que não containeriza bem, ou requisitos de licenciamento específicos.
 - **ECS (Fargate ou EC2)**: orquestração de containers. Fargate remove a gestão de instância (serverless de container) — prefira Fargate por padrão a menos que haja razão de custo/controle pra gerenciar as instâncias EC2 subjacentes.
-- **Lambda**: função serverless orientada a evento. Ideal pra cargas de trabalho intermitentes, processamento de eventos (S3, SQS, API Gateway), ou APIs de baixo/médio tráfego. .NET tem cold start mais alto que Node/Python — para APIs com tráfego constante, ECS/Fargate costuma ser melhor escolha que Lambda.
+- **Lambda**: função serverless orientada a evento. Ideal pra cargas de trabalho intermitentes, processamento de eventos (S3, SQS, API Gateway), ou APIs de baixo/médio tráfego. Runtimes com VM (.NET, JVM) têm cold start mais alto que Node/Python — para APIs com tráfego constante, ECS/Fargate costuma ser melhor escolha que Lambda.
 - **Elastic Beanstalk**: PaaS que abstrai EC2 + load balancer + auto scaling. Bom pra times que querem "fazer deploy e esquecer" sem lidar com Kubernetes/ECS diretamente — mais próximo da experiência do Azure App Service.
 - **EKS**: Kubernetes gerenciado. Só recomende se o time já tem expertise em Kubernetes ou precisa de portabilidade multi-cloud — overhead operacional real comparado a ECS pra times pequenos.
 
 ## Armazenamento e Banco de Dados
 
 - **S3**: armazenamento de objeto — equivalente ao Azure Blob Storage. Use classes de armazenamento (`Standard`, `Standard-IA`, `Glacier`) conforme a frequência de acesso pra otimizar custo.
-- **RDS**: banco relacional gerenciado (SQL Server, PostgreSQL, MySQL). Pra um projeto .NET Clean Architecture já usando EF Core com SQL Server ou PostgreSQL, RDS é o caminho direto de migração — o driver/connection string muda pouco, a gestão de infraestrutura (backup, patching, failover) é que passa a ser da AWS.
+- **RDS**: banco relacional gerenciado (SQL Server, PostgreSQL, MySQL). Pra um projeto que já usa um ORM com SQL Server ou PostgreSQL, RDS é o caminho direto de migração — o driver/connection string muda pouco, a gestão de infraestrutura (backup, patching, failover) é que passa a ser da AWS.
 - **Aurora**: variante do RDS com engine proprietária compatível com MySQL/PostgreSQL, melhor performance e escalabilidade — considere quando RDS padrão não escalar o suficiente.
 - **DynamoDB**: banco NoSQL chave-valor/documento, totalmente gerenciado e serverless. Não é substituto direto de um banco relacional — use quando o padrão de acesso é bem definido (poucas queries, alta escala, baixa latência) e o time aceita modelar em torno de partition key/sort key em vez de normalização relacional.
 
@@ -2400,12 +2374,7 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 - **IAM**: gestão de identidade e permissão. Princípio de menor privilégio sempre — nunca use a role/usuário root pra operação do dia a dia, e prefira IAM Roles (atribuídas a recursos como EC2/ECS/Lambda) a credenciais estáticas (access key/secret) sempre que possível, para eliminar secret de longa duração no código.
 - **Secrets Manager / Parameter Store**: para connection strings e credenciais de aplicação — equivalente funcional ao Azure Key Vault. Parameter Store (SSM) é gratuito pra parâmetros simples; Secrets Manager tem rotação automática nativa, mais indicado pra credenciais de banco.
 
-## Deploy de aplicações .NET na AWS
-
-- **AWS SDK for .NET**: pacote `AWSSDK.*` (ex: `AWSSDK.S3`, `AWSSDK.DynamoDBv2`) — configuração via `IAmazonS3`, `IAmazonDynamoDB` etc. injetados via DI, seguindo o mesmo padrão de injeção de dependência que Clean Architecture já usa pra outras infraestruturas.
-- **Lambda para .NET**: usa o pacote `Amazon.Lambda.AspNetCoreServer` pra rodar uma API ASP.NET Core inteira dentro de uma função Lambda via API Gateway — permite reusar a mesma aplicação Clean Architecture sem reescrever pra um handler de função isolado.
-- **Deploy via CDK ou CloudFormation**: CDK (AWS Cloud Development Kit) permite escrever infraestrutura como código em C# (`Amazon.CDK` no .NET) — mais natural pra esse usuário do que aprender YAML puro de CloudFormation do zero, já que reaproveita conhecimento de C#.
-- **CodePipeline/CodeBuild**: CI/CD nativo da AWS — mas se o repositório já está no Azure DevOps ou GitHub, geralmente é mais simples manter o pipeline lá (Azure DevOps/GitHub Actions) e só fazer o *deploy* apontar pra AWS, em vez de migrar o pipeline inteiro pro ecossistema AWS.
+__STACK_AWS_DEPLOY__
 
 ## Otimização de custo
 
@@ -2454,7 +2423,480 @@ Use este checklist antes de considerar uma arquitetura AWS pronta pra produção
 - [ ] Nenhum recurso órfão (EBS volumes não anexados, Elastic IPs não usados, snapshots antigos) acumulando custo.
 - [ ] Lifecycle rules configuradas no S3 pra dados que não precisam ficar em Standard indefinidamente.
 AWSEXPERTCHECKLISTMDEOF
-    echo -e "${GREEN}✅ .claude/skills/ criado (dba-expert, cicd-pipeline-expert, tech-leader, dotnet-security-expert, qa-expert, aws-expert)${NC}"
+# ---- Skill de segurança específica de frontend (equivalente à dotnet-security-expert) ----
+if [ "$STACK" != "dotnet" ]; then
+    mkdir -p "$PROJECT_DIR/.claude/skills/frontend-security-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/frontend-security-expert/SKILL.md"" << 'FESECSKILLEOF'
+---
+name: frontend-security-expert
+description: Especialista em segurança de aplicações frontend (React, Angular, Vue) — XSS e sanitização, Content Security Policy, onde guardar token de sessão (cookie httpOnly vs localStorage), fluxo OAuth2/OIDC no browser (PKCE), CORS, segredos que vazam no bundle, dependências npm vulneráveis e proteção de rotas. Use esta skill sempre que o usuário pedir revisão de segurança de código frontend, perguntar sobre XSS, CSP, onde guardar JWT, refresh token, login social, CORS, sanitização de HTML, `dangerouslySetInnerHTML`, `v-html`, `[innerHTML]`, `npm audit`, ou mencionar segredo/API key no frontend — mesmo sem dizer explicitamente "segurança".
+---
+
+# Especialista em Segurança Frontend
+
+Atua como um especialista sênior em segurança de aplicações, focado no que roda no navegador. A regra que organiza tudo aqui: **o frontend é território do usuário** — todo código, config e chamada é inspecionável e modificável por quem abre o DevTools. Segurança de verdade acontece no servidor; o que se faz no frontend é reduzir superfície de ataque e não entregar de bandeja o que o servidor protege.
+
+## Fluxo de trabalho
+
+1. Se o pedido for revisão de código, leia o código antes de opinar — aponte arquivo e linha, nunca risco genérico.
+2. **Classifique o pedido**: XSS/sanitização, sessão e autenticação, segredos/configuração, dependências, ou headers/CSP. Vá direto para a seção correspondente.
+3. Para dúvidas de implementação, dê o código idiomático do framework do projeto (React, Angular ou Vue), não pseudocódigo genérico.
+4. Separe sempre o que o frontend pode mitigar do que **precisa** ser resolvido no backend — se a correção real é no servidor, diga isso em vez de sugerir um remendo no cliente.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/`, `knowledge/vault/04 - APIs/` e `knowledge/vault/13 - Segurança/` (auditorias anteriores) como referência — é mais rápido e usa menos tokens do que reler o projeto inteiro a cada revisão. Só faça uma busca ampla no código quando `knowledge/` não existir ou não tiver referência suficiente pra confirmar um achado.
+
+## XSS e Sanitização
+
+- **O ponto de entrada é sempre a renderização de HTML não escapado**: `dangerouslySetInnerHTML` (React), `v-html` (Vue) e `[innerHTML]` (Angular). Os três frameworks escapam interpolação normal — o risco mora exatamente onde alguém contornou esse escape.
+- **Angular** sanitiza `[innerHTML]` por padrão via `DomSanitizer`; o perigo real é `bypassSecurityTrustHtml`/`bypassSecurityTrustUrl`, que desliga essa proteção. Todo uso de `bypassSecurityTrust*` precisa de justificativa e de entrada confiável.
+- **Markdown e rich text** são o caso mais comum de XSS em app real: se o projeto renderiza markdown/HTML vindo do usuário, exija sanitização (DOMPurify ou equivalente) **depois** da conversão, com allowlist de tags e atributos.
+- **URLs controladas pelo usuário** em `href`/`src` permitem `javascript:` e `data:text/html`. Valide o esquema (só `http`, `https`, `mailto`) antes de renderizar link de perfil, site ou avatar vindo de dado do usuário.
+- **`eval`, `new Function`, `setTimeout` com string** — não existe motivo legítimo num app de produto; trate como achado.
+- XSS no frontend costuma ser o sintoma: o dado perigoso normalmente entrou por uma API que não validou nada. Registre também a recomendação de validação no servidor.
+
+## Sessão e Autenticação
+
+- **Onde guardar o token**: cookie `httpOnly` + `Secure` + `SameSite=Lax/Strict` é a opção segura, porque JavaScript não lê o valor — um XSS não consegue roubar a sessão. `localStorage` é conveniente e comum, mas fica legível por qualquer script na página (inclusive dependência comprometida). Se o projeto usa `localStorage`, diga o trade-off explicitamente em vez de tratar como equivalente.
+- **OAuth2/OIDC no browser**: o fluxo correto é Authorization Code + PKCE. Implicit flow está obsoleto. `client_secret` **nunca** vai para uma aplicação de browser — se aparecer no código, é achado crítico.
+- **Logout precisa limpar tudo**: token, refresh token, dados de usuário em memória, `localStorage`, `sessionStorage` e cookies da sessão — e, idealmente, invalidar o token no servidor. Logout que só apaga uma flag de "logado" deixa a sessão viva.
+- **Guards de rota são navegação, não autorização**: eles melhoram a experiência, mas qualquer pessoa pode pular a rota e chamar a API direto. Toda rota protegida precisa de validação equivalente no servidor — verifique isso antes de considerar o fluxo seguro.
+- **Expiração e refresh**: trate 401 de forma centralizada (interceptor), renovando ou derrubando a sessão. Renovação silenciosa infinita sem checagem no servidor transforma sessão curta em sessão eterna.
+
+## Segredos e Configuração
+
+- **Tudo que entra no bundle é público.** Variáveis com prefixo público (`VITE_`, `NEXT_PUBLIC_`, `REACT_APP_`, `NG_APP_`) são embutidas no arquivo servido ao navegador — servem para URL de API e chave de serviço projetada para uso público (ex.: chave anônima do Supabase, chave publicável do Stripe), nunca para segredo de verdade.
+- **Chave de API de terceiro que cobra por uso ou dá acesso privilegiado** (provedor de e-mail, LLM, gateway de pagamento no modo secreto) precisa ficar atrás de um endpoint do seu backend — o frontend chama o seu servidor, que chama o terceiro.
+- Verifique o bundle gerado (`dist/`) e o histórico do Git por chaves, não só o código atual.
+
+## Dependências
+
+- `npm audit` (ou a alternativa do gerenciador usado) faz parte do pipeline, não de uma revisão manual eventual. Trate `high`/`critical` como bloqueante e registre a decisão quando aceitar um risco.
+- Fixe versões pelo lockfile e sempre instale com `npm ci` no CI, não `npm install` — instalar ignorando o lockfile abre espaço para uma versão diferente da auditada entrar no build.
+- Prefira remover dependência pouco usada a atualizá-la indefinidamente: cada pacote no bundle roda com o mesmo privilégio do seu código.
+
+## Headers e CSP
+
+- **Content-Security-Policy** é a segunda linha de defesa contra XSS: sem `unsafe-inline` e sem `unsafe-eval`, com `script-src` restrito à própria origem e aos domínios realmente necessários. Ajustar CSP costuma exigir remover scripts inline — é isso que a torna eficaz.
+- Complete com `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security` e `frame-ancestors` (ou `X-Frame-Options`) contra clickjacking.
+- **CORS é configuração do servidor, não do frontend** — erro de CORS no navegador se resolve no backend. `Access-Control-Allow-Origin: *` combinado com credenciais é proibido pela especificação e sinal de configuração equivocada.
+
+## Reference files
+
+- `references/checklist-seguranca-frontend.md` — checklist de revisão para usar em code review ou antes de um release.
+FESECSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/frontend-security-expert/references/checklist-seguranca-frontend.md"" << 'FESECCHECKLISTEOF'
+# Checklist de Revisão de Segurança — Frontend
+
+Use em code review ou antes de um release. Para cada item: OK, N/A ou achado com severidade.
+
+## 1. XSS e renderização
+- [ ] Nenhum `dangerouslySetInnerHTML` / `v-html` / `[innerHTML]` com conteúdo vindo do usuário sem sanitização.
+- [ ] Markdown/rich text sanitizado depois da conversão para HTML, com allowlist de tags e atributos.
+- [ ] URLs de usuário em `href`/`src` validadas por esquema (bloqueia `javascript:` e `data:text/html`).
+- [ ] Sem `eval`, `new Function` ou `setTimeout`/`setInterval` recebendo string.
+- [ ] Nenhum `bypassSecurityTrust*` (Angular) sem justificativa e entrada confiável.
+
+## 2. Sessão e autenticação
+- [ ] Token de sessão em cookie `httpOnly` + `Secure` + `SameSite` — ou, se em `localStorage`, o trade-off está documentado e aceito.
+- [ ] Fluxo OAuth2/OIDC usa Authorization Code + PKCE; nenhum `client_secret` no código do browser.
+- [ ] Logout limpa token, refresh token, `localStorage`, `sessionStorage`, cookies e estado em memória.
+- [ ] Toda rota protegida tem verificação equivalente no servidor (o guard é só navegação).
+- [ ] 401/expiração tratados de forma centralizada, sem renovação silenciosa infinita.
+
+## 3. Segredos e configuração
+- [ ] Nenhuma chave privada, senha ou token de serviço no código, nas variáveis públicas de build ou no bundle gerado.
+- [ ] Chaves de terceiros que cobram por uso ou dão acesso privilegiado ficam atrás de endpoint do backend.
+- [ ] Histórico do Git verificado por segredo commitado (inclusive arquivos `.env` removidos depois).
+
+## 4. Dependências
+- [ ] `npm audit` (ou equivalente) sem achado `high`/`critical` não tratado.
+- [ ] CI instala com `npm ci` (lockfile respeitado), não `npm install`.
+- [ ] Dependências sem uso removidas.
+
+## 5. Headers e transporte
+- [ ] CSP configurada, sem `unsafe-inline` e sem `unsafe-eval`.
+- [ ] `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security` e proteção contra clickjacking presentes.
+- [ ] HTTPS obrigatório, sem conteúdo misto (recurso `http://` em página `https://`).
+- [ ] CORS do backend não combina origem `*` com credenciais.
+
+## 6. Exposição de dados
+- [ ] Respostas de API não trazem para o browser campos que a tela não usa (senha, hash, dado de outro usuário).
+- [ ] Sem dado sensível em log do console ou em mensagem de erro exibida ao usuário.
+- [ ] Source maps de produção não publicados, ou publicados conscientemente.
+FESECCHECKLISTEOF
+fi
+
+# ============================================================================
+# AJUSTE DAS SKILLS COMUNS À STACK — troca cada marcador __STACK_*__ pelo bloco
+# correspondente. É isso que permite manter o mesmo conjunto de skills em todas
+# as stacks sem entregar exemplo de .NET pra quem escolheu Angular (e vice-versa).
+# ============================================================================
+
+inject_stack_block() {
+    local target="$1" marker="$2" content_file="$3"
+    [ -f "$target" ] || return 0
+    sed -i "/$marker/{
+        r $content_file
+        d
+    }" "$target"
+}
+
+SKILL_TMP=$(mktemp -d)
+
+if [ "$STACK" = "dotnet" ]; then
+    cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
+   **.NET** — `dotnet restore`, `dotnet build`, `dotnet test` e `dotnet publish` são os steps principais. O artefato publicado (saída do `publish`) é o que os estágios de deploy consomem.
+BLOCKEOF
+    cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
+- Condicione o build do PR a `dotnet build` + `dotnet test` (unitários rápidos; testes de integração podem rodar pós-merge se forem lentos), mais o step de scan de segurança (Semgrep) se estiver configurado.
+BLOCKEOF
+    cat > "$SKILL_TMP/azure_sample" << 'BLOCKEOF'
+## Pipeline .NET básico (azure-pipelines.yml)
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndTest
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore'
+            inputs:
+              command: 'restore'
+          - task: DotNetCoreCLI@2
+            displayName: 'Build'
+            inputs:
+              command: 'build'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+          - task: DotNetCoreCLI@2
+            displayName: 'Test'
+            inputs:
+              command: 'test'
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+
+  - stage: DeployStaging
+    dependsOn: Build
+    jobs:
+      - deployment: DeployStaging
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '<nome-da-service-connection>'
+                    appType: 'webApp'
+                    appName: '<nome-do-app>-staging'
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/azure_tasks" << 'BLOCKEOF'
+## Referência das principais tasks
+- `UseDotNet@2` — instala uma versão específica do SDK
+- `DotNetCoreCLI@2` — restore/build/test/publish/pack/push (cobre a maioria dos steps .NET)
+- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste o output do build entre stages
+- `AzureWebApp@1` — deploy pro Azure App Service
+- `AzureRmWebAppDeployment@4` — deploy mais avançado pro App Service (slots, método de deploy)
+- `Cache@2` — cacheia pacotes NuGet entre execuções
+BLOCKEOF
+    cat > "$SKILL_TMP/gh_sample" << 'BLOCKEOF'
+## Workflow .NET básico (.github/workflows/build.yml)
+
+```yaml
+name: build-and-test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage"
+
+      - name: Publish
+        run: dotnet publish --configuration Release --output ./publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drop
+          path: ./publish
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/gh_actions" << 'BLOCKEOF'
+## Actions comuns pra .NET
+- `actions/setup-dotnet@v4` — instala o SDK
+- `actions/cache@v4` — cacheia pacotes NuGet
+- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa output de build entre jobs
+- `azure/webapps-deploy@v3` — deploy pro Azure App Service
+- `azure/login@v2` — login OIDC no Azure (preferível a publish profiles/secrets de longa duração pra produção)
+BLOCKEOF
+    cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
+## Testes Automatizados (.NET)
+
+- **Testes unitários (xUnit)**: isolam uma unidade (classe/método) de suas dependências via mock (Moq ou NSubstitute). Nomeie testes descrevendo comportamento, não implementação: `Deve_RetornarErro_QuandoPedidoJaFoiCancelado` é melhor que `TestCancelarPedido2`.
+- **Testes de integração**: validam a integração real entre camadas (ex: repositório + banco de dados real). Use `WebApplicationFactory<T>` do ASP.NET Core pra subir a aplicação em memória durante o teste, testando a API de ponta a ponta sem precisar de um servidor real rodando.
+- **Testcontainers**: para testes de integração que precisam de um banco real (não in-memory, que mascara diferenças de comportamento do SQL), suba um container Docker efêmero do banco (SQL Server, PostgreSQL) só para a duração do teste — mais fiel à produção do que provider in-memory do EF Core, que não valida constraints e queries SQL reais.
+- **Padrão AAA**: estruture todo teste em Arrange (preparar), Act (executar a ação testada), Assert (verificar o resultado) — deixa o teste legível e fácil de revisar em code review.
+- **Testes de arquitetura**: para projetos Clean Architecture, considere testes automatizados de regra de dependência (ex: com `NetArchTest`) que falham o build se `Domain` referenciar `Infrastructure` — transforma uma regra de arquitetura em algo verificável, não só documentado.
+BLOCKEOF
+    cat > "$SKILL_TMP/aws_deploy" << 'BLOCKEOF'
+## Deploy de aplicações .NET na AWS
+
+- **AWS SDK for .NET**: pacote `AWSSDK.*` (ex: `AWSSDK.S3`, `AWSSDK.DynamoDBv2`) — configuração via `IAmazonS3`, `IAmazonDynamoDB` etc. injetados via DI, seguindo o mesmo padrão de injeção de dependência que Clean Architecture já usa pra outras infraestruturas.
+- **Lambda para .NET**: usa o pacote `Amazon.Lambda.AspNetCoreServer` pra rodar uma API ASP.NET Core inteira dentro de uma função Lambda via API Gateway — permite reusar a mesma aplicação Clean Architecture sem reescrever pra um handler de função isolado.
+- **Deploy via CDK ou CloudFormation**: CDK (AWS Cloud Development Kit) permite escrever infraestrutura como código em C# (`Amazon.CDK` no .NET) — reaproveita o conhecimento da linguagem em vez de exigir YAML puro de CloudFormation.
+- **CodePipeline/CodeBuild**: CI/CD nativo da AWS — mas se o repositório já está no Azure DevOps ou GitHub, geralmente é mais simples manter o pipeline lá e só fazer o *deploy* apontar pra AWS, em vez de migrar o pipeline inteiro pro ecossistema AWS.
+BLOCKEOF
+    cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
+```
+feat(domain): adicionar entidade Tarefa e regras de validação
+feat(application): implementar casos de uso de criação e listagem de tarefas
+feat(infrastructure): configurar EF Core e repositório de tarefas
+feat(api): adicionar controllers REST para tarefas
+test(application): adicionar testes unitários dos casos de uso de tarefas
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
+Pro contexto deste projeto (Clean Architecture / .NET):
+- Tenha viés padrão pra fronteiras explícitas (separação application/domain/infrastructure), mas aponte isso como custo (mais arquivos, mais indireção) quando o problema não justificar esse rigor — ex: uma ferramenta interna pequena não precisa do mesmo cuidado que uma plataforma multi-time.
+- Ao avaliar "isso deveria ser um serviço separado" — parta do "não" por padrão, a menos que haja uma razão genuína de escala, cadência de deploy, ou propriedade de time; um monólito modular geralmente é o ponto de partida certo.
+BLOCKEOF
+else
+    cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
+   **Frontend (React, Angular ou Vue)** — `npm ci` (nunca `npm install` em CI, que pode ignorar o lockfile), `npm run lint`, `npm test` em modo headless e `npm run build`. O artefato é o diretório estático gerado (`dist/`), publicado num host estático/CDN pelos estágios de deploy.
+   Como variáveis de build ficam embutidas no bundle, um artefato buildado com config de staging **não** pode ser promovido pra produção: ou você builda por ambiente (aceitando o custo), ou carrega a configuração em runtime (ex: um `config.json` servido junto) e mantém um único artefato.
+BLOCKEOF
+    cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
+- Condicione o build do PR a `npm ci` + `npm run lint` + `npm test` (unitários/componentes em modo headless) + `npm run build`, mais o step de scan de segurança (Semgrep) se estiver configurado. Suíte E2E completa (Playwright/Cypress) costuma ser lenta demais pro PR — rode um smoke E2E dos fluxos críticos no PR e a suíte inteira pós-merge ou agendada.
+BLOCKEOF
+    cat > "$SKILL_TMP/azure_sample" << 'BLOCKEOF'
+## Pipeline de frontend básico (azure-pipelines.yml)
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndTest
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+          - task: Cache@2
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              path: '$(System.DefaultWorkingDirectory)/node_modules'
+          - script: npm ci
+            displayName: 'Install (lockfile)'
+          - script: npm run lint
+            displayName: 'Lint'
+          - script: npm test -- --watch=false
+            displayName: 'Testes unitários'
+          - script: npm run build
+            displayName: 'Build de produção'
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'site'
+
+  - stage: DeployStaging
+    dependsOn: Build
+    jobs:
+      - deployment: DeployStaging
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureStaticWebApp@0
+                  inputs:
+                    app_location: '$(Pipeline.Workspace)/site'
+                    skip_app_build: true
+                    azure_static_web_apps_api_token: $(STATIC_WEB_APPS_TOKEN)
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/azure_tasks" << 'BLOCKEOF'
+## Referência das principais tasks
+- `NodeTool@0` — instala uma versão específica do Node
+- `Cache@2` — cacheia `node_modules`/cache do npm com chave baseada no `package-lock.json`
+- `script:` — roda os scripts do `package.json` (`npm ci`, `npm run lint`, `npm test`, `npm run build`)
+- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste o `dist/` entre stages
+- `AzureStaticWebApp@0` — deploy pro Azure Static Web Apps
+- `AzureWebApp@1` — deploy pro App Service, quando o front é servido por lá em vez de CDN
+BLOCKEOF
+    cat > "$SKILL_TMP/gh_sample" << 'BLOCKEOF'
+## Workflow de frontend básico (.github/workflows/build.yml)
+
+```yaml
+name: build-and-test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install (lockfile)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes unitários
+        run: npm test -- --watch=false
+
+      - name: Build de produção
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ./dist
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/gh_actions" << 'BLOCKEOF'
+## Actions comuns pra frontend
+- `actions/setup-node@v4` — instala o Node e já cacheia o npm com `cache: 'npm'`
+- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa o `dist/` entre jobs
+- `Azure/static-web-apps-deploy@v1` — deploy pro Azure Static Web Apps
+- `aws-actions/configure-aws-credentials@v4` — credenciais via OIDC pra publicar num bucket S3/CloudFront
+- `azure/login@v2` — login OIDC no Azure (preferível a publish profiles/secrets de longa duração pra produção)
+BLOCKEOF
+    cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
+## Testes Automatizados (Frontend)
+
+- **Testes de componente (Vitest/Jest + Testing Library)**: teste pelo comportamento que o usuário percebe, consultando por papel e texto acessível (`getByRole`, `getByLabelText`) em vez de classe CSS ou estrutura interna — assim o teste sobrevive a refatoração de markup. Angular tem o `TestBed` como equivalente nativo.
+- **Mock de API**: prefira interceptar no nível da rede (MSW ou o `HttpTestingController` do Angular) a mockar o módulo de serviço — o teste passa a validar também a serialização e o tratamento de erro de rede (401, 500, timeout), que é onde os bugs moram.
+- **Testes end-to-end (Playwright ou Cypress)**: poucos e só nos fluxos críticos (login, o fluxo principal do produto, checkout). Ancore seletores em `data-testid` ou papel acessível, e use espera por condição, nunca `sleep` fixo — E2E frágil é abandonado pelo time em poucas sprints.
+- **Estado e rota**: teste os guards de rota (redirecionamento sem sessão) e a invalidação de sessão no logout — é comportamento de segurança verificável automaticamente.
+- **Acessibilidade**: inclua uma checagem automatizada (axe) nos componentes principais; ela pega problemas objetivos (contraste, label ausente, ordem de heading) sem depender de revisão manual.
+- **Padrão AAA**: estruture todo teste em Arrange, Act e Assert. Evite snapshot grande de componente inteiro — quebra a cada mudança de layout e ninguém revisa o diff de verdade.
+BLOCKEOF
+    cat > "$SKILL_TMP/aws_deploy" << 'BLOCKEOF'
+## Deploy do frontend na AWS
+
+- **S3 + CloudFront** é o caminho padrão pra SPA: o bucket guarda o `dist/` (sem acesso público direto) e o CloudFront serve com HTTPS e cache de borda, acessando o bucket via Origin Access Control.
+- **Fallback de rota**: como a SPA faz roteamento no cliente, configure a resposta de erro 403/404 do CloudFront pra devolver `/index.html` com status 200 — sem isso, abrir uma URL interna direto no navegador retorna erro.
+- **Estratégia de cache**: assets com hash no nome (`app.8f3a2b.js`) podem ter cache longo e imutável; o `index.html` precisa de cache curto (ou `no-cache`), senão o usuário continua carregando a versão antiga. Todo deploy deve criar uma invalidação de cache pro `index.html`.
+- **AWS Amplify Hosting**: alternativa gerenciada que junta build, hospedagem, preview por pull request e domínio — menos controle que S3+CloudFront, bem menos configuração.
+- **Configuração por ambiente**: variável de build fica embutida no bundle. Se quiser um único artefato para staging e produção, sirva um `config.json` ao lado do bundle e carregue em runtime.
+- **Deploy via CDK ou CloudFormation**: o CDK descreve bucket, distribuição, certificado e invalidação como código, e pode ser escrito em TypeScript — a mesma linguagem do frontend.
+BLOCKEOF
+    cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
+```
+feat(ui): adicionar componente de lista de tarefas
+feat(pages): implementar tela de criação de tarefa com validação de formulário
+feat(store): adicionar estado e ações de tarefas
+feat(api): adicionar cliente HTTP e tipos do endpoint de tarefas
+feat(routing): adicionar rota protegida de tarefas com guard de sessão
+test(ui): adicionar testes de componente da lista de tarefas
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+BLOCKEOF
+    cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
+Pro contexto deste projeto (frontend React/Angular/Vue):
+- Tenha viés padrão pra organização por feature (tudo que pertence a uma funcionalidade junto) em vez de por tipo técnico (todas as páginas numa pasta, todos os serviços em outra) — mas aponte o custo quando o app for pequeno demais pra justificar a estrutura.
+- Estado global é a dívida técnica mais comum do frontend: comece com estado local e derive o que der; promova pra store global só quando mais de uma área da tela precisar do mesmo dado de verdade. Separe estado de servidor (cache de dados, que merece uma biblioteca própria) de estado de interface.
+- Ao avaliar "isso deveria ser um microfrontend" — parta do "não" por padrão, a menos que exista razão genuína de times independentes com cadência de deploy própria; o custo de integração, de duplicação de dependência e de peso do bundle é real.
+- Componente compartilhado só vira parte do design system quando já existe em dois ou três lugares com a mesma forma — abstrair no primeiro uso costuma engessar a API cedo demais.
+BLOCKEOF
+fi
+
+CICD_SKILL="$PROJECT_DIR/.claude/skills/cicd-pipeline-expert"
+inject_stack_block "$CICD_SKILL/SKILL.md" "__STACK_CICD_BUILD_STEPS__" "$SKILL_TMP/cicd_build"
+inject_stack_block "$CICD_SKILL/SKILL.md" "__STACK_CICD_PR_BUILD__" "$SKILL_TMP/cicd_pr"
+inject_stack_block "$CICD_SKILL/references/azure-devops.md" "__STACK_AZURE_PIPELINE_SAMPLE__" "$SKILL_TMP/azure_sample"
+inject_stack_block "$CICD_SKILL/references/azure-devops.md" "__STACK_AZURE_TASKS__" "$SKILL_TMP/azure_tasks"
+inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_WORKFLOW_SAMPLE__" "$SKILL_TMP/gh_sample"
+inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_ACTIONS__" "$SKILL_TMP/gh_actions"
+inject_stack_block "$PROJECT_DIR/.claude/skills/qa-expert/SKILL.md" "__STACK_QA_AUTOMATION__" "$SKILL_TMP/qa_automation"
+inject_stack_block "$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md" "__STACK_AWS_DEPLOY__" "$SKILL_TMP/aws_deploy"
+inject_stack_block "$PROJECT_DIR/.claude/skills/tech-leader/SKILL.md" "__STACK_TECHLEADER_CONTEXT__" "$SKILL_TMP/techleader"
+inject_stack_block "$PROJECT_DIR/.claude/agents/09-commit-message-generator.md" "__STACK_COMMIT_EXAMPLES__" "$SKILL_TMP/commit_examples"
+rm -rf "$SKILL_TMP"
+
+if [ "$STACK" = "dotnet" ]; then
+    echo -e "${GREEN}✅ .claude/skills/ criado (cicd-pipeline-expert, tech-leader, qa-expert, aws-expert + dba-expert e dotnet-security-expert)${NC}"
+else
+    echo -e "${GREEN}✅ .claude/skills/ criado (cicd-pipeline-expert, tech-leader, qa-expert, aws-expert + frontend-security-expert)${NC}"
 fi
 
 
@@ -2827,6 +3269,8 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
     ↓
 📝 Commit Message        → Gera commits semânticos
     ↓
+🧭 E2E Flow Tester       → Roteiro de testes E2E dos fluxos
+    ↓
 ✅ output/ Pronto!
 ```
 
@@ -2851,7 +3295,8 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits para código que já foi reprovado.
+- **Paralelize quando possível**: `Commit Message` e `E2E Flow Tester` só dependem do `Security Scan` já ter aprovado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou roteiro de testes para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -2868,6 +3313,7 @@ __SPECIALIST_OUTPUT_FILE__      (Código frontend)
 7-build-test.md                (Build & Test)
 8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
 9-commit-message.md           (Commits)
+10-e2e-flow-tester.md         (Testes E2E dos fluxos)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -2998,7 +3444,9 @@ Stack deste projeto: **__STACK_LABEL__**
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
-Este projeto é **somente frontend** — não há agente de backend .NET nem de teste de API (`10-swagger-tester`).
+Este projeto é **somente frontend** — não há agente de backend .NET. O lugar do agente de teste de API
+(`10-swagger-tester`, do pipeline .NET) é ocupado aqui pelo `10-e2e-flow-tester`, que testa os fluxos pela
+interface.
 
 | Agente | Responsabilidade |
 |--------|-------------------|
@@ -3012,6 +3460,7 @@ Este projeto é **somente frontend** — não há agente de backend .NET nem de 
 | `07-build-test-validator` | Valida build e testes |
 | `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
 | `09-commit-message-generator` | Gera commits semânticos |
+| `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress) |
 
 ## 🧩 Comando avulso
 
@@ -3800,7 +4249,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.11.0**
+**Projeto criado com Claude SDD v3.12.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

@@ -113,11 +113,12 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 
 ## Agentes
 
-Todo projeto sai com 9 agentes sempre presentes (`00-knowledge-bootstrap` como Fase 0 dedicada + os 8 do
-pipeline principal) e o specialist da stack escolhida — mais `10-swagger-tester`, só no `.NET`. No total: 11
-agentes num projeto `.NET`, 10 num projeto de frontend.
+**Toda stack recebe os mesmos 11 agentes**, na mesma ordem: 9 sempre presentes (`00-knowledge-bootstrap` como
+Fase 0 dedicada + os 8 do pipeline principal), o specialist da stack escolhida e o agente 10 de testes — que é
+`10-swagger-tester` no `.NET` (testa a API) e `10-e2e-flow-tester` no frontend (testa os fluxos pela interface).
+O que muda entre as stacks é o conteúdo de cada agente, nunca a existência dele.
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
-`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-commit-message-generator.md`
+`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `10-e2e-flow-tester.md`
 no frontend ou `10-swagger-tester.md` no `.NET`), e o `name:` no frontmatter de cada agente (usado para
 invocação) leva o mesmo prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre idênticos.
 Ao reacoplar o pipeline (`MODO = existente`) a um projeto gerado por uma versão anterior do template, o script
@@ -136,9 +137,10 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `07-build-test-validator` | Valida build e testes | sempre |
 | `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS), corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF com issues prontas para o GitHub | sempre |
 | `09-commit-message-generator` | Gera commits semânticos | sempre |
-| `10-swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
+| `10-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
+| `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
 
-`09-commit-message-generator` e `10-swagger-tester` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
+`09-commit-message-generator` e o agente 10 (`10-swagger-tester` / `10-e2e-flow-tester`) usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
 
 ## Comandos avulsos (fora do `/orchestrator`)
 
@@ -154,25 +156,36 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 (`.csproj`, `DbContext`/EF Core, MediatR, Clean Architecture em C#) — não aparece em projetos Angular, React
 ou Vue.
 
-## Skills — especialistas extras (só stack `.NET`)
+## Skills — especialistas extras
 
-Todo projeto `.NET` sai também com 6 skills em `.claude/skills/`, complementares aos agentes do pipeline —
-não são chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você
-invocar manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem:
+Todo projeto sai também com skills em `.claude/skills/`, complementares aos agentes do pipeline — não são
+chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você invocar
+manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem.
+
+**Quatro skills vão para todas as stacks**, com os trechos específicos (comandos de build, YAML de pipeline,
+framework de teste, deploy) adaptados à stack do projeto na hora da geração:
+
+| Skill | Cobre |
+|---|---|
+| `cicd-pipeline-expert` | Pipelines Azure DevOps e GitHub Actions — YAML, estratégias de deploy (blue-green/canary/rolling), políticas de branch. O pipeline de exemplo sai em `dotnet` ou em `npm ci`/`npm run build`, conforme a stack |
+| `tech-leader` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
+| `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes exploratórios, gestão de bugs — com a seção de automação em xUnit/Testcontainers ou em Testing Library/Playwright, conforme a stack |
+| `aws-expert` | Arquitetura e operação AWS — EC2/ECS/Lambda, S3, RDS/DynamoDB, VPC/IAM, otimização de custo — com a seção de deploy da aplicação .NET ou do SPA (S3+CloudFront, Amplify) |
+
+**Duas são específicas de `.NET`**, porque não teriam o que fazer num projeto sem backend:
 
 | Skill | Cobre |
 |---|---|
 | `dba-expert` | SQL Server, Azure SQL e PostgreSQL — modelagem de schema, indexação, otimização de query, migrations do EF Core, backup/replicação |
-| `cicd-pipeline-expert` | Pipelines Azure DevOps e GitHub Actions — YAML, estratégias de deploy (blue-green/canary/rolling), políticas de branch |
-| `tech-leader` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
 | `dotnet-security-expert` | Segurança de aplicações .NET — auth (JWT/Identity), OWASP Top 10, gestão de secrets, SAST com Semgrep |
-| `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes automatizados de backend .NET (xUnit, Testcontainers), testes de API, testes exploratórios, gestão de bugs |
-| `aws-expert` | Arquitetura e operação AWS — EC2/ECS/Lambda, S3, RDS/DynamoDB, VPC/IAM, deploy de apps .NET (SDK, Lambda, CDK), otimização de custo |
 
-Stacks de frontend (`Angular`/`React`/`Vue`) não recebem essas skills — o conteúdo é específico de backend
-.NET (EF Core, ASP.NET Core, pipelines de API). Essas mesmas 6 skills também existem globalmente em
-`~/.claude/skills/` nesta máquina, disponíveis em qualquer sessão do Claude Code, não só dentro de projetos
-gerados pelo template.
+**Uma é específica de frontend** (`React`/`Angular`/`Vue`), como equivalente da de segurança do `.NET`:
+
+| Skill | Cobre |
+|---|---|
+| `frontend-security-expert` | Segurança no browser — XSS e sanitização, CSP e headers, onde guardar token de sessão, OAuth2/PKCE, segredos que vazam no bundle, dependências npm |
+
+Ou seja: 6 skills num projeto `.NET` e 5 num projeto de frontend, com o mesmo núcleo em ambos.
 
 Todas as 6 seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
 `knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
@@ -209,7 +222,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
 - **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e, só no `.NET`, `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
-- **`.claude/skills/`** — só em projetos `.NET`: 6 skills de especialistas extras (`dba-expert`, `cicd-pipeline-expert`, `tech-leader`, `dotnet-security-expert`, `qa-expert`, `aws-expert`), ver seção "Skills" acima.
+- **`.claude/skills/`** — skills de especialistas extras em toda stack: `cicd-pipeline-expert`, `tech-leader`, `qa-expert` e `aws-expert` sempre; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.13.0
+# 🚀 Criar Template Claude SDD v3.13.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.13.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.13.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -944,7 +944,8 @@ Implementar o backend em .NET 10 baseado em `output/TECHNICAL_SPECIFICATION.md` 
 
 Se existir `knowledge/cache/backend.json`, leia-o primeiro — traz APIs, banco de dados e regras de negócio já
 filtradas para o backend. Complemente lendo `knowledge/vault/04 - APIs/` e `knowledge/vault/05 - Banco de
-Dados/` se precisar de mais detalhe. Depois de implementar, se `knowledge/` existir, atualize (ou crie) os
+Dados/` se precisar de mais detalhe. Se `knowledge/` não existir, use `output/TECHNICAL_SPECIFICATION.md` e
+`docs/SPEC.md` normalmente. Depois de implementar, se `knowledge/` existir, atualize (ou crie) os
 arquivos correspondentes em `knowledge/vault/04 - APIs/` e `knowledge/vault/05 - Banco de Dados/` para refletir
 o que foi implementado de fato — isso mantém o Knowledge Engine sincronizado com o código.
 
@@ -2925,7 +2926,11 @@ Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs
 
 Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalidades, UX e APIs consumidas já
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
-mais contexto (fluxos de tela, wireframes descritos, textos de interface).
+mais contexto (fluxos de tela, wireframes descritos, textos de interface). Se `knowledge/` não existir, use
+`output/TECHNICAL_SPECIFICATION.md` e `docs/SPEC.md` normalmente. Depois de implementar, se `knowledge/`
+existir, atualize (ou crie) os arquivos correspondentes em `knowledge/vault/02 - Funcionalidades/` e
+`knowledge/vault/08 - UX/` para refletir as telas, estados e fluxos implementados de fato — isso mantém o
+Knowledge Engine sincronizado com o código.
 
 ## Código Existente (projeto acoplado, não greenfield)
 
@@ -2982,7 +2987,11 @@ Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs
 
 Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalidades, UX e APIs consumidas já
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
-mais contexto (fluxos de tela, wireframes descritos, textos de interface).
+mais contexto (fluxos de tela, wireframes descritos, textos de interface). Se `knowledge/` não existir, use
+`output/TECHNICAL_SPECIFICATION.md` e `docs/SPEC.md` normalmente. Depois de implementar, se `knowledge/`
+existir, atualize (ou crie) os arquivos correspondentes em `knowledge/vault/02 - Funcionalidades/` e
+`knowledge/vault/08 - UX/` para refletir as telas, estados e fluxos implementados de fato — isso mantém o
+Knowledge Engine sincronizado com o código.
 
 ## Código Existente (projeto acoplado, não greenfield)
 
@@ -3039,7 +3048,11 @@ Implementar o frontend baseado em `output/TECHNICAL_SPECIFICATION.md` e em `docs
 
 Se existir `knowledge/cache/frontend.json`, leia-o primeiro — traz funcionalidades, UX e APIs consumidas já
 filtradas. Complemente com `knowledge/vault/02 - Funcionalidades/` e `knowledge/vault/08 - UX/` se precisar de
-mais contexto (fluxos de tela, wireframes descritos, textos de interface).
+mais contexto (fluxos de tela, wireframes descritos, textos de interface). Se `knowledge/` não existir, use
+`output/TECHNICAL_SPECIFICATION.md` e `docs/SPEC.md` normalmente. Depois de implementar, se `knowledge/`
+existir, atualize (ou crie) os arquivos correspondentes em `knowledge/vault/02 - Funcionalidades/` e
+`knowledge/vault/08 - UX/` para refletir as telas, estados e fluxos implementados de fato — isso mantém o
+Knowledge Engine sincronizado com o código.
 
 ## Código Existente (projeto acoplado, não greenfield)
 
@@ -4347,7 +4360,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.13.0**
+**Projeto criado com Claude SDD v3.13.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

@@ -138,7 +138,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `09-commit-message-generator` | Gera commits semânticos | sempre |
 | `10-swagger-tester` | Gera workflow de testes de API | só stack `dotnet` (não há API num projeto 100% frontend) |
 
-`09-commit-message-generator` e `10-swagger-tester` usam Haiku por serem etapas de baixo risco; os demais usam Sonnet.
+`09-commit-message-generator` e `10-swagger-tester` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
 
 ## Comandos avulsos (fora do `/orchestrator`)
 

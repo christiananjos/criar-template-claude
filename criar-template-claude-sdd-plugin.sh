@@ -414,7 +414,7 @@ cat > ""$PROJECT_DIR/.claude/agents/00-knowledge-bootstrap.md"" << 'AGENTEOF'
 name: 00-knowledge-bootstrap
 description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Knowledge Bootstrap**, a Fase 0 do pipeline SDD. Você roda antes de qualquer outro agente.
@@ -712,7 +712,7 @@ cat > ""$PROJECT_DIR/.claude/agents/01-orchestrator-sdd.md"" << 'AGENTEOF'
 name: 01-orchestrator-sdd
 description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
 tools: Read, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Orchestrator-SDD**, o primeiro agente do pipeline Spec-Driven Development (SDD).
@@ -779,7 +779,7 @@ if [ "$STACK" = "dotnet" ]; then
 name: 02-architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
@@ -847,7 +847,7 @@ else
 name: 02-architect-sdd
 description: Use this agent after orchestrator-sdd has approved the specification, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: orchestrator-sdd just approved the spec. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow orchestrator approval.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
@@ -930,7 +930,7 @@ cat > ""$PROJECT_DIR/.claude/agents/03-dotnet-specialist.md"" << 'AGENTEOF'
 name: 03-dotnet-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 10 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **.NET Specialist**, especialista em .NET 10 + Entity Framework Core + Clean Architecture.
@@ -997,7 +997,7 @@ cat > ""$PROJECT_DIR/.claude/agents/04-compliance-validator.md"" << 'AGENTEOF'
 name: 04-compliance-validator
 description: Use this agent after __SPECIALIST__ has produced code, to verify the implementation fully complies with the original specification and traceability matrix. Use PROACTIVELY as step 4 of the SDD pipeline before tests are written. Examples: <example>Context: Code was just generated. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente compliance-validator para verificar se o código atende 100% a especificação original." <commentary>Compliance must be verified before investing time in tests for potentially incorrect code.</commentary></example>
 tools: Read, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Compliance Validator**, responsável por auditar se o código implementado está em conformidade com a especificação.
@@ -1062,7 +1062,7 @@ if [ "$STACK" = "dotnet" ]; then
 name: 05-test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the backend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Test Validator**, especialista em testes automatizados.
@@ -1125,7 +1125,7 @@ else
 name: 05-test-validator
 description: Use this agent after compliance-validator has confirmed the code is compliant, to generate comprehensive automated tests with high coverage for the frontend. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Compliance check passed. user: "Compliance passou, agora precisa dos testes" assistant: "Vou usar o agente test-validator para gerar os testes unitários e de integração com cobertura completa." <commentary>Tests should only be generated for code that has already been validated as compliant, to avoid wasting effort testing incorrect code.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Test Validator**, especialista em testes automatizados.
@@ -1192,7 +1192,7 @@ cat > ""$PROJECT_DIR/.claude/agents/06-code-review-sdd.md"" << 'AGENTEOF'
 name: 06-code-review-sdd
 description: Use this agent after test-validator has generated tests, to review the overall code quality, SOLID compliance, and identify improvements before build validation. Use PROACTIVELY as step 6 of the SDD pipeline. Examples: <example>Context: Tests were just generated. user: "Os testes estão prontos, revisa a qualidade do código" assistant: "Vou usar o agente code-review-sdd para revisar SOLID, clean code e segurança no código gerado." <commentary>Code review happens after tests exist so reviewers can also assess test quality, not just production code.</commentary></example>
 tools: Read, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Code Review-SDD**, especialista em qualidade de código.
@@ -1292,7 +1292,7 @@ cat > ""$PROJECT_DIR/.claude/agents/07-build-test-validator.md"" << 'AGENTEOF'
 name: 07-build-test-validator
 description: Use this agent after code-review-sdd has approved the code, to simulate build and test execution validation, checking for compilation issues and coverage thresholds. Use PROACTIVELY as step 7 of the SDD pipeline. Examples: <example>Context: Code review passed. user: "Revisão aprovada, valida o build" assistant: "Vou usar o agente build-test-validator para validar que o código compila e os testes passam." <commentary>Build validation is the last technical gate before commit messages are generated.</commentary></example>
 tools: Read, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Build & Test Validator**, especialista em CI/CD e validação de builds.
@@ -1350,7 +1350,7 @@ cat > ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md"" << 'AGENTEOF'
 name: 08-security-scan-sdd
 description: Use this agent after build-test-validator has confirmed the build passes, to run a deterministic static-analysis security scan (Semgrep) over the generated code before commit messages or API test workflows are produced. Use PROACTIVELY as step 8 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Build & Test just passed. user: "Build ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para rodar o Semgrep sobre o código gerado antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block commit/API-test generation if a Critical/High finding can't be safely auto-fixed.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Security Scan-SDD**, responsável pelo gate de segurança estática (SAST) do pipeline.
@@ -1495,7 +1495,7 @@ cat > ""$PROJECT_DIR/.claude/agents/09-commit-message-generator.md"" << 'AGENTEO
 name: 09-commit-message-generator
 description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 9 of the SDD pipeline. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build, pass tests, and clear the security gate.</commentary></example>
 tools: Read, Grep, Glob
-model: haiku
+model: sonnet
 ---
 
 Você é o **Commit Message Generator**, especialista em commits semânticos.
@@ -1550,7 +1550,7 @@ if [ "$STACK" = "dotnet" ]; then
 name: 10-swagger-tester
 description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
 tools: Read, Grep, Glob
-model: haiku
+model: sonnet
 ---
 
 Você é o **Swagger Tester**, especialista em documentação e testes de API via Swagger/OpenAPI.
@@ -2372,7 +2372,7 @@ if [ "$STACK" = "react" ]; then
 name: 03-react-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **React Specialist**, especialista em React 18 + TypeScript + Next.js.
@@ -2429,7 +2429,7 @@ if [ "$STACK" = "angular" ]; then
 name: 03-angular-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Angular Specialist**, especialista em Angular (versão mais recente estável) + TypeScript.
@@ -2486,7 +2486,7 @@ if [ "$STACK" = "vue" ]; then
 name: 03-vue-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: claude-opus-5
 ---
 
 Você é o **Vue Specialist**, especialista em Vue 3 (Composition API) + TypeScript.

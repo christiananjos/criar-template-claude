@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.17.0
+# 🚀 Criar Template Claude SDD v3.17.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.17.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.17.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -4571,7 +4571,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.17.0**
+**Projeto criado com Claude SDD v3.17.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -5280,12 +5280,34 @@ echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitur
 # ============================================================================
 
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
-    if ! grep -q "Pipeline SDD (criar-template-claude)" "$PROJECT_DIR/.gitignore" 2>/dev/null; then
-        cat >> "$PROJECT_DIR/.gitignore" << 'GITIGNOREAPPENDEOF'
+    # A checagem é REGRA A REGRA, não por um marcador único no topo do bloco.
+    # Um projeto gerado por uma versão antiga do template já tem o marcador
+    # "# Pipeline SDD (criar-template-claude)" no .gitignore; se olhássemos só
+    # para ele, toda regra introduzida depois (como a negação !knowledge/, que é
+    # o que garante a memória versionada) nunca chegaria nos projetos existentes
+    # ao rodar /atualizar-versao.
+    GI="$PROJECT_DIR/.gitignore"
+    GI_APPEND=""
+    GI_REPORT=""
 
-# Pipeline SDD (criar-template-claude)
-output/
+    if ! grep -qxF "output/" "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}output/
+"
+        GI_REPORT="${GI_REPORT}output/ "
+    fi
 
+    if ! grep -qxF ".claude/" "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}.claude/
+"
+        GI_REPORT="${GI_REPORT}.claude/ "
+    fi
+
+    # A linha dos chunks precisa vir DEPOIS da negação para continuar valendo —
+    # por isso o bloco inteiro é acrescentado junto, mesmo que o projeto já
+    # tivesse a regra dos chunks numa versão antiga (regra repetida é inofensiva,
+    # regra fora de ordem não é).
+    if ! grep -qxF '!knowledge/' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
 # Knowledge Engine — knowledge/ é a MEMÓRIA do projeto e VAI versionada: é dela
 # que sai, na próxima sessão, o que já foi implementado e o que ainda está
 # planejado. A negação abaixo reabilita a pasta caso alguma regra anterior deste
@@ -5294,13 +5316,21 @@ output/
 !knowledge/
 !knowledge/**
 knowledge/embeddings/chunks/
+"
+        GI_REPORT="${GI_REPORT}!knowledge/ "
+    fi
 
-# Claude Code
-.claude/
-GITIGNOREAPPENDEOF
-        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras do pipeline SDD (output/, .claude/ ignorados; knowledge/ explicitamente versionada, menos os chunks)${NC}"
+    if [ -n "$GI_APPEND" ]; then
+        printf '\n# Pipeline SDD (criar-template-claude)\n%s' "$GI_APPEND" >> "$GI"
+        echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras que faltavam: ${GI_REPORT}${NC}"
+        case "$GI_REPORT" in
+            *'!knowledge/'*)
+                echo -e "${YELLOW}    knowledge/ agora vai versionada. Confirme com: git check-ignore -v knowledge/vault${NC}"
+                echo -e "${YELLOW}    (sem saída = não está mais sendo ignorada)${NC}"
+                ;;
+        esac
     else
-        echo -e "${YELLOW}⏭️  .gitignore já tem as regras do pipeline SDD — nada a fazer${NC}"
+        echo -e "${YELLOW}⏭️  .gitignore já tem todas as regras do pipeline SDD — nada a fazer${NC}"
     fi
 else
 cat > "$PROJECT_DIR/.gitignore" << 'GITIGNOREEOF'

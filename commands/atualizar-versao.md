@@ -1,7 +1,7 @@
 ---
 description: Atualiza este plugin (sdd) para a versão mais recente do marketplace e ressincroniza a estrutura SDD do projeto atual, preservando docs/raw/ e knowledge/
 argument-hint: (nenhum argumento)
-allowed-tools: Bash(claude plugin marketplace update:*), Bash(claude plugin update:*), Bash(claude plugin list:*), Bash(ls:*), Bash(cp:*), Bash(mkdir:*), Bash(date:*), Bash(basename:*), Bash(bash:*)
+allowed-tools: Bash(claude plugin marketplace update:*), Bash(claude plugin update:*), Bash(claude plugin list:*), Bash(ls:*), Bash(cp:*), Bash(mkdir:*), Bash(date:*), Bash(basename:*), Bash(bash:*), Bash(git check-ignore:*), Bash(git status:*), Read, Edit
 ---
 
 # /atualizar-versao — Atualizar o plugin e ressincronizar o projeto
@@ -75,7 +75,30 @@ em relação ao plugin.
    bash "CAMINHO_DO_INSTALLPATH/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACK_DETECTADA existente
    ```
 
-9. Reporte o resultado (ver "O que reportar" abaixo).
+9. **Confirme que a memória do projeto vai mesmo versionada** — este passo não é opcional, é o que pega o
+   caso em que o projeto foi gerado por uma versão antiga e alguma regra continua engolindo `knowledge/`:
+   ```bash
+   git check-ignore -v knowledge/vault knowledge/index.json
+   ```
+   - **Sem saída** = está tudo certo, `knowledge/` não está sendo ignorada. Siga.
+   - **Com saída** = o arquivo e a linha do `.gitignore` responsáveis aparecem ali. Acrescente ao final do
+     `.gitignore` (a negação precisa vir **depois** da regra que ignora, e a linha dos chunks **depois** da
+     negação, senão ela também é reabilitada):
+     ```
+     # knowledge/ é a memória do projeto e vai versionada
+     !knowledge/
+     !knowledge/**
+     knowledge/embeddings/chunks/
+     ```
+     Se a regra culpada estiver num `.gitignore` de subpasta (o `git check-ignore -v` mostra o caminho do
+     arquivo), corrija naquele arquivo. Rode o comando de novo até não sair nada.
+
+   Se a pasta `knowledge/` estiver vazia, o `git check-ignore` não prova nada e o `git status` também não
+   vai mostrar nada — **o Git não versiona diretório vazio**. Nesse caso diga ao usuário que ainda não há
+   memória para versionar: ela passa a existir na primeira rodada do `/orchestrator` (ou assim que algum
+   agente gravar no vault), e aí sim o `/commit` a leva junto.
+
+10. Reporte o resultado (ver "O que reportar" abaixo).
 
 ## O que é reescrito e o que é preservado
 
@@ -89,9 +112,11 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
   O script só garante que a pasta exista; **nunca grava nada dentro dela**.
 - `src/` e todo o código do projeto.
 - `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `.mcp.json` — mantidos se já existirem.
-- `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem. A partir da v3.17.0 essas
-  regras incluem uma negação explícita (`!knowledge/`) para garantir que a memória do projeto vá versionada
-  mesmo em repositório que já ignorava a pasta.
+- `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem, conferidas **uma a uma**
+  (`output/`, `.claude/`, `!knowledge/`). Isso importa em projeto antigo: até a v3.17.0 o script olhava só
+  para o comentário `# Pipeline SDD (criar-template-claude)` e, achando-o, pulava o bloco inteiro — então
+  regra nova nunca chegava em projeto já existente. A negação `!knowledge/` é o que garante que a memória
+  vá versionada mesmo num repositório que já ignorava a pasta.
 - `.claude/settings.json` — sofre **merge** (hook de token-report, `permissions`, plugin ponytail),
   preservando o que o usuário já tinha configurado.
 - `output/` — os artefatos de rodadas anteriores do pipeline continuam lá.
@@ -122,9 +147,10 @@ as duas versões da `.claude/` e remover o que sobrou à mão.
   alterados, e o caminho do backup da `.claude/` anterior.
 - Se o projeto ainda tinha `COMECE-AQUI.md`: que ele foi removido (conteúdo já está no `README.md`) e onde
   ficou a cópia em `output/`, caso o usuário tivesse editado alguma coisa ali.
-- Que o `/commit` do projeto passou a sincronizar `knowledge/` antes de commitar, e que `knowledge/` vai
-  versionada — se o usuário tinha `knowledge/` no `.gitignore`, mande rodar `git check-ignore -v knowledge/vault`
-  para confirmar que a memória não está mais sendo engolida.
+- O resultado do passo 9: `knowledge/` está versionada, ou (se estava sendo ignorada) qual regra de qual
+  `.gitignore` foi corrigida — ou que o vault ainda está vazio e por isso não há nada a versionar ainda.
+- Que o `/commit` do projeto passou a sincronizar o vault antes de commitar, levando memória e código no
+  mesmo commit.
 - Que é preciso **reiniciar a sessão do Claude Code** (fechar e abrir de novo) para os comandos e agentes
   novos entrarem em vigor — tanto os do plugin quanto os do projeto são carregados no início da sessão.
 - Se a parte 2 foi pulada: o motivo (pasta atual não é um projeto SDD).

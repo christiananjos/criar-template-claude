@@ -46,9 +46,13 @@ estrutura da versão nova nesse projeto — atualizar o plugin sozinho não atua
 `.claude/commands/` e `.claude/agents/` são cópias gravadas no projeto na hora em que ele foi gerado. O que
 é reescrito: `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `.claude/skills/`, hooks e scripts.
 O que **nunca** é tocado: `docs/raw/` e `knowledge/` (a documentação bruta e o vault já injetados),
-além de `src/`, `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `COMECE-AQUI.md` e `.mcp.json`; o
+além de `src/`, `docs/SPEC.md`, `CLAUDE.md`, `README.md` e `.mcp.json`; o
 `.claude/settings.json` sofre merge em vez de sobrescrita. Antes de reescrever, o comando salva um backup
 da `.claude/` anterior em `output/.claude-backup-<timestamp>/`.
+
+O único arquivo que a atualização **remove** é o `COMECE-AQUI.md` de projetos gerados antes da v3.17.0 —
+ele foi absorvido pelo `README.md` e sobraria como guia duplicado e desatualizado. O antigo vai para
+`output/COMECE-AQUI.removido-<timestamp>.md` (fora do Git) antes de sair da raiz.
 
 **Manual, passo a passo:**
 ```
@@ -113,8 +117,8 @@ tem código** (uma casca inicial, um projeto em andamento etc.). A primeira perg
 essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do projeto já existente:
 
 - **Nada do código é tocado** — `src/` não recebe a estrutura de pastas do template, só o que o script sempre cria (`.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/`).
-- **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
-- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `knowledge/embeddings/chunks/`, `.claude/`) são acrescentadas, sem duplicar em reexecuções.
+- **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
+- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/`, `.claude/` ignorados; `!knowledge/` versionada, menos `knowledge/embeddings/chunks/`) são acrescentadas, sem duplicar em reexecuções.
 - **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
 - **`02-architect-sdd` e os `03-*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 
@@ -158,7 +162,7 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 
 | Comando | Stacks | O que faz |
 |---|---|---|
-| `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. Nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
+| `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória e então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
@@ -216,6 +220,24 @@ segue normalmente a partir de `docs/SPEC.md`, como sempre funcionou.
 `.claude/scripts/knowledge-engine-build.cjs` (sem dependências) a partir dos wikilinks do vault — não são
 escritos à mão pelo agente. Vetores de embedding "de verdade" não são calculados aqui (exigiria uma API/modelo
 de embeddings); os chunks já ficam prontos para quem quiser plugar esse passo depois.
+
+### A memória vai versionada no Git
+
+`knowledge/` é a memória do projeto e **entra no controle de versão junto com o código** — só
+`knowledge/embeddings/chunks/` fica de fora, por ser derivado e regenerável. O `.gitignore` gerado diz isso
+explicitamente, e no modo "existente" acrescenta uma negação (`!knowledge/`) caso o repositório já ignorasse a
+pasta por alguma regra anterior.
+
+O `/commit` do projeto gerado faz isso valer na prática: antes de montar a mensagem ele (1) confere no diff o
+que mudou e atualiza as notas correspondentes do vault, (2) roda o rebuild do grafo, (3) checa com
+`git check-ignore` que nada está engolindo `knowledge/` e corrige o `.gitignore` se estiver, e só então
+commita — memória e código no **mesmo** commit, nunca em commits separados.
+
+O caso que motivou isso é `knowledge/vault/14 - Planejamento/`: escopo adiado, próximo passo e pendência em
+aberto moram ali. Os relatórios do pipeline ficam em `output/`, que é por rodada e **fora** do Git — plano
+que morasse só lá morreria junto com a sessão. Os agentes `01-orchestrator-sdd`, `02-architect-sdd` e
+`04-compliance-validator` são donos dessa pasta e a atualizam antes de encerrar; quando um item é
+implementado, a nota sai (ou é marcada como concluída) no mesmo commit da implementação.
 
 ## Relatório de tokens
 

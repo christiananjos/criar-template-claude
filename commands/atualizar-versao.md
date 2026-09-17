@@ -88,8 +88,10 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 - `knowledge/` — o vault inteiro (`vault/`, `graph/`, `embeddings/`, `source/`, `index.json`, templates).
   O script só garante que a pasta exista; **nunca grava nada dentro dela**.
 - `src/` e todo o código do projeto.
-- `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `COMECE-AQUI.md`, `.mcp.json` — mantidos se já existirem.
-- `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem.
+- `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `.mcp.json` — mantidos se já existirem.
+- `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem. A partir da v3.17.0 essas
+  regras incluem uma negação explícita (`!knowledge/`) para garantir que a memória do projeto vá versionada
+  mesmo em repositório que já ignorava a pasta.
 - `.claude/settings.json` — sofre **merge** (hook de token-report, `permissions`, plugin ponytail),
   preservando o que o usuário já tinha configurado.
 - `output/` — os artefatos de rodadas anteriores do pipeline continuam lá.
@@ -102,15 +104,27 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 - `.claude/skills/` — skills de especialista da stack (dba, cicd, tech-leader, qa, aws, security...)
 - `.claude/hooks/generate-token-report.cjs` e `.claude/scripts/knowledge-engine-build.cjs`
 
-Um arquivo que existia numa versão antiga do template e não existe mais na nova **não é apagado** — ele
-fica no projeto sem ser sobrescrito. Se isso incomodar, o backup do passo 7 permite comparar as duas
-versões da `.claude/` e remover o que sobrou à mão.
+**Removido (único arquivo que o script apaga):**
+
+- `COMECE-AQUI.md` — descontinuado na v3.17.0, o conteúdo dele virou a primeira metade do `README.md`.
+  O script move o arquivo antigo para `output/COMECE-AQUI.removido-<timestamp>.md` (fora do Git) e apaga da
+  raiz, para não sobrar um guia duplicado e desatualizado ao lado do README novo. Se ele estava versionado,
+  a remoção entra no próximo commit. Não faça isso à mão — o script já cuida.
+
+Fora esse caso, um arquivo que existia numa versão antiga do template e não existe mais na nova **não é
+apagado** — ele fica no projeto sem ser sobrescrito. Se isso incomodar, o backup do passo 7 permite comparar
+as duas versões da `.claude/` e remover o que sobrou à mão.
 
 ## O que reportar
 
 - A versão do plugin: de X para Y, ou "já estava em Y".
 - Se a parte 2 rodou: a stack detectada, a confirmação de que `docs/raw/` e `knowledge/` não foram
   alterados, e o caminho do backup da `.claude/` anterior.
+- Se o projeto ainda tinha `COMECE-AQUI.md`: que ele foi removido (conteúdo já está no `README.md`) e onde
+  ficou a cópia em `output/`, caso o usuário tivesse editado alguma coisa ali.
+- Que o `/commit` do projeto passou a sincronizar `knowledge/` antes de commitar, e que `knowledge/` vai
+  versionada — se o usuário tinha `knowledge/` no `.gitignore`, mande rodar `git check-ignore -v knowledge/vault`
+  para confirmar que a memória não está mais sendo engolida.
 - Que é preciso **reiniciar a sessão do Claude Code** (fechar e abrir de novo) para os comandos e agentes
   novos entrarem em vigor — tanto os do plugin quanto os do projeto são carregados no início da sessão.
 - Se a parte 2 foi pulada: o motivo (pasta atual não é um projeto SDD).

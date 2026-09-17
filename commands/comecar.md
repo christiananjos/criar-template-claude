@@ -75,7 +75,7 @@ cd "CAMINHO_DO_PROJETO_EXISTENTE" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-
 Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`.
 
 No modo `existente`, o script:
-- **Não sobrescreve** código em `src/`, nem `README.md`, `COMECE-AQUI.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline).
+- **Não sobrescreve** código em `src/`, nem `README.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline — entre elas a negação `!knowledge/`, para a memória do projeto ir versionada).
 - Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + `permissions` + plugin ponytail) em vez de sobrescrever, preservando o que já estava configurado.
 - Sempre (re)cria `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/` (vazia) e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
 - Os agentes de arquitetura e implementação (`02-architect-sdd`, `03-*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
@@ -126,7 +126,7 @@ NOME_DO_PROJETO/
 O conteúdo de `.claude/commands/orchestrator.md`, `.claude/commands/README.md`, `CLAUDE.md` e `docs/SPEC.md`
 já vem ajustado automaticamente para refletir a stack escolhida — não é preciso editar nada manualmente
 depois. `CLAUDE.md` e `.mcp.json` só são criados se ainda não existirem (mesma regra de não sobrescrita de
-`README.md`/`COMECE-AQUI.md`/`docs/SPEC.md`), e `claude --worktree nome-da-frente` deixa rodar duas frentes do
+`README.md`/`docs/SPEC.md`), e `claude --worktree nome-da-frente` deixa rodar duas frentes do
 pipeline em paralelo sem os agentes esbarrarem nos mesmos arquivos.
 
 Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/orchestrator` (Fase 0 — `00-knowledge-bootstrap`)

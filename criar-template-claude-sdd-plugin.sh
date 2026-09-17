@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.18.0
+# 🚀 Criar Template Claude SDD v3.19.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -93,18 +93,12 @@ SPECIALIST_AGENT_NAME="03-$SPECIALIST_AGENT"
 SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
 SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 
-case "$STACK" in
-    dotnet)                 SEMGREP_CONFIG="--config p/csharp" ;;
-    react)                  SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/react --config p/secrets" ;;
-    angular|vue)            SEMGREP_CONFIG="--config p/javascript --config p/typescript --config p/secrets" ;;
-esac
-
 # ============================================================================
 # CRIAR ESTRUTURA
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.18.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.19.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -126,6 +120,15 @@ for legacy_agent in knowledge-bootstrap orchestrator-sdd architect-sdd dotnet-sp
     code-review-sdd build-test-validator security-scan-sdd commit-message-generator swagger-tester; do
     rm -f "$PROJECT_DIR/.claude/agents/$legacy_agent.md"
 done
+
+# Skills renomeadas: a pasta antiga precisa sair, senão o projeto fica com as duas
+# ativas ao mesmo tempo (o script reescreve arquivo, mas não apaga o que sumiu do
+# template). tech-leader virou tech-leader-expert na v3.19.0, para toda skill
+# seguir o mesmo sufixo.
+if [ -d "$PROJECT_DIR/.claude/skills/tech-leader" ]; then
+    rm -rf "$PROJECT_DIR/.claude/skills/tech-leader"
+    echo -e "${YELLOW}⏭️  Skill 'tech-leader' removida — renomeada para 'tech-leader-expert' na v3.19.0${NC}"
+fi
 
 mkdir -p "$PROJECT_DIR/docs"
 mkdir -p "$PROJECT_DIR/docs/raw"
@@ -1434,12 +1437,10 @@ ela é de fato aplicada nos pontos encontrados.
 - **Categoria que não se aplica à stack** (ex.: projeto sem frontend): diga isso explicitamente, em vez de
   forçar achados.
 - **Anote as condições de explorabilidade** (feature flag ligada, config insegura necessária, etc.).
-- **Apoio opcional de SAST**: se o Semgrep estiver disponível (`command -v semgrep`), rode-o como apoio e use os
-  achados como pista a confirmar no código — nunca como substituto da auditoria manual das cinco categorias:
-  ```bash
-  semgrep --config p/security-audit --config p/owasp-top-ten __STACK_SEMGREP_CONFIG__ --severity ERROR,WARNING src/
-  ```
-  Semgrep indisponível **não** bloqueia nem pula a auditoria — registre no relatório que o apoio não rodou.
+- **A auditoria é de leitura de código, sem ferramenta externa.** Não dependa de scanner instalado: as cinco
+  categorias acima se verificam lendo o código, a configuração e o histórico do Git. Isso mantém o gate
+  determinístico e rodando em qualquer ambiente, inclusive sem rede. Use `Grep`/`Glob` para encontrar os
+  pontos candidatos e confirme cada um lendo o arquivo — padrão encontrado por busca é pista, não achado.
 
 ## Correções
 
@@ -1540,7 +1541,6 @@ e o caminho de todos os arquivos gerados.
 - Falha ao gerar o PDF não reprova a auditoria — o gate é o resultado dos achados, não a ferramenta de relatório.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
-sed -i "s#__STACK_SEMGREP_CONFIG__#$SEMGREP_CONFIG#g" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
 
 if [ "$STACK" != "dotnet" ]; then
     STEP_FILE=$(mktemp)
@@ -1820,7 +1820,7 @@ echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 # ============================================================================
 # CRIAR .claude/skills/ — skills de especialistas extras.
 #
-# Todas as stacks recebem o mesmo conjunto: cicd-pipeline-expert, tech-leader,
+# Todas as stacks recebem o mesmo conjunto: cicd-pipeline-expert, tech-leader-expert,
 # qa-expert e aws-expert são criadas sempre, com os trechos específicos de stack
 # (comandos de build, YAML de pipeline, framework de teste, deploy) injetados
 # depois nos marcadores __STACK_*__. O que é específico de plataforma fica
@@ -2023,26 +2023,7 @@ CICDEXPERTAZUREDEVOPSMDEOF
 
 __STACK_GH_WORKFLOW_SAMPLE__
 
-## Job de deploy com proteção de environment
-
-```yaml
-  deploy-staging:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: drop
-          path: ./publish
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: '<nome-do-app>-staging'
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_STAGING }}
-          package: ./publish
-```
+__STACK_GH_DEPLOY_JOB__
 
 ## Environments
 - `Settings > Environments` permite exigir revisores antes de um job daquele ambiente rodar — mesmo conceito dos checks de environment do Azure DevOps.
@@ -2061,10 +2042,10 @@ __STACK_GH_ACTIONS__
 - Exigir que branches estejam atualizadas antes do merge
 - Opcionalmente exigir histórico linear pra um log mais limpo
 CICDEXPERTGITHUBACTIONSMDEOF
-    mkdir -p "$PROJECT_DIR/.claude/skills/tech-leader"
-    cat > ""$PROJECT_DIR/.claude/skills/tech-leader/SKILL.md"" << 'TECHLEADERSKILLEOF'
+    mkdir -p "$PROJECT_DIR/.claude/skills/tech-leader-expert"
+    cat > ""$PROJECT_DIR/.claude/skills/tech-leader-expert/SKILL.md"" << 'TECHLEADERSKILLEOF'
 ---
-name: tech-leader
+name: tech-leader-expert
 description: Especialista em liderança técnica cobrindo decisões de arquitetura e trade-offs (ADRs), code review em nível sênior/lead, mentoria técnica e decisões técnicas de time (priorização de dívida técnica, padrões, onboarding). Use esta skill sempre que o usuário pedir pra avaliar um trade-off de arquitetura, escrever um ADR (Architecture Decision Record), revisar código sob a ótica de "isso deveria ser aprovado", decidir entre abordagens técnicas concorrentes, planejar mentoria técnica pra alguém do time, ou priorizar dívida técnica contra entrega de features.
 ---
 
@@ -2117,7 +2098,7 @@ if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/SKILL.md"" << 'DOTNETSECSKILLEOF'
 ---
 name: dotnet-security-expert
-description: Especialista em cibersegurança de aplicações .NET — autenticação e autorização (ASP.NET Core Identity, JWT, OAuth2/OIDC), gestão de secrets, prevenção de injeção (SQL injection, XSS, deserialização insegura), OWASP Top 10 aplicado a .NET, scanning de dependências e SAST (incluindo Semgrep), e hardening de Clean Architecture. Use esta skill sempre que o usuário pedir revisão de segurança de código .NET, perguntar sobre autenticação/autorização, JWT, secrets, vulnerabilidade, injeção de SQL, XSS, CORS, criptografia, hashing de senha, ou mencionar OWASP, Semgrep, dependabot, CVE, ou pentest em contexto .NET — mesmo sem dizer explicitamente "segurança" ou "cibersegurança".
+description: Especialista em cibersegurança de aplicações .NET — autenticação e autorização (ASP.NET Core Identity, JWT, OAuth2/OIDC), gestão de secrets, prevenção de injeção (SQL injection, XSS, deserialização insegura), OWASP Top 10 aplicado a .NET, scanning de dependências com o próprio SDK (`dotnet list package --vulnerable`), e hardening de Clean Architecture. Use esta skill sempre que o usuário pedir revisão de segurança de código .NET, perguntar sobre autenticação/autorização, JWT, secrets, vulnerabilidade, injeção de SQL, XSS, CORS, criptografia, hashing de senha, ou mencionar OWASP, dependabot, CVE, ou pentest em contexto .NET — mesmo sem dizer explicitamente "segurança" ou "cibersegurança".
 ---
 
 # Especialista em Cibersegurança .NET
@@ -2163,17 +2144,16 @@ Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe.
 - **Vulnerable and Outdated Components**: ver seção de scanning de dependências abaixo.
 - **SSRF**: ao fazer requisições HTTP server-side pra URL fornecida pelo usuário, valide contra uma allowlist de hosts/esquemas — nunca faça `HttpClient.GetAsync(urlDoUsuario)` sem validação.
 
-## Scanning de Dependências e SAST
+## Scanning de Dependências
 
-Configuração de referência que este usuário já usa (Semgrep):
-- **Instalação da skill**: `npx skills add semgrep/skills --skill semgrep`
-- **Instalação CLI**: `pip install semgrep --break-system-packages`
-- **Comando de scan**: `semgrep --config p/security-audit --config p/owasp-top-ten --severity ERROR,WARNING .`
-- **Uso**: `@semgrep`
-- **Comportamento esperado do prompt**: explicar cada finding (severidade, arquivo, linha); corrigir apenas issues Crítico/Alto; sinalizar antes de aplicar qualquer correção que altere comportamento observável (validação, auth, output).
-- **Validação pós-correção**: rodar o mesmo scan de novo, mais `dotnet test`.
+Para dependências NuGet, o próprio SDK resolve, sem ferramenta externa:
+- `dotnet list package --vulnerable --include-transitive` — pacotes com CVE conhecido, incluindo os que entram por dependência transitiva (que é onde a maioria mora).
+- `dotnet list package --deprecated` — pacote abandonado pelo autor, que não vai receber correção quando aparecer uma CVE.
+- `dotnet list package --outdated` — distância da versão atual; útil para não deixar a atualização virar salto de várias major de uma vez.
 
-Além do Semgrep, pra dependências NuGet: `dotnet list package --vulnerable --include-transitive` detecta pacotes com CVE conhecido diretamente pelo SDK, sem ferramenta externa — vale rodar isso como step adicional no pipeline de CI, antes ou depois do Semgrep.
+Rode os três como step do pipeline de CI e trate `--vulnerable` com severidade crítica/alta como bloqueante. Registre a decisão quando aceitar um risco conscientemente (pacote sem correção disponível, por exemplo) em vez de simplesmente ignorar o aviso.
+
+Se o time quiser somar análise estática de terceiro (SAST) por cima disso, escolha a ferramenta no CI — o pipeline deste template não depende de nenhuma, de propósito: o gate de segurança (`08-security-scan-sdd`) audita lendo o código, então roda igual em qualquer ambiente.
 
 ## Reference files
 
@@ -2215,7 +2195,7 @@ Use este checklist ao fazer uma revisão de segurança completa de um projeto ou
 
 ## 6. Vulnerable and Outdated Components
 - [ ] `dotnet list package --vulnerable --include-transitive` rodado e sem findings críticos/altos.
-- [ ] Semgrep configurado no pipeline (`p/security-audit` + `p/owasp-top-ten`).
+- [ ] `dotnet list package --deprecated` sem pacote abandonado em uso crítico.
 - [ ] Versão do .NET runtime ainda dentro do período de suporte (LTS ou STS ativo).
 
 ## 7. Identification and Authentication Failures
@@ -2538,6 +2518,467 @@ FESECCHECKLISTEOF
 fi
 
 # ============================================================================
+# CRIAR .claude/skills/<stack>-expert — a skill do framework da própria stack.
+#
+# Complementa o agente 03-<stack>-specialist, que é outra coisa: o agente é um
+# passo do pipeline, roda sozinho quando o /orchestrator chama e escreve código
+# em src/. Esta skill não roda nada — é conhecimento do framework que entra no
+# contexto quando o assunto aparece, em qualquer sessão, dentro ou fora do
+# pipeline (inclusive para o próprio agente, que pode carregá-la ao implementar).
+# Só a skill da stack escolhida é criada.
+# ============================================================================
+
+case "$STACK" in
+dotnet)
+    mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/dotnet-expert/SKILL.md"" << 'DOTNETEXPERTSKILLEOF'
+---
+name: dotnet-expert
+description: Especialista em .NET e C# moderno — ASP.NET Core (Minimal APIs e controllers), injeção de dependência e tempo de vida de serviço, async/await e cancelamento, Entity Framework Core no nível de aplicação (tracking, projeção, N+1), tratamento de erro e validação, configuração tipada, e as fronteiras da Clean Architecture deste projeto. Use esta skill sempre que o usuário pedir para escrever, revisar ou refatorar código C#/.NET, perguntar sobre DI, escopo de serviço, DbContext, async, IEnumerable vs IQueryable, record vs class, middleware, Minimal API, ou disser "isso está idiomático?" ou "onde essa classe deveria ficar?" — mesmo sem nomear .NET explicitamente.
+---
+
+# Especialista em .NET
+
+Atua como um engenheiro sênior de .NET. A régua aqui não é "compila", é **idiomático, previsível e no lugar certo da arquitetura**. Duas coisas guiam toda resposta: o código tem que parecer escrito por quem conhece o framework (não C# com sotaque de outra linguagem), e tem que respeitar a fronteira de camada do projeto.
+
+## Fluxo de trabalho
+
+1. Se for revisão, leia o código antes de opinar — aponte arquivo e linha, nunca conselho genérico.
+2. Identifique a camada em que o código vive (`Domain`, `Application`, `Infrastructure`, `API`) antes de sugerir qualquer coisa: a mesma solução pode ser certa numa e errada na outra.
+3. Dê código real, compilável, na versão de .NET do projeto (confira o `TargetFramework` no `.csproj` antes de usar API recente).
+4. Quando houver mais de um caminho idiomático, diga qual você escolheria **e o custo do outro** — não liste opções sem recomendar.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/`, `knowledge/vault/04 - APIs/` e `knowledge/vault/10 - ADR/` como referência — decisão já tomada não se re-decide, e isso gasta menos token do que reler o projeto. Só faça busca ampla no código quando `knowledge/` não existir ou não cobrir o assunto.
+
+## Fronteiras da Clean Architecture
+
+- **`Domain` não referencia nada.** Sem EF Core, sem `IConfiguration`, sem `HttpContext`, sem atributo de serialização. Entidade que carrega `[JsonPropertyName]` ou `[Column]` já vazou infraestrutura para dentro do domínio.
+- **`Application` orquestra e define contratos** (interfaces de repositório, casos de uso). Depende de `Domain`, nunca de `Infrastructure` — a implementação é injetada. É aqui que mora a regra que coordena mais de uma entidade.
+- **`Infrastructure` implementa** o que `Application` declarou: EF Core, HTTP client, fila, e-mail, arquivo. Se uma interface só existe para "ter interface", com implementação única que nunca vai mudar, questione — abstração especulativa é custo sem retorno.
+- **`API` traduz HTTP para caso de uso** e nada mais: sem regra de negócio no controller, sem `DbContext` no endpoint. DTO de request/response vive aqui e **não** é a entidade de domínio; devolver entidade direto acopla seu contrato público ao seu modelo interno e costuma vazar campo que não deveria sair.
+- Quando perguntarem "onde isso deveria ficar", responda pela direção da dependência: se a resposta faz uma camada de dentro conhecer uma de fora, está no lugar errado.
+
+## Injeção de Dependência e Tempo de Vida
+
+- **`Scoped`** é o padrão para quase tudo que toca requisição (`DbContext`, repositório, caso de uso). **`Singleton`** só para o que é imutável e thread-safe. **`Transient`** para objeto barato e sem estado.
+- **O erro clássico é o captive dependency**: um `Singleton` que recebe um `Scoped` no construtor segura aquela instância para sempre — na prática, um `DbContext` compartilhado por toda a aplicação, com estado sujo e erro de concorrência intermitente. Se precisar mesmo, injete `IServiceScopeFactory` e abra um escopo por uso.
+- `DbContext` **não é thread-safe**. Operações em paralelo no mesmo contexto (`Task.WhenAll` sobre o mesmo contexto) dão `InvalidOperationException`. Use `IDbContextFactory` quando precisar de paralelismo real.
+- Registre por interface, resolva por interface — resolver a classe concreta no consumidor anula o propósito.
+- Serviço em background (`BackgroundService`) é `Singleton` por natureza: para usar algo `Scoped` lá dentro, abra um escopo por ciclo de trabalho.
+
+## async/await
+
+- **Async vai do topo ao fundo.** `.Result` e `.Wait()` em código de requisição são risco de deadlock e desperdício de thread; se um método chama algo assíncrono, ele é assíncrono.
+- **`async void` só em event handler.** Em qualquer outro lugar a exceção não pode ser capturada pelo chamador e derruba o processo.
+- **Propague `CancellationToken`** do endpoint até o banco. Sem isso, o cliente desiste da requisição e o servidor continua trabalhando de graça — é a causa silenciosa mais comum de carga desnecessária.
+- Para chamadas independentes, `Task.WhenAll` em vez de `await` sequencial — mas nunca sobre o mesmo `DbContext`.
+- `ConfigureAwait(false)` importa em biblioteca; em ASP.NET Core (que não tem `SynchronizationContext`) é ruído, não ganho.
+
+## Entity Framework Core (nível de aplicação)
+
+- **`AsNoTracking()` em toda consulta de leitura.** Tracking existe para quem vai gravar; em listagem ele só consome memória e tempo.
+- **Projete para DTO com `Select`** em vez de carregar a entidade inteira: menos coluna trafegada, e o EF traduz a projeção para SQL.
+- **N+1 é o problema real**: `Include` explícito, ou projeção que já traz o necessário. Lazy loading transforma um `foreach` em cem queries sem ninguém perceber — desconfie sempre que ver `virtual` em navegação.
+- **`IQueryable` vs `IEnumerable`**: enquanto for `IQueryable`, o filtro vira SQL; no instante em que vira `IEnumerable` (`.ToList()`, `.AsEnumerable()`, método que o EF não traduz), tudo depois acontece em memória, sobre a tabela inteira. Repositório que devolve `IEnumerable` e filtra fora está lendo o banco todo.
+- **Paginação sempre no banco** (`Skip`/`Take` antes do `ToList`). Paginar em memória é ler tudo para jogar fora.
+- `SaveChangesAsync` uma vez por unidade de trabalho, não por item de loop.
+- Modelagem, índice, migration e plano de execução são assunto da skill `dba-expert` — aqui trate o lado da aplicação.
+
+## Erro, Validação e Resultado
+
+- **Exceção é para o excepcional.** Regra de negócio violada (saldo insuficiente, e-mail já cadastrado) é fluxo previsto: prefira um tipo de resultado (`Result<T>`) a lançar exceção para controlar fluxo — exceção é cara e esconde o caminho de erro do leitor.
+- **Trate erro num lugar só**: middleware de exceção ou `IExceptionHandler` traduzindo para `ProblemDetails` (RFC 7807). `try/catch` repetido em cada controller é sintoma de que esse ponto central não existe.
+- **Nunca vaze exceção crua para o cliente** — stack trace e mensagem de banco entregam estrutura interna. Logue o detalhe, devolva mensagem útil e um identificador de correlação.
+- Validação de entrada na borda (DataAnnotations ou FluentValidation); invariante de domínio dentro da entidade, no construtor ou no método que muda o estado. As duas coisas coexistem: a borda protege o contrato, o domínio protege a consistência.
+
+## C# Moderno
+
+- `record` para valor imutável (DTO, value object, evento); `class` para entidade com identidade e ciclo de vida.
+- Nullable reference types ligado e levado a sério: `?` no tipo é documentação executável. Suprimir com `!` é dizer "confie em mim" — precisa de motivo.
+- `required` e `init` expressam obrigatoriedade sem construtor gigante.
+- Pattern matching e expressão `switch` deixam regra de decisão legível; `string` mágica espalhada não.
+- `IOptions<T>` com classe de configuração tipada em vez de `IConfiguration["Chave:Aninhada"]` espalhado — erro de digitação vira erro de compilação.
+- Prefira o que vem na plataforma antes de trazer pacote: `System.Text.Json` em vez de Newtonsoft por inércia, `IHttpClientFactory` em vez de `new HttpClient()` (que esgota socket), `TimeProvider` em vez de `DateTime.Now` direto — testar tempo fica possível.
+
+## Reference files
+
+- `references/checklist-revisao-dotnet.md` — checklist de revisão de código C#/.NET para code review ou antes de abrir PR.
+DOTNETEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/dotnet-expert/references/checklist-revisao-dotnet.md"" << 'DOTNETEXPERTCHECKLISTEOF'
+# Checklist de Revisão — C# / .NET
+
+## Camadas
+- [ ] `Domain` sem referência a EF Core, ASP.NET, configuração ou atributo de serialização.
+- [ ] Nenhuma regra de negócio dentro de controller ou endpoint.
+- [ ] Entidade de domínio não é devolvida direto na resposta HTTP (existe DTO).
+- [ ] Interface nova tem mais de uma implementação plausível, ou existe motivo declarado.
+
+## DI e tempo de vida
+- [ ] Nenhum `Singleton` recebendo serviço `Scoped` no construtor.
+- [ ] `DbContext` não é compartilhado entre operações paralelas.
+- [ ] Serviço em background abre escopo próprio por ciclo.
+
+## async
+- [ ] Nenhum `.Result` ou `.Wait()` em caminho de requisição.
+- [ ] Nenhum `async void` fora de event handler.
+- [ ] `CancellationToken` recebido no endpoint e propagado até a chamada de banco/HTTP.
+
+## EF Core
+- [ ] `AsNoTracking()` nas consultas de leitura.
+- [ ] Consulta de listagem projeta para DTO em vez de materializar a entidade inteira.
+- [ ] Nenhum acesso a navegação dentro de loop sem `Include` ou projeção (N+1).
+- [ ] Filtro e paginação acontecem antes de materializar (`ToList` por último).
+- [ ] `SaveChangesAsync` fora do loop.
+
+## Erro e validação
+- [ ] Erro tratado num ponto central, devolvendo `ProblemDetails`.
+- [ ] Mensagem de exceção interna não chega ao cliente.
+- [ ] Entrada validada na borda; invariante garantida no domínio.
+- [ ] Regra de negócio esperada não usa exceção como fluxo de controle.
+
+## Geral
+- [ ] `HttpClient` obtido via `IHttpClientFactory`.
+- [ ] Configuração acessada por classe tipada, não por string aninhada espalhada.
+- [ ] Nenhum segredo em `appsettings.json` versionado.
+- [ ] Nullable reference types respeitado (sem `!` sem justificativa).
+DOTNETEXPERTCHECKLISTEOF
+    ;;
+react)
+    mkdir -p "$PROJECT_DIR/.claude/skills/react-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/react-expert/SKILL.md"" << 'REACTEXPERTSKILLEOF'
+---
+name: react-expert
+description: Especialista em React moderno — composição de componentes, hooks e suas armadilhas, estado de servidor vs estado de interface, efeitos e quando NÃO usar useEffect, listas e keys, formulários, performance de renderização (memo, useMemo, useCallback, re-render em cascata) e organização de projeto. Use esta skill sempre que o usuário pedir para escrever, revisar ou refatorar componente React, perguntar sobre useState, useEffect, useMemo, useCallback, useRef, context, prop drilling, estado global, Zustand, Redux, React Query, loop infinito de render, "por que renderiza duas vezes", "isso deveria ser um efeito?" ou "onde esse estado deveria morar" — mesmo sem nomear React explicitamente.
+---
+
+# Especialista em React
+
+Atua como um engenheiro frontend sênior de React. A régua não é "funciona na tela", é **estado no lugar certo, render previsível e componente que continua legível daqui a seis meses**. A maior parte do problema de React em projeto real não é performance — é estado espalhado e efeito fazendo o que não devia.
+
+## Fluxo de trabalho
+
+1. Se for revisão, leia o componente antes de opinar — aponte arquivo e linha.
+2. **Pergunte-se primeiro de onde vem o dado**: servidor, URL, ou interação local. A resposta decide quase tudo o mais e é o erro de arquitetura mais caro de corrigir depois.
+3. Dê código real, no estilo do projeto (function component, hooks, TypeScript se o projeto usa).
+4. Quando houver mais de um caminho, recomende um e diga o custo do outro.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/02 - Funcionalidades/`, `knowledge/vault/08 - UX/` e `knowledge/vault/04 - APIs/` como referência — fluxo de tela e contrato de API já mapeados evitam redescobrir tudo. Só faça busca ampla no código quando o vault não cobrir.
+
+## De onde vem o estado
+
+Classifique antes de escolher ferramenta — é isso que evita Redux para guardar se um modal está aberto:
+
+- **Estado de servidor** (dado que vive no backend: lista, detalhe, resultado de busca). Não é "estado" de verdade, é **cache**. Precisa de loading, erro, revalidação, invalidação — por isso pede biblioteca própria (TanStack Query, SWR). Guardar resposta de API em `useState` + `useEffect` é reimplementar cache ruim à mão: sem dedupe, sem retry, sem invalidação, com race condition entre requisições.
+- **Estado de URL** (filtro, aba ativa, página, termo de busca). Mora na query string. Se estiver em `useState`, o usuário não consegue compartilhar o link nem usar o botão voltar.
+- **Estado de interface local** (input não enviado, hover, acordeão aberto). `useState` no componente mais próximo de quem usa. Só suba quando dois irmãos precisarem do mesmo dado.
+- **Estado global de verdade** (usuário logado, tema, carrinho): aí sim Context ou store (Zustand, Redux). É a menor categoria das quatro — na dúvida, não é global.
+
+## Efeitos: o hook mais mal usado
+
+`useEffect` existe para **sincronizar com sistema externo** (assinatura, timer, evento do browser, integração não-React). Quase todo `useEffect` de app real é um destes erros:
+
+- **Derivar estado de prop/estado**: calcule no corpo do render (`const total = itens.reduce(...)`). Guardar em estado e sincronizar por efeito cria um render extra e uma fonte de verdade duplicada que sai de sincronia.
+- **Reagir a evento do usuário**: a lógica vai no handler do evento, não num efeito que observa a mudança. "Quando o usuário salva, mostre o toast" é código no `onSubmit`.
+- **Buscar dado**: é trabalho da biblioteca de estado de servidor, ou do roteador/framework. `useEffect` + `fetch` sem `AbortController` gera race condition: a resposta lenta da busca anterior sobrescreve a atual.
+- **Resetar estado quando a prop muda**: use `key` no componente para forçar remontagem — mais simples e sem render intermediário com dado errado.
+
+Quando o efeito é legítimo: **sempre retorne a limpeza** (`removeEventListener`, `clearInterval`, `abort`). Sem isso, em modo estrito o efeito roda duas vezes e o vazamento aparece; em produção, vaza silenciosamente.
+
+Array de dependências não é sugestão: omitir dependência para "não rodar de novo" troca um bug visível por um stale closure invisível. Se o efeito roda demais, a dependência errada é a instável (objeto/função recriada a cada render) — estabilize a dependência, não minta na lista.
+
+## Render e performance
+
+- **Meça antes de otimizar.** `memo`, `useMemo` e `useCallback` custam comparação e memória; aplicados em tudo, deixam o código pior sem ganho. O Profiler do React DevTools mostra o que realmente está caro.
+- **Re-render não é bug** — React re-renderizar é normal e barato. O problema é re-render de subárvore cara, ou trabalho pesado no corpo do componente.
+- **A causa nº 1 de re-render em cascata é objeto/array/função recriado a cada render** sendo passado como prop ou como `value` de Context. `value={{ user, setUser }}` refaz o objeto toda vez e invalida todo consumidor do Context.
+- **`memo` só funciona se as props forem estáveis** — envolver em `memo` e continuar passando callback inline não muda nada.
+- **Context não é store**: qualquer mudança no valor re-renderiza todos os consumidores. Separe contexto que muda muito de contexto que quase não muda, ou use uma store com seletor.
+- **Lista grande**: virtualização em vez de renderizar 10.000 linhas.
+
+## Keys, listas e formulários
+
+- **`key` é identidade, não posição.** `key={index}` em lista que pode reordenar, filtrar ou receber item no meio faz o React reaproveitar o componente errado — o sintoma clássico é input mantendo o valor da linha anterior. Use id estável do dado.
+- Nunca mute estado: `setItens([...itens, novo])`, não `itens.push(novo)`. Mutação não dispara render e gera bug que "só acontece às vezes".
+- Atualização baseada no valor anterior usa a forma de função (`setCount(c => c + 1)`) — o valor capturado no closure pode estar velho.
+- **Formulário**: campo controlado é o padrão e dá validação imediata; em formulário grande, cada tecla re-renderiza tudo — aí biblioteca de formulário (React Hook Form) com campo não controlado resolve. Escolha pelo tamanho do formulário, não por gosto.
+
+## Componentes
+
+- Componente faz uma coisa. Quando o nome precisa de "E" (`UserProfileAndSettings`), são dois.
+- **Extraia hook customizado quando a lógica é reutilizada ou quando o componente virou 70% lógica e 30% JSX** — é a forma idiomática de separar comportamento de apresentação.
+- Prop booleana demais (`isCompact`, `isInline`, `hasBorder`, `variantSmall`) é sinal de componente tentando ser três; considere composição via `children` ou componentes separados.
+- Derive o que der do que já existe em vez de guardar cópia em estado: menos coisa para sair de sincronia.
+
+## Reference files
+
+- `references/checklist-revisao-react.md` — checklist de revisão de componente para code review ou antes de abrir PR.
+REACTEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/react-expert/references/checklist-revisao-react.md"" << 'REACTEXPERTCHECKLISTEOF'
+# Checklist de Revisão — React
+
+## Estado
+- [ ] Dado vindo de API está em biblioteca de estado de servidor, não em `useState` + `useEffect`.
+- [ ] Filtro, aba e paginação estão na URL, não em estado local.
+- [ ] Estado mora no componente mais próximo de quem usa (não subiu sem necessidade).
+- [ ] Nada que possa ser derivado no render está duplicado em estado.
+- [ ] Nenhuma mutação direta de array/objeto em estado.
+
+## Efeitos
+- [ ] Cada `useEffect` sincroniza com sistema externo de verdade.
+- [ ] Nenhum efeito só para derivar estado de prop/estado.
+- [ ] Nenhum efeito reagindo a evento do usuário (lógica está no handler).
+- [ ] Efeito com assinatura/timer/listener tem função de limpeza.
+- [ ] Busca de dado cancela requisição anterior (`AbortController`) ou usa biblioteca própria.
+- [ ] Array de dependências completo (sem omissão para "não rodar de novo").
+
+## Render
+- [ ] Nenhum objeto/array/função inline passado como `value` de Context.
+- [ ] `memo`/`useMemo`/`useCallback` usados por medição, não por reflexo.
+- [ ] Lista longa virtualizada.
+- [ ] Nenhum trabalho pesado no corpo do componente.
+
+## Listas e formulários
+- [ ] `key` usa id estável do dado, não índice (em lista que reordena/filtra).
+- [ ] Atualização dependente do valor anterior usa a forma de função.
+- [ ] Formulário grande não re-renderiza tudo a cada tecla.
+
+## Componentes
+- [ ] Componente tem uma responsabilidade clara.
+- [ ] Lógica reutilizada extraída em hook customizado.
+- [ ] Sem excesso de props booleanas de variação.
+REACTEXPERTCHECKLISTEOF
+    ;;
+angular)
+    mkdir -p "$PROJECT_DIR/.claude/skills/angular-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/angular-expert/SKILL.md"" << 'NGEXPERTSKILLEOF'
+---
+name: angular-expert
+description: Especialista em Angular moderno — componentes standalone, signals e change detection (incluindo OnPush e zoneless), RxJS aplicado a componente (unsubscribe, operadores de achatamento, async pipe), injeção de dependência e inject(), formulários reativos, roteamento com lazy loading e guards, interceptors de HTTP e organização de projeto. Use esta skill sempre que o usuário pedir para escrever, revisar ou refatorar código Angular, perguntar sobre signal, computed, effect, OnPush, ChangeDetectorRef, RxJS, subscribe, takeUntilDestroyed, switchMap, NgModule vs standalone, FormGroup, guard, interceptor, ExpressionChangedAfterItHasBeenCheckedError, ou disser "por que a tela não atualiza" — mesmo sem nomear Angular explicitamente.
+---
+
+# Especialista em Angular
+
+Atua como um engenheiro frontend sênior de Angular. A régua não é "compila e aparece", é **change detection previsível, sem subscription vazando e no estilo do Angular atual** — não o Angular de 2018. Angular é opinativo: seguir a opinião do framework rende mais do que inventar convenção própria.
+
+## Fluxo de trabalho
+
+1. Se for revisão, leia o código antes de opinar — aponte arquivo e linha.
+2. **Confira a versão do Angular no `package.json` antes de sugerir API.** Signals, `inject()`, standalone, `@if`/`@for` e zoneless entraram em versões diferentes; sugerir o que a versão do projeto não tem é erro caro.
+3. Respeite o que o projeto já usa: se é `NgModule`, não reescreva tudo para standalone sem o usuário pedir — aponte o caminho de migração.
+4. Dê código real, com tipagem, no padrão do projeto.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/02 - Funcionalidades/`, `knowledge/vault/08 - UX/` e `knowledge/vault/04 - APIs/` como referência. Só faça busca ampla no código quando o vault não cobrir.
+
+## Angular atual vs Angular antigo
+
+O maior risco numa base Angular é escrever no dialeto errado. Do mais novo para o mais antigo:
+
+- **Standalone é o padrão** desde a v17 (e default em projeto novo desde a v19). `NgModule` continua funcionando; base nova não deveria criar módulo por componente.
+- **`inject()`** substitui injeção por construtor na maior parte dos casos, e é o único jeito em inicializador de campo e em função (guard, interceptor funcional, resolver).
+- **Signals** (`signal`, `computed`, `effect`, `input()`, `output()`, `model()`) são a direção do framework para estado de componente. `computed` é derivado e memorizado; `effect` é para efeito colateral — não use `effect` para calcular valor, use `computed`.
+- **Control flow no template** (`@if`, `@for`, `@switch`) substitui `*ngIf`/`*ngFor`. `@for` **exige** `track`.
+- **Guard e interceptor funcionais** substituem as versões baseadas em classe.
+- `HttpClient` fornecido por `provideHttpClient()`, não por `HttpClientModule`.
+
+Se o projeto é antigo, diga o equivalente moderno **e** o custo da migração — não empurre reescrita.
+
+## Change detection
+
+- **`OnPush` deveria ser o padrão de todo componente.** Sem ele, qualquer evento em qualquer lugar re-verifica a árvore inteira. Com `OnPush`, o componente só re-verifica quando uma `@Input` muda por referência, um evento dispara nele, ou um `async pipe`/signal notifica.
+- **O sintoma de `OnPush` mal aplicado é "a tela não atualiza"**: quase sempre o dado foi mutado no lugar de substituído (`this.itens.push(x)` em vez de `this.itens = [...this.itens, x]`). A correção é imutabilidade, não `markForCheck()` espalhado.
+- **Signal resolve isso na origem**: componente com signal notifica a mudança com precisão, sem depender de referência de `@Input`.
+- **`ExpressionChangedAfterItHasBeenCheckedError`** significa que algo mudou o estado *depois* da verificação — normalmente mudança de estado dentro de `ngAfterViewInit` ou em getter do template. Getter que faz cálculo pesado ou cria objeto novo roda a cada ciclo: prefira `computed` ou campo calculado.
+- **Zoneless** (sem `zone.js`) é para onde o framework caminha; só funciona se o estado for signal ou a notificação for explícita.
+
+## RxJS sem vazar
+
+- **Toda subscription manual precisa terminar.** A forma atual é `takeUntilDestroyed()`; sem ela, componente destruído continua reagindo e segurando referência — vazamento que aparece como comportamento fantasma depois de navegar algumas vezes.
+- **Prefira `async pipe` a `subscribe` no componente**: ele assina e cancela sozinho, e combina naturalmente com `OnPush`.
+- **Escolha o operador de achatamento pelo significado**, não por hábito: `switchMap` cancela o anterior (busca conforme digita, navegação); `concatMap` enfileira na ordem (salvar sequencial); `mergeMap` paraleliza (sem garantia de ordem); `exhaustMap` ignora novos enquanto o atual roda (botão de submit, evita duplo clique). `switchMap` em requisição de escrita cancela um `POST` no meio — quase nunca é o que se quer.
+- **`subscribe` dentro de `subscribe` é sempre erro** — é `switchMap`/`concatMap` disfarçado.
+- Erro em stream precisa de `catchError`, senão a stream morre e o componente para de reagir para sempre.
+- `HttpClient` completa sozinho após a resposta, então requisição simples não vaza — o vazamento vem de `Subject`, `interval`, `fromEvent` e `valueChanges`.
+
+## Formulários
+
+- **Reactive Forms** para qualquer formulário não trivial: validação testável, tipagem, composição.
+- **Formulário tipado** (`FormGroup<...>` / `NonNullableFormBuilder`) em vez de `any` implícito.
+- Validador customizado é função pura que devolve `ValidationErrors | null`; validação assíncrona (checar e-mail no servidor) vai em `asyncValidators`, com debounce.
+- `valueChanges` é um Observable: precisa de `takeUntilDestroyed`, e de `debounceTime` + `distinctUntilChanged` quando dispara requisição.
+- `disabled` no `FormControl` se define no controle, não no template — misturar os dois gera aviso e comportamento inconsistente.
+
+## Serviços, DI e Rotas
+
+- `providedIn: 'root'` para serviço de aplicação; provider em componente só quando a instância deve morrer com ele.
+- **Serviço é onde mora estado compartilhado e chamada HTTP** — componente que chama `HttpClient` direto acopla tela a transporte.
+- **Lazy loading por rota** (`loadComponent`/`loadChildren`) é o que mantém o bundle inicial pequeno; feature carregada ansiosamente é o motivo mais comum de first load lento.
+- Guard funcional com `inject()`; guard é navegação, **não autorização** — o servidor valida de novo, sempre.
+- Interceptor centraliza token, correlação e tratamento de 401 — não repita isso em cada serviço.
+- `trackBy` no `*ngFor` (ou `track` no `@for`) evita recriar o DOM da lista inteira a cada mudança.
+
+## Reference files
+
+- `references/checklist-revisao-angular.md` — checklist de revisão para code review ou antes de abrir PR.
+NGEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/angular-expert/references/checklist-revisao-angular.md"" << 'NGEXPERTCHECKLISTEOF'
+# Checklist de Revisão — Angular
+
+## Dialeto e versão
+- [ ] API sugerida existe na versão do Angular do `package.json`.
+- [ ] Componente novo é standalone (em base que já usa standalone).
+- [ ] `@for` sempre com `track`.
+- [ ] Guard/interceptor novo é funcional, não baseado em classe.
+
+## Change detection
+- [ ] Componente usa `ChangeDetectionStrategy.OnPush`.
+- [ ] Nenhuma mutação de array/objeto de `@Input` (substituição por referência nova).
+- [ ] Template sem getter que faz cálculo pesado ou cria objeto novo.
+- [ ] Nenhum `detectChanges()`/`markForCheck()` usado para mascarar mutação.
+
+## RxJS
+- [ ] Toda subscription manual tem `takeUntilDestroyed()` (ou equivalente).
+- [ ] `async pipe` preferido a `subscribe` no componente.
+- [ ] Operador de achatamento escolhido pelo significado (sem `switchMap` em escrita).
+- [ ] Nenhum `subscribe` dentro de `subscribe`.
+- [ ] Stream que pode falhar tem `catchError`.
+- [ ] `valueChanges` que dispara requisição tem `debounceTime` + `distinctUntilChanged`.
+
+## Formulários
+- [ ] Reactive Forms em formulário não trivial.
+- [ ] `FormGroup` tipado.
+- [ ] `disabled` definido no controle, não no template.
+
+## Estrutura
+- [ ] Componente não chama `HttpClient` direto (passa por serviço).
+- [ ] Rota de feature carregada sob demanda.
+- [ ] Guard de rota tem validação equivalente no servidor.
+- [ ] Token e tratamento de 401 centralizados em interceptor.
+NGEXPERTCHECKLISTEOF
+    ;;
+vue)
+    mkdir -p "$PROJECT_DIR/.claude/skills/vue-expert/references"
+    cat > ""$PROJECT_DIR/.claude/skills/vue-expert/SKILL.md"" << 'VUEEXPERTSKILLEOF'
+---
+name: vue-expert
+description: Especialista em Vue 3 moderno — Composition API e script setup, reatividade (ref vs reactive, perda de reatividade em destructuring), computed vs watch, props e eventos, v-model em componente, composables, Pinia para estado compartilhado, keys e listas, e performance de render. Use esta skill sempre que o usuário pedir para escrever, revisar ou refatorar componente Vue, perguntar sobre ref, reactive, computed, watch, watchEffect, toRefs, defineProps, defineEmits, defineModel, composable, Pinia, Options API vs Composition API, "por que não atualiza a tela", ou disser "isso deveria ser computed ou watch?" — mesmo sem nomear Vue explicitamente.
+---
+
+# Especialista em Vue
+
+Atua como um engenheiro frontend sênior de Vue 3. A régua não é "renderiza", é **reatividade que não se perde, derivação em vez de sincronização e componente com contrato claro**. A maioria dos bugs de Vue em projeto real é reatividade quebrada por destructuring ou `watch` fazendo o trabalho de `computed`.
+
+## Fluxo de trabalho
+
+1. Se for revisão, leia o componente antes de opinar — aponte arquivo e linha.
+2. **Confira se o projeto é Vue 3 com `<script setup>`** (o padrão atual) ou Options API, e escreva no dialeto do projeto. Não converta a base inteira sem o usuário pedir.
+3. Dê código real, com TypeScript se o projeto usa.
+4. Recomende um caminho e diga o custo do outro.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/02 - Funcionalidades/`, `knowledge/vault/08 - UX/` e `knowledge/vault/04 - APIs/` como referência. Só faça busca ampla no código quando o vault não cobrir.
+
+## Reatividade: onde ela se perde
+
+- **`ref` para tudo, por padrão.** Funciona com qualquer tipo, sobrevive a reatribuição e o `.value` deixa explícito onde a reatividade mora. `reactive` só para objeto que nunca é substituído inteiro.
+- **`reactive` quebra em dois casos que aparecem sempre**: reatribuir o objeto (`state = novoObjeto` perde o proxy — só `state.campo = x` funciona) e desestruturar (`const { nome } = state` entrega um valor solto, sem reatividade). Para desestruturar com segurança, `toRefs`.
+- **Props também perdem reatividade ao desestruturar** em versões anteriores ao destructuring reativo do Vue 3.5 — confira a versão no `package.json`; na dúvida, use `props.campo` direto no template e `toRef(props, 'campo')` quando precisar passar adiante.
+- `.value` some no template, mas é obrigatório no script — esquecer é o erro mais comum de quem vem da Options API.
+- **Array e objeto aninhado**: `ref` é reativo em profundidade; `shallowRef` só na raiz (útil para estrutura grande e imutável, como resposta de API que você substitui inteira).
+
+## `computed` vs `watch`
+
+Esta é a decisão que mais aparece em revisão:
+
+- **`computed` para derivar valor.** É memorizado, roda só quando a dependência muda, e é declarativo: `const total = computed(() => itens.value.reduce(...))`. Se a pergunta é "esse valor vem de outro valor?", é `computed`.
+- **`watch` para efeito colateral** disparado por mudança: chamar API, salvar no `localStorage`, navegar, logar.
+- **O antipadrão clássico** é `watch` que observa A e faz `b.value = f(a.value)`: isso é `computed` escrito de forma cara e propensa a sair de sincronia. Toda vez que um `watch` só atribui outro estado, é `computed`.
+- `watchEffect` coleta dependência sozinho — conveniente, mas fácil de disparar por dependência que você não pretendia. Em efeito com dependência bem definida, `watch` explícito é mais previsível.
+- `watch` com `{ immediate: true }` para rodar na montagem também; `{ deep: true }` só quando realmente precisa observar mudança interna — é caro.
+- **Nunca faça efeito colateral dentro de `computed`**: ele pode reavaliar quando o framework quiser, e o efeito vira imprevisível.
+
+## Componentes: props, eventos e v-model
+
+- **Props descem, eventos sobem.** Mutar prop direto é erro (o Vue avisa); se o filho precisa alterar, emita evento e deixe o pai decidir, ou use `defineModel`.
+- **`defineModel()`** é a forma atual de `v-model` em componente — substitui o par `modelValue` + `update:modelValue` escrito à mão.
+- Tipar `defineProps` e `defineEmits` transforma contrato implícito em erro de compilação. Prop com valor default declarado evita `undefined` espalhado no template.
+- **Prop booleana demais** (`isSmall`, `isFlat`, `hasIcon`) indica componente tentando ser vários — considere slot ou componentes separados.
+- **Slots antes de props de configuração**: quando o pai precisa controlar como algo é renderizado, slot é mais flexível e não vira uma prop nova a cada pedido.
+- `provide`/`inject` para dependência que atravessa muitos níveis — não como substituto de store global.
+
+## Composables
+
+- **Composable é a unidade de reuso do Vue 3**: função `useAlgo()` que usa reatividade e devolve `ref`/`computed`/funções. É onde lógica repetida entre componentes deve morar.
+- Nome sempre começa com `use`. Devolva refs (ou `toRefs` de um `reactive`) para o consumidor não perder reatividade ao desestruturar.
+- **Composable que assina evento, timer ou observer precisa limpar** em `onUnmounted` — vazamento aqui é silencioso.
+- Cuidado com estado no escopo do módulo: `ref` declarado fora da função é **compartilhado por todos os consumidores**. Às vezes é o que se quer (singleton), quase sempre não é.
+
+## Estado compartilhado (Pinia)
+
+- **Pinia para o que é global de verdade**: usuário, tema, carrinho. Estado de tela continua no componente.
+- Store com `defineStore` em estilo setup (mesma sintaxe de composable) mantém um dialeto só no projeto.
+- **Desestruturar store perde reatividade** — use `storeToRefs(store)` para estado e desestruture ações normalmente.
+- Dado de servidor (lista, detalhe, busca) é **cache**, não estado global: precisa de loading, erro e revalidação. Guardar tudo numa store à mão é reimplementar cache ruim; considere biblioteca de query.
+
+## Render e listas
+
+- **`:key` com id estável, nunca índice** em lista que reordena, filtra ou recebe item no meio — com índice, o Vue reaproveita o elemento errado e o input mantém o valor da linha anterior.
+- Não use `v-if` e `v-for` no mesmo elemento: filtre antes com `computed`.
+- `v-once`/`v-memo` para subárvore cara e estática — por medição, não por reflexo.
+- Lista longa pede virtualização.
+- Componente pesado fora da primeira dobra: `defineAsyncComponent` + `Suspense`.
+
+## Reference files
+
+- `references/checklist-revisao-vue.md` — checklist de revisão de componente para code review ou antes de abrir PR.
+VUEEXPERTSKILLEOF
+    cat > ""$PROJECT_DIR/.claude/skills/vue-expert/references/checklist-revisao-vue.md"" << 'VUEEXPERTCHECKLISTEOF'
+# Checklist de Revisão — Vue 3
+
+## Reatividade
+- [ ] `ref` usado por padrão; `reactive` só em objeto nunca reatribuído.
+- [ ] Nenhuma desestruturação de `reactive`/props que perca reatividade (usa `toRefs`/`toRef`).
+- [ ] Nenhum `reactive` reatribuído inteiro.
+- [ ] `.value` presente em todo acesso no script.
+
+## computed vs watch
+- [ ] Valor derivado usa `computed`, não `watch` + atribuição.
+- [ ] `watch` só faz efeito colateral (API, storage, navegação).
+- [ ] Nenhum efeito colateral dentro de `computed`.
+- [ ] `deep: true` só onde é realmente necessário.
+
+## Componentes
+- [ ] Nenhuma mutação direta de prop.
+- [ ] `v-model` de componente usa `defineModel`.
+- [ ] `defineProps`/`defineEmits` tipados.
+- [ ] Sem excesso de props booleanas de variação (considerou slot).
+
+## Composables
+- [ ] Lógica reutilizada extraída em composable com nome `use*`.
+- [ ] Composable devolve refs (consumidor não perde reatividade).
+- [ ] Listener/timer/observer limpo em `onUnmounted`.
+- [ ] Estado no escopo do módulo é compartilhado de propósito.
+
+## Estado
+- [ ] Store guarda só o que é global de verdade.
+- [ ] `storeToRefs` usado ao desestruturar estado da store.
+- [ ] Dado de servidor tratado como cache (loading, erro, revalidação).
+
+## Render
+- [ ] `:key` usa id estável, não índice.
+- [ ] Sem `v-if` junto com `v-for` no mesmo elemento.
+- [ ] Lista longa virtualizada.
+VUEEXPERTCHECKLISTEOF
+    ;;
+esac
+
+# ============================================================================
 # AJUSTE DAS SKILLS COMUNS À STACK — troca cada marcador __STACK_*__ pelo bloco
 # correspondente. É isso que permite manter o mesmo conjunto de skills em todas
 # as stacks sem entregar exemplo de .NET pra quem escolheu Angular (e vice-versa).
@@ -2559,7 +3000,7 @@ if [ "$STACK" = "dotnet" ]; then
    **.NET** — `dotnet restore`, `dotnet build`, `dotnet test` e `dotnet publish` são os steps principais. O artefato publicado (saída do `publish`) é o que os estágios de deploy consomem.
 BLOCKEOF
     cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
-- Condicione o build do PR a `dotnet build` + `dotnet test` (unitários rápidos; testes de integração podem rodar pós-merge se forem lentos), mais o step de scan de segurança (Semgrep) se estiver configurado.
+- Condicione o build do PR a `dotnet build` + `dotnet test` (unitários rápidos; testes de integração podem rodar pós-merge se forem lentos), mais `dotnet list package --vulnerable --include-transitive` como gate de dependência.
 BLOCKEOF
     cat > "$SKILL_TMP/azure_sample" << 'BLOCKEOF'
 ## Pipeline .NET básico (azure-pipelines.yml)
@@ -2687,6 +3128,28 @@ jobs:
           path: ./publish
 ```
 BLOCKEOF
+    cat > "$SKILL_TMP/gh_deploy" << 'BLOCKEOF'
+## Job de deploy com proteção de environment
+
+```yaml
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: drop
+          path: ./publish
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: '<nome-do-app>-staging'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_STAGING }}
+          package: ./publish
+```
+BLOCKEOF
     cat > "$SKILL_TMP/gh_actions" << 'BLOCKEOF'
 ## Actions comuns pra .NET
 - `actions/setup-dotnet@v4` — instala o SDK
@@ -2728,13 +3191,164 @@ Pro contexto deste projeto (Clean Architecture / .NET):
 - Ao avaliar "isso deveria ser um serviço separado" — parta do "não" por padrão, a menos que haja uma razão genuína de escala, cadência de deploy, ou propriedade de time; um monólito modular geralmente é o ponto de partida certo.
 BLOCKEOF
 else
-    cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
-   **Frontend (React, Angular ou Vue)** — `npm ci` (nunca `npm install` em CI, que pode ignorar o lockfile), `npm run lint`, `npm test` em modo headless e `npm run build`. O artefato é o diretório estático gerado (`dist/`), publicado num host estático/CDN pelos estágios de deploy.
-   Como variáveis de build ficam embutidas no bundle, um artefato buildado com config de staging **não** pode ser promovido pra produção: ou você builda por ambiente (aceitando o custo), ou carrega a configuração em runtime (ex: um `config.json` servido junto) e mantém um único artefato.
+    # ------------------------------------------------------------------
+    # Frontend: React, Angular e Vue têm blocos PRÓPRIOS, não um bloco
+    # "frontend" genérico. O que de fato varia entre os três — comando de
+    # teste em CI, pasta do artefato de build, framework de teste, escopo
+    # de commit e as dívidas técnicas típicas — é definido aqui por stack.
+    # Os YAML de pipeline compartilham o esqueleto (que é igual mesmo) e
+    # recebem o comando de teste e a pasta do artefato por substituição.
+    # ------------------------------------------------------------------
+    case "$STACK" in
+        react)
+            FE_LABEL="React"
+            FE_TEST_CI="npm test -- --run"
+            FE_DIST="dist"
+            ;;
+        angular)
+            FE_LABEL="Angular"
+            FE_TEST_CI="npm test -- --watch=false --browsers=ChromeHeadless"
+            # Angular 17+ publica em dist/<nome-do-app>/browser; confira o
+            # outputPath no angular.json do projeto antes de copiar o YAML.
+            FE_DIST="dist/\$(APP_NAME)/browser"
+            ;;
+        vue)
+            FE_LABEL="Vue"
+            FE_TEST_CI="npm test -- --run"
+            FE_DIST="dist"
+            ;;
+    esac
+
+    case "$STACK" in
+        react)
+            cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
+   **React** — `npm ci` (nunca `npm install` em CI, que pode ignorar o lockfile), `npm run lint`, `npm test -- --run` (Vitest em modo não interativo; com Jest, `npm test -- --ci`) e `npm run build`. O artefato é o `dist/` (Vite) ou `build/` (Create React App), publicado num host estático/CDN pelos estágios de deploy.
+   Como variáveis de build (`VITE_*`, `REACT_APP_*`) ficam embutidas no bundle, um artefato buildado com config de staging **não** pode ser promovido pra produção: ou você builda por ambiente (aceitando o custo), ou carrega a configuração em runtime (ex: um `config.json` servido junto) e mantém um único artefato.
 BLOCKEOF
-    cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
-- Condicione o build do PR a `npm ci` + `npm run lint` + `npm test` (unitários/componentes em modo headless) + `npm run build`, mais o step de scan de segurança (Semgrep) se estiver configurado. Suíte E2E completa (Playwright/Cypress) costuma ser lenta demais pro PR — rode um smoke E2E dos fluxos críticos no PR e a suíte inteira pós-merge ou agendada.
+            cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
+- Condicione o build do PR a `npm ci` + `npm run lint` + `npm test -- --run` + `npm run build`, mais `npm audit --audit-level=high` como gate de dependência. Suíte E2E completa (Playwright/Cypress) costuma ser lenta demais pro PR — rode um smoke E2E dos fluxos críticos no PR e a suíte inteira pós-merge ou agendada.
 BLOCKEOF
+            cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
+## Testes Automatizados (React)
+
+- **Componentes (Vitest ou Jest + React Testing Library)**: teste pelo comportamento que o usuário percebe, consultando por papel e texto acessível (`getByRole`, `getByLabelText`) em vez de classe CSS ou estrutura interna — assim o teste sobrevive a refatoração de markup. `userEvent` em vez de `fireEvent`: ele simula a sequência real (foco, keydown, input) e pega bug que o `fireEvent` não pega.
+- **Espere o assíncrono, não durma**: `findBy*` e `waitFor` para o que aparece depois da resposta; `sleep` fixo deixa o teste lento e instável ao mesmo tempo.
+- **Hooks customizados**: teste através do componente que os usa sempre que der; `renderHook` só quando o hook é a unidade reutilizável de verdade.
+- **Mock de API**: intercepte no nível da rede com MSW em vez de mockar o módulo de serviço — o teste passa a validar também a serialização e o tratamento de erro (401, 500, timeout), que é onde os bugs moram.
+- **Estado de servidor**: se o projeto usa TanStack Query, crie um `QueryClient` novo por teste com retry desligado — senão o retry padrão transforma um teste de erro em timeout.
+- **E2E (Playwright ou Cypress)**: poucos e só nos fluxos críticos (login, fluxo principal, checkout). Ancore seletores em `data-testid` ou papel acessível, e use espera por condição.
+- **Acessibilidade**: inclua uma checagem automatizada (`jest-axe`/`axe-core`) nos componentes principais — pega contraste, label ausente e ordem de heading sem revisão manual.
+- **Padrão AAA** em todo teste. Evite snapshot de componente inteiro: quebra a cada mudança de layout e ninguém revisa o diff de verdade.
+BLOCKEOF
+            cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
+```
+feat(components): adicionar componente de lista de tarefas
+feat(pages): implementar tela de criação de tarefa com validação de formulário
+feat(hooks): adicionar useTarefas com cache e invalidação
+feat(api): adicionar cliente HTTP e tipos do endpoint de tarefas
+feat(routes): adicionar rota protegida de tarefas com guard de sessão
+test(components): adicionar testes da lista de tarefas com Testing Library
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+BLOCKEOF
+            cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
+Pro contexto deste projeto (React):
+- Tenha viés padrão pra organização por feature (tudo que pertence a uma funcionalidade junto) em vez de por tipo técnico (todos os componentes numa pasta, todos os hooks em outra) — mas aponte o custo quando o app for pequeno demais pra justificar a estrutura.
+- A dívida técnica nº 1 em React é confundir estado de servidor com estado de aplicação: dado que vem da API é cache (precisa de loading, erro, revalidação) e merece biblioteca própria. Guardar isso em `useState`/Redux à mão é reimplementar cache ruim, e é o que costuma virar o refactor mais caro da base.
+- Segunda dívida mais cara: `useEffect` usado para derivar estado ou reagir a evento do usuário. Ao revisar arquitetura, conte quantos efeitos existem que não sincronizam com sistema externo — é um bom termômetro da saúde da base.
+- Ao avaliar "isso deveria ser um microfrontend" — parta do "não" por padrão, a menos que exista razão genuína de times independentes com cadência de deploy própria.
+- Componente compartilhado só vira parte do design system quando já existe em dois ou três lugares com a mesma forma — abstrair no primeiro uso engessa a API cedo demais.
+BLOCKEOF
+            ;;
+        angular)
+            cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
+   **Angular** — `npm ci` (nunca `npm install` em CI, que pode ignorar o lockfile), `npm run lint`, `npm test -- --watch=false --browsers=ChromeHeadless` (o modo padrão do Karma abre navegador e fica observando; em CI isso trava o job) e `npm run build` (que chama `ng build --configuration production`). O artefato é a pasta de saída do `angular.json` — no Angular 17+, `dist/<nome-do-app>/browser`; confira o `outputPath` antes de copiar qualquer caminho.
+   Como as variáveis de build ficam embutidas no bundle (`environment.ts` é escolhido em tempo de build pelo `fileReplacements`), um artefato buildado com config de staging **não** pode ser promovido pra produção: ou você builda por ambiente (aceitando o custo), ou carrega a configuração em runtime via `APP_INITIALIZER` lendo um `config.json` servido junto, e mantém um único artefato.
+BLOCKEOF
+            cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
+- Condicione o build do PR a `npm ci` + `npm run lint` + `npm test -- --watch=false --browsers=ChromeHeadless` + `npm run build`, mais `npm audit --audit-level=high` como gate de dependência. Suíte E2E completa (Playwright/Cypress) costuma ser lenta demais pro PR — rode um smoke E2E dos fluxos críticos no PR e a suíte inteira pós-merge ou agendada.
+BLOCKEOF
+            cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
+## Testes Automatizados (Angular)
+
+- **Componentes (TestBed + Jasmine/Karma, ou Vitest em projeto mais novo)**: configure o `TestBed` com o mínimo necessário e prefira consultar por papel e texto acessível a depender de classe CSS ou estrutura de template — assim o teste sobrevive a refatoração de markup. Angular Testing Library é uma camada opcional que empurra nessa direção.
+- **`fixture.detectChanges()` é obrigatório** depois de mudar estado, senão o template ainda mostra o valor anterior e o teste falha por motivo errado. Em componente `OnPush`, mudança por mutação não dispara — o teste denuncia o mesmo problema que apareceria em produção.
+- **Assíncrono**: `fakeAsync` + `tick()` para timer e microtask (determinístico, sem espera real); `waitForAsync` quando a promessa é de verdade. `sleep` fixo deixa o teste lento e instável ao mesmo tempo.
+- **Mock de HTTP**: `HttpClientTestingModule` + `HttpTestingController` é o caminho nativo — ele valida também a URL, o método e o corpo da requisição, e o `verify()` no `afterEach` pega requisição sobrando que ninguém esperava.
+- **Serviços e guards**: serviço com dependência injetada testa direto pelo `TestBed.inject`. Teste os guards de rota (redirecionamento sem sessão) e a invalidação de sessão no logout — é comportamento de segurança verificável automaticamente.
+- **RxJS**: para stream com tempo, `TestScheduler` (marble testing) torna o teste determinístico em vez de depender de `setTimeout`.
+- **E2E (Playwright ou Cypress)**: poucos e só nos fluxos críticos. Ancore seletores em `data-testid` ou papel acessível, e use espera por condição.
+- **Acessibilidade**: inclua uma checagem automatizada (axe) nos componentes principais.
+- **Padrão AAA** em todo teste. Evite snapshot de template inteiro.
+BLOCKEOF
+            cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
+```
+feat(components): adicionar componente de lista de tarefas
+feat(pages): implementar tela de criação de tarefa com formulário reativo
+feat(services): adicionar TarefasService com tratamento de erro
+feat(models): adicionar interfaces do contrato de tarefas
+feat(routing): adicionar rota de tarefas com lazy loading e guard de sessão
+test(components): adicionar testes da lista de tarefas com TestBed
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+BLOCKEOF
+            cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
+Pro contexto deste projeto (Angular):
+- Tenha viés padrão pra organização por feature (tudo que pertence a uma funcionalidade junto, carregada por rota) em vez de por tipo técnico — mas aponte o custo quando o app for pequeno demais pra justificar a estrutura.
+- A dívida técnica mais cara numa base Angular é ficar presa a um dialeto antigo: `NgModule` em tudo, `subscribe` manual sem `takeUntilDestroyed`, change detection default. Ao priorizar, trate migração incremental (componente novo já nasce standalone e `OnPush`) como investimento contínuo, não como projeto de reescrita — reescrita grande de Angular quase nunca é aprovada nem terminada.
+- Segunda dívida típica: subscription vazando e lógica de RxJS espalhada pelos componentes em vez de encapsulada em serviço. O sintoma é comportamento fantasma depois de navegar algumas vezes, que o time trata como "bug intermitente".
+- Ao avaliar "isso deveria ser um microfrontend" — parta do "não" por padrão, a menos que exista razão genuína de times independentes com cadência de deploy própria.
+- Componente compartilhado só vira parte do design system quando já existe em dois ou três lugares com a mesma forma — abstrair no primeiro uso engessa a API cedo demais.
+BLOCKEOF
+            ;;
+        vue)
+            cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
+   **Vue** — `npm ci` (nunca `npm install` em CI, que pode ignorar o lockfile), `npm run lint`, `npm test -- --run` (Vitest em modo não interativo) e `npm run build`. Se o projeto usa TypeScript, o build normalmente é `vue-tsc && vite build`, então erro de tipo já reprova o build — não precisa de step separado. O artefato é o `dist/`, publicado num host estático/CDN pelos estágios de deploy.
+   Como variáveis de build (`VITE_*`) ficam embutidas no bundle, um artefato buildado com config de staging **não** pode ser promovido pra produção: ou você builda por ambiente (aceitando o custo), ou carrega a configuração em runtime (ex: um `config.json` servido junto) e mantém um único artefato.
+BLOCKEOF
+            cat > "$SKILL_TMP/cicd_pr" << 'BLOCKEOF'
+- Condicione o build do PR a `npm ci` + `npm run lint` + `npm test -- --run` + `npm run build` (que já roda `vue-tsc`, se o projeto for TypeScript), mais `npm audit --audit-level=high` como gate de dependência. Suíte E2E completa (Playwright/Cypress) costuma ser lenta demais pro PR — rode um smoke E2E dos fluxos críticos no PR e a suíte inteira pós-merge ou agendada.
+BLOCKEOF
+            cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
+## Testes Automatizados (Vue)
+
+- **Componentes (Vitest + Vue Test Utils, ou Vue Testing Library por cima)**: prefira consultar por papel e texto acessível a depender de classe CSS ou estrutura interna — assim o teste sobrevive a refatoração de markup. Vue Testing Library empurra nessa direção; Vue Test Utils puro facilita cair em `find('.classe')`, que quebra à toa.
+- **`await nextTick()` depois de mudar estado**: o Vue atualiza o DOM de forma assíncrona, então asserção imediata depois de um `setValue`/clique lê o DOM antigo. Esse é o motivo nº 1 de teste de Vue que "falha sem razão".
+- **Props e eventos**: monte com `props` e verifique o contrato de saída por `emitted()` — é o que garante que o componente continua conversando do mesmo jeito com o pai depois de refatorado.
+- **Composables**: teste através do componente que os usa quando der; isoladamente, monte um componente mínimo de teste, porque composable que usa ciclo de vida (`onMounted`, `onUnmounted`) precisa de instância para rodar.
+- **Mock de API**: intercepte no nível da rede com MSW em vez de mockar o módulo de serviço — o teste passa a validar também a serialização e o tratamento de erro (401, 500, timeout).
+- **Pinia**: use `createTestingPinia()` para isolar o componente da store real, e teste a store separadamente como unidade.
+- **E2E (Playwright ou Cypress)**: poucos e só nos fluxos críticos. Ancore seletores em `data-testid` ou papel acessível, e use espera por condição.
+- **Acessibilidade**: inclua uma checagem automatizada (axe) nos componentes principais.
+- **Padrão AAA** em todo teste. Evite snapshot de componente inteiro.
+BLOCKEOF
+            cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
+```
+feat(components): adicionar componente de lista de tarefas
+feat(views): implementar tela de criação de tarefa com validação de formulário
+feat(composables): adicionar useTarefas com carregamento e erro
+feat(stores): adicionar store de tarefas no Pinia
+feat(api): adicionar cliente HTTP e tipos do endpoint de tarefas
+feat(router): adicionar rota protegida de tarefas com guard de sessão
+test(components): adicionar testes da lista de tarefas com Vue Test Utils
+docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
+```
+BLOCKEOF
+            cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
+Pro contexto deste projeto (Vue):
+- Tenha viés padrão pra organização por feature (tudo que pertence a uma funcionalidade junto) em vez de por tipo técnico (todos os componentes numa pasta, todas as views em outra) — mas aponte o custo quando o app for pequeno demais pra justificar a estrutura.
+- Padronize um dialeto só e defenda isso em review: Composition API com `<script setup>` para código novo. Base que mistura Options API e Composition API sem regra é a dívida técnica mais comum em Vue — dobra o custo de leitura sem trazer nada.
+- Segunda dívida típica: Pinia virando depósito de tudo, inclusive dado de servidor (que é cache, não estado global) e estado de tela. Ao revisar arquitetura, olhe o tamanho das stores — store que cresce sem parar costuma ser estado que deveria ter ficado no componente.
+- Terceira: `watch` fazendo o trabalho de `computed`. É barato de corrigir e cada ocorrência é uma fonte de verdade duplicada a menos.
+- Ao avaliar "isso deveria ser um microfrontend" — parta do "não" por padrão, a menos que exista razão genuína de times independentes com cadência de deploy própria.
+- Componente compartilhado só vira parte do design system quando já existe em dois ou três lugares com a mesma forma — abstrair no primeiro uso engessa a API cedo demais.
+BLOCKEOF
+            ;;
+    esac
+
+    # ---- Blocos com esqueleto comum aos três frameworks de frontend ----
+    # O YAML de pipeline é genuinamente o mesmo; o que muda é o comando de
+    # teste e a pasta do artefato, injetados por __FE_TEST_CI__/__FE_DIST__.
     cat > "$SKILL_TMP/azure_sample" << 'BLOCKEOF'
 ## Pipeline de frontend básico (azure-pipelines.yml)
 
@@ -2764,13 +3378,13 @@ stages:
             displayName: 'Install (lockfile)'
           - script: npm run lint
             displayName: 'Lint'
-          - script: npm test -- --watch=false
+          - script: __FE_TEST_CI__
             displayName: 'Testes unitários'
           - script: npm run build
             displayName: 'Build de produção'
           - task: PublishBuildArtifacts@1
             inputs:
-              PathtoPublish: 'dist'
+              PathtoPublish: '__FE_DIST__'
               ArtifactName: 'site'
 
   - stage: DeployStaging
@@ -2794,7 +3408,7 @@ BLOCKEOF
 - `NodeTool@0` — instala uma versão específica do Node
 - `Cache@2` — cacheia `node_modules`/cache do npm com chave baseada no `package-lock.json`
 - `script:` — roda os scripts do `package.json` (`npm ci`, `npm run lint`, `npm test`, `npm run build`)
-- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste o `dist/` entre stages
+- `PublishBuildArtifacts@1` / `PublishPipelineArtifact@1` — persiste a pasta de build entre stages
 - `AzureStaticWebApp@0` — deploy pro Azure Static Web Apps
 - `AzureWebApp@1` — deploy pro App Service, quando o front é servido por lá em vez de CDN
 BLOCKEOF
@@ -2829,7 +3443,7 @@ jobs:
         run: npm run lint
 
       - name: Testes unitários
-        run: npm test -- --watch=false
+        run: __FE_TEST_CI__
 
       - name: Build de produção
         run: npm run build
@@ -2838,55 +3452,60 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: site
-          path: ./dist
+          path: ./__FE_DIST__
 ```
+BLOCKEOF
+    cat > "$SKILL_TMP/gh_deploy" << 'BLOCKEOF'
+## Job de deploy com proteção de environment
+
+```yaml
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ./site
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.STATIC_WEB_APPS_TOKEN_STAGING }}
+          action: upload
+          app_location: ./site
+          skip_app_build: true
+```
+
+Publicando em S3 + CloudFront no lugar do Static Web Apps, os dois últimos steps viram um `aws s3 sync`
+para o bucket mais um `aws cloudfront create-invalidation` no `/index.html` — sem a invalidação, o usuário
+continua recebendo o HTML antigo do cache de borda.
 BLOCKEOF
     cat > "$SKILL_TMP/gh_actions" << 'BLOCKEOF'
 ## Actions comuns pra frontend
 - `actions/setup-node@v4` — instala o Node e já cacheia o npm com `cache: 'npm'`
-- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa o `dist/` entre jobs
+- `actions/upload-artifact@v4` / `actions/download-artifact@v4` — passa a pasta de build entre jobs
 - `Azure/static-web-apps-deploy@v1` — deploy pro Azure Static Web Apps
 - `aws-actions/configure-aws-credentials@v4` — credenciais via OIDC pra publicar num bucket S3/CloudFront
 - `azure/login@v2` — login OIDC no Azure (preferível a publish profiles/secrets de longa duração pra produção)
 BLOCKEOF
-    cat > "$SKILL_TMP/qa_automation" << 'BLOCKEOF'
-## Testes Automatizados (Frontend)
-
-- **Testes de componente (Vitest/Jest + Testing Library)**: teste pelo comportamento que o usuário percebe, consultando por papel e texto acessível (`getByRole`, `getByLabelText`) em vez de classe CSS ou estrutura interna — assim o teste sobrevive a refatoração de markup. Angular tem o `TestBed` como equivalente nativo.
-- **Mock de API**: prefira interceptar no nível da rede (MSW ou o `HttpTestingController` do Angular) a mockar o módulo de serviço — o teste passa a validar também a serialização e o tratamento de erro de rede (401, 500, timeout), que é onde os bugs moram.
-- **Testes end-to-end (Playwright ou Cypress)**: poucos e só nos fluxos críticos (login, o fluxo principal do produto, checkout). Ancore seletores em `data-testid` ou papel acessível, e use espera por condição, nunca `sleep` fixo — E2E frágil é abandonado pelo time em poucas sprints.
-- **Estado e rota**: teste os guards de rota (redirecionamento sem sessão) e a invalidação de sessão no logout — é comportamento de segurança verificável automaticamente.
-- **Acessibilidade**: inclua uma checagem automatizada (axe) nos componentes principais; ela pega problemas objetivos (contraste, label ausente, ordem de heading) sem depender de revisão manual.
-- **Padrão AAA**: estruture todo teste em Arrange, Act e Assert. Evite snapshot grande de componente inteiro — quebra a cada mudança de layout e ninguém revisa o diff de verdade.
-BLOCKEOF
     cat > "$SKILL_TMP/aws_deploy" << 'BLOCKEOF'
 ## Deploy do frontend na AWS
 
-- **S3 + CloudFront** é o caminho padrão pra SPA: o bucket guarda o `dist/` (sem acesso público direto) e o CloudFront serve com HTTPS e cache de borda, acessando o bucket via Origin Access Control.
+- **S3 + CloudFront** é o caminho padrão pra SPA: o bucket guarda a pasta de build (sem acesso público direto) e o CloudFront serve com HTTPS e cache de borda, acessando o bucket via Origin Access Control.
 - **Fallback de rota**: como a SPA faz roteamento no cliente, configure a resposta de erro 403/404 do CloudFront pra devolver `/index.html` com status 200 — sem isso, abrir uma URL interna direto no navegador retorna erro.
 - **Estratégia de cache**: assets com hash no nome (`app.8f3a2b.js`) podem ter cache longo e imutável; o `index.html` precisa de cache curto (ou `no-cache`), senão o usuário continua carregando a versão antiga. Todo deploy deve criar uma invalidação de cache pro `index.html`.
 - **AWS Amplify Hosting**: alternativa gerenciada que junta build, hospedagem, preview por pull request e domínio — menos controle que S3+CloudFront, bem menos configuração.
 - **Configuração por ambiente**: variável de build fica embutida no bundle. Se quiser um único artefato para staging e produção, sirva um `config.json` ao lado do bundle e carregue em runtime.
 - **Deploy via CDK ou CloudFormation**: o CDK descreve bucket, distribuição, certificado e invalidação como código, e pode ser escrito em TypeScript — a mesma linguagem do frontend.
 BLOCKEOF
-    cat > "$SKILL_TMP/commit_examples" << 'BLOCKEOF'
-```
-feat(ui): adicionar componente de lista de tarefas
-feat(pages): implementar tela de criação de tarefa com validação de formulário
-feat(store): adicionar estado e ações de tarefas
-feat(api): adicionar cliente HTTP e tipos do endpoint de tarefas
-feat(routing): adicionar rota protegida de tarefas com guard de sessão
-test(ui): adicionar testes de componente da lista de tarefas
-docs(spec): adicionar especificação técnica gerada pelo pipeline SDD
-```
-BLOCKEOF
-    cat > "$SKILL_TMP/techleader" << 'BLOCKEOF'
-Pro contexto deste projeto (frontend React/Angular/Vue):
-- Tenha viés padrão pra organização por feature (tudo que pertence a uma funcionalidade junto) em vez de por tipo técnico (todas as páginas numa pasta, todos os serviços em outra) — mas aponte o custo quando o app for pequeno demais pra justificar a estrutura.
-- Estado global é a dívida técnica mais comum do frontend: comece com estado local e derive o que der; promova pra store global só quando mais de uma área da tela precisar do mesmo dado de verdade. Separe estado de servidor (cache de dados, que merece uma biblioteca própria) de estado de interface.
-- Ao avaliar "isso deveria ser um microfrontend" — parta do "não" por padrão, a menos que exista razão genuína de times independentes com cadência de deploy própria; o custo de integração, de duplicação de dependência e de peso do bundle é real.
-- Componente compartilhado só vira parte do design system quando já existe em dois ou três lugares com a mesma forma — abstrair no primeiro uso costuma engessar a API cedo demais.
-BLOCKEOF
+
+    # Substitui os dois valores que variam entre React, Angular e Vue nos
+    # blocos de esqueleto comum, antes de eles serem injetados nas skills.
+    for fe_block in azure_sample gh_sample; do
+        sed -i "s#__FE_TEST_CI__#$FE_TEST_CI#g; s#__FE_DIST__#$FE_DIST#g" "$SKILL_TMP/$fe_block"
+    done
 fi
 
 CICD_SKILL="$PROJECT_DIR/.claude/skills/cicd-pipeline-expert"
@@ -2896,16 +3515,17 @@ inject_stack_block "$CICD_SKILL/references/azure-devops.md" "__STACK_AZURE_PIPEL
 inject_stack_block "$CICD_SKILL/references/azure-devops.md" "__STACK_AZURE_TASKS__" "$SKILL_TMP/azure_tasks"
 inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_WORKFLOW_SAMPLE__" "$SKILL_TMP/gh_sample"
 inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_ACTIONS__" "$SKILL_TMP/gh_actions"
+inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_DEPLOY_JOB__" "$SKILL_TMP/gh_deploy"
 inject_stack_block "$PROJECT_DIR/.claude/skills/qa-expert/SKILL.md" "__STACK_QA_AUTOMATION__" "$SKILL_TMP/qa_automation"
 inject_stack_block "$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md" "__STACK_AWS_DEPLOY__" "$SKILL_TMP/aws_deploy"
-inject_stack_block "$PROJECT_DIR/.claude/skills/tech-leader/SKILL.md" "__STACK_TECHLEADER_CONTEXT__" "$SKILL_TMP/techleader"
+inject_stack_block "$PROJECT_DIR/.claude/skills/tech-leader-expert/SKILL.md" "__STACK_TECHLEADER_CONTEXT__" "$SKILL_TMP/techleader"
 inject_stack_block "$PROJECT_DIR/.claude/agents/09-commit-message-generator.md" "__STACK_COMMIT_EXAMPLES__" "$SKILL_TMP/commit_examples"
 rm -rf "$SKILL_TMP"
 
 if [ "$STACK" = "dotnet" ]; then
-    echo -e "${GREEN}✅ .claude/skills/ criado (cicd-pipeline-expert, tech-leader, qa-expert, aws-expert + dba-expert e dotnet-security-expert)${NC}"
+    echo -e "${GREEN}✅ .claude/skills/ criado (dotnet-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert + dba-expert e dotnet-security-expert)${NC}"
 else
-    echo -e "${GREEN}✅ .claude/skills/ criado (cicd-pipeline-expert, tech-leader, qa-expert, aws-expert + frontend-security-expert)${NC}"
+    echo -e "${GREEN}✅ .claude/skills/ criado (${STACK}-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert + frontend-security-expert)${NC}"
 fi
 
 
@@ -4616,7 +5236,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.18.0**
+**Projeto criado com Claude SDD v3.19.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -5297,9 +5917,6 @@ const generic = [
   "Edit(knowledge/**)",
   "Edit(src/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
-  "Bash(command -v semgrep)",
-  "Bash(pip install semgrep*)",
-  "Bash(semgrep *)",
   // auditoria de segurança (08): relatório em PDF gerado em venv isolado + leitura do histórico do Git
   "Bash(python*)",
   "Bash(python3*)",
@@ -5318,7 +5935,7 @@ for (const rule of [...generic, ...stackBash]) {
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
 ' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
 
-echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, src/, build/test da stack, scan do semgrep)${NC}"
+echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, src/, build/test da stack)${NC}"
 
 # ============================================================================
 # CRIAR .gitignore

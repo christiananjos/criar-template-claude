@@ -148,7 +148,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `05-test-validator` | Gera testes automatizados | sempre |
 | `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
 | `07-build-test-validator` | Valida build e testes | sempre |
-| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS), corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF com issues prontas para o GitHub | sempre |
+| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF com issues prontas para o GitHub | sempre |
 | `09-commit-message-generator` | Gera commits semânticos | sempre |
 | `10-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
 | `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
@@ -170,20 +170,54 @@ O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação ada
 store, cliente HTTP e configuração de build. O contrato de saída é o mesmo nos dois casos: um arquivo por tema
 em `docs/raw/`, que o `00-knowledge-bootstrap` consome na rodada seguinte.
 
+## Agente (specialist) x Skill (expert) — a diferença
+
+Os dois aparecem no projeto gerado com nomes parecidos (`03-react-specialist` e `react-expert`), mas são
+mecanismos diferentes do Claude Code:
+
+| | **Agente** — `.claude/agents/03-<stack>-specialist.md` | **Skill** — `.claude/skills/<stack>-expert/SKILL.md` |
+|---|---|---|
+| O que é | Um subagente: executa | Conhecimento: informa |
+| Quem dispara | O `/orchestrator`, na ordem do pipeline | O próprio Claude, quando o assunto aparece na conversa |
+| Contexto | Roda numa janela própria e devolve só o relatório | Entra no contexto da conversa atual |
+| O que faz | Escreve código em `src/`, grava relatório em `output/`, atualiza o vault | Não executa nada — orienta quem está escrevendo |
+| Quando age | Só durante uma rodada do pipeline | Em qualquer sessão, dentro ou fora do pipeline |
+
+Na prática: o **specialist** é quem implementa a spec quando você roda `/orchestrator`. O **expert** é quem
+responde quando você pergunta "esse `useEffect` está certo?" numa terça-feira qualquer, sem pipeline nenhum
+rodando — e é carregado também pelo próprio specialist na hora de implementar, então a mesma régua vale nos
+dois caminhos.
+
+O sufixo segue essa divisão: **`-specialist` = agente (faz)**, **`-expert` = skill (sabe)**. Em português os
+dois viram "especialista", que é justamente o que confunde — por isso os arquivos mantêm o termo em inglês.
+
 ## Skills — especialistas extras
 
 Todo projeto sai também com skills em `.claude/skills/`, complementares aos agentes do pipeline — não são
 chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você invocar
 manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem.
 
+**Uma skill é da stack do projeto** — a contraparte consultável do agente `03-<stack>-specialist`, criada só
+para a stack escolhida:
+
+| Skill | Cobre |
+|---|---|
+| `dotnet-expert` | C# e ASP.NET Core idiomáticos — fronteiras da Clean Architecture, DI e tempo de vida (captive dependency), async/await e `CancellationToken`, EF Core no nível de aplicação (tracking, projeção, N+1, `IQueryable` vs `IEnumerable`), erro e validação, C# moderno |
+| `react-expert` | React moderno — de onde vem o estado (servidor/URL/local/global), quando **não** usar `useEffect`, render e re-render em cascata, `key` e listas, formulários, hooks customizados |
+| `angular-expert` | Angular moderno — standalone e signals, `OnPush` e change detection, RxJS sem vazar (`takeUntilDestroyed`, operadores de achatamento), Reactive Forms tipados, lazy loading e interceptors |
+| `vue-expert` | Vue 3 — onde a reatividade se perde (`ref` vs `reactive`, destructuring), `computed` vs `watch`, props/eventos e `defineModel`, composables, Pinia, keys e render |
+
 **Quatro skills vão para todas as stacks**, com os trechos específicos (comandos de build, YAML de pipeline,
-framework de teste, deploy) adaptados à stack do projeto na hora da geração:
+framework de teste, escopo de commit, deploy) adaptados à stack na hora da geração. Adaptados **por framework**,
+não por família: React, Angular e Vue recebem blocos próprios, não um bloco "frontend" genérico — o projeto
+Angular fala de `TestBed`, `HttpTestingController` e `--browsers=ChromeHeadless`, o de Vue fala de Vue Test
+Utils, `nextTick` e `createTestingPinia`, e nenhum dos dois menciona as ferramentas do outro:
 
 | Skill | Cobre |
 |---|---|
 | `cicd-pipeline-expert` | Pipelines Azure DevOps e GitHub Actions — YAML, estratégias de deploy (blue-green/canary/rolling), políticas de branch. O pipeline de exemplo sai em `dotnet` ou em `npm ci`/`npm run build`, conforme a stack |
-| `tech-leader` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
-| `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes exploratórios, gestão de bugs — com a seção de automação em xUnit/Testcontainers ou em Testing Library/Playwright, conforme a stack |
+| `tech-leader-expert` | Decisões de arquitetura (ADRs), code review em nível lead, mentoria técnica, priorização de dívida técnica |
+| `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes exploratórios, gestão de bugs — com a seção de automação escrita para a stack: xUnit/Testcontainers no .NET, Testing Library + MSW no React, TestBed + `HttpTestingController` no Angular, Vue Test Utils + `createTestingPinia` no Vue |
 | `aws-expert` | Arquitetura e operação AWS — EC2/ECS/Lambda, S3, RDS/DynamoDB, VPC/IAM, otimização de custo — com a seção de deploy da aplicação .NET ou do SPA (S3+CloudFront, Amplify) |
 
 **Duas são específicas de `.NET`**, porque não teriam o que fazer num projeto sem backend:
@@ -191,7 +225,7 @@ framework de teste, deploy) adaptados à stack do projeto na hora da geração:
 | Skill | Cobre |
 |---|---|
 | `dba-expert` | SQL Server, Azure SQL e PostgreSQL — modelagem de schema, indexação, otimização de query, migrations do EF Core, backup/replicação |
-| `dotnet-security-expert` | Segurança de aplicações .NET — auth (JWT/Identity), OWASP Top 10, gestão de secrets, SAST com Semgrep |
+| `dotnet-security-expert` | Segurança de aplicações .NET — auth (JWT/Identity), OWASP Top 10, gestão de secrets, scanning de dependências pelo próprio SDK (`dotnet list package --vulnerable / --deprecated / --outdated`) |
 
 **Uma é específica de frontend** (`React`/`Angular`/`Vue`), como equivalente da de segurança do `.NET`:
 
@@ -199,9 +233,9 @@ framework de teste, deploy) adaptados à stack do projeto na hora da geração:
 |---|---|
 | `frontend-security-expert` | Segurança no browser — XSS e sanitização, CSP e headers, onde guardar token de sessão, OAuth2/PKCE, segredos que vazam no bundle, dependências npm |
 
-Ou seja: 6 skills num projeto `.NET` e 5 num projeto de frontend, com o mesmo núcleo em ambos.
+Ou seja: 7 skills num projeto `.NET` e 6 num projeto de frontend, com o mesmo núcleo em ambos.
 
-Todas as 6 seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
+Todas seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
 `knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
 do `vault/` relevante ao assunto — e só cai pra busca ampla no código/projeto se a referência ali não for
 suficiente. Isso evita reler o projeto inteiro a cada consulta e usa os tokens de forma mais eficiente.
@@ -272,11 +306,11 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
 - **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
-- **`.claude/skills/`** — skills de especialistas extras em toda stack: `cicd-pipeline-expert`, `tech-leader`, `qa-expert` e `aws-expert` sempre; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima.
+- **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert` e `aws-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, scan do Semgrep, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
+- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
 ## Estrutura do plugin

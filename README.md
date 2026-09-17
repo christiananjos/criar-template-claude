@@ -162,7 +162,7 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 
 | Comando | Stacks | O que faz |
 |---|---|---|
-| `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória e então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
+| `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
@@ -238,6 +238,24 @@ aberto moram ali. Os relatórios do pipeline ficam em `output/`, que é por roda
 que morasse só lá morreria junto com a sessão. Os agentes `01-orchestrator-sdd`, `02-architect-sdd` e
 `04-compliance-validator` são donos dessa pasta e a atualizam antes de encerrar; quando um item é
 implementado, a nota sai (ou é marcada como concluída) no mesmo commit da implementação.
+
+## Gate de segredos no commit
+
+Antes de commitar, o `/commit` varre o que está no stage (`git diff --cached`) atrás de credencial
+exposta: chaves de AWS/Google/OpenAI/Slack, tokens do GitHub, blocos de chave privada, JWT e atribuições do
+tipo `password=`, `secret=`, `api_key=`, `connection string=` com valor real. Também olha os **nomes** dos
+arquivos — `.env`, `*.pem`, `*.pfx`, `id_rsa`, `secrets.json` e afins quase nunca deveriam ser versionados.
+
+O comando faz triagem antes de alarmar (placeholder como `your-api-key-here`, `*.example`, fixture de teste
+e connection string de `localhost` não são segredo) e, se sobrar algo real, **para antes do commit** e
+reporta arquivo, linha e o valor mascarado — nunca o segredo inteiro. A sugestão de correção depende do
+caso: tirar o arquivo do stage e mandá-lo para o `.gitignore` com um `.example` no lugar, ou trocar o valor
+por variável de ambiente / `dotnet user-secrets`. Se o segredo já estiver em commit anterior, o comando diz
+com todas as letras que tirar do stage não resolve — a correção é **rotacionar a credencial**.
+
+É uma rede rápida baseada em padrões, não uma auditoria: quem faz a auditoria completa (cinco categorias de
+falha, com relatório em PDF) é o agente `08-security-scan-sdd` do `/orchestrator`. O `/commit` deste
+repositório-template tem o mesmo gate, em versão condensada.
 
 ## Relatório de tokens
 

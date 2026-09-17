@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.17.1
+# 🚀 Criar Template Claude SDD v3.18.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.17.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.18.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -3584,9 +3584,9 @@ echo -e "${GREEN}✅ .claude/commands/README.md criado${NC}"
 
 cat > ""$PROJECT_DIR/.claude/commands/commit.md"" << 'COMMITEOF'
 ---
-description: Sincroniza o Knowledge Engine, gera a mensagem de commit a partir do diff atual e faz push na branch atual
+description: Sincroniza o Knowledge Engine, varre o que vai subir em busca de segredos expostos, gera a mensagem de commit a partir do diff atual e faz push na branch atual
 argument-hint: [contexto opcional sobre o que mudou]
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*), Bash(git check-ignore:*), Bash(node .claude/scripts/knowledge-engine-build.cjs), Bash(ls:*), Bash(cat:*), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*), Bash(git check-ignore:*), Bash(git restore:*), Bash(node .claude/scripts/knowledge-engine-build.cjs), Bash(ls:*), Bash(cat:*), Read, Edit, Write, Grep, Glob
 ---
 
 Contexto opcional passado pelo usuário (pode estar vazio): $ARGUMENTS
@@ -3672,12 +3672,57 @@ mensagem, e nenhum commit sai sem eles.
    por conta própria. Se a branch atual não tiver upstream configurado, use `git push -u origin <branch>`.
 
 9. `git add -A` e, se `knowledge/` existir, também `git add -A knowledge/` explicitamente (garante que o
-   vault entre mesmo que algum `.gitignore` aninhado tenha escapado da checagem do passo 3). Depois
-   `git commit -m "..."` (heredoc se a mensagem tiver corpo em múltiplas linhas) e `git push`.
+   vault entre mesmo que algum `.gitignore` aninhado tenha escapado da checagem do passo 3).
+   **Ainda não commite** — falta o gate do passo 10.
 
-10. Reporte o resultado: hash do commit, resumo de uma linha do que foi commitado, **quantos arquivos de
-    `knowledge/` foram junto** (ou "vault já sincronizado"), e confirmação do push (ou o erro, se o push
-    falhar — não tente forçar).
+10. **Varredura de segredos — o último portão antes do commit.** Agora que tudo está no stage, você sabe
+    exatamente o que vai subir. Rode:
+
+    ```bash
+    git diff --cached --name-only
+    git diff --cached -U0 | grep -nEi 'AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY|xox[baprs]-[0-9A-Za-z-]{10,}|gh[pousr]_[0-9A-Za-z]{20,}|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(pass(word|wd)?|secret|token|api[_-]?key|client[_-]?secret|connection ?string|accountkey)["'"'"']? *[:=] *["'"'"']?[^"'"'"' ,;<>]{8,}'
+    ```
+
+    Olhe também os **nomes** dos arquivos do stage: `.env`, `.env.*` (menos `.env.example`), `*.pem`,
+    `*.key`, `*.pfx`, `*.p12`, `id_rsa`, `credentials`, `secrets.json`, `appsettings.*.json` e
+    `*.publishsettings` quase nunca deveriam ser versionados.
+
+    **Triagem — nem tudo que casa é segredo.** Antes de alarmar, abra a linha e confirme. Não são segredo:
+    - placeholders (`your-api-key-here`, `<TOKEN>`, `xxx`, `changeme`, `INSIRA_SEU_TOKEN`, string vazia) —
+      inclusive o `.mcp.json` deste projeto, que traz um campo de token do GitHub em branco de propósito;
+    - exemplos em documentação, `*.example`, `*.sample`, fixtures e mocks de teste com valor fake;
+    - `localhost`/`Integrated Security=true` em connection string de desenvolvimento;
+    - hash/chave pública (o que é público por definição).
+
+    **Se sobrar algo que parece segredo de verdade, PARE. Não commite.** Reporte assim:
+    - o arquivo e a linha, com o valor **mascarado** (mostre no máximo os 4 primeiros caracteres:
+      `AKIA****`) — nunca repita o segredo inteiro na sua resposta;
+    - o que fazer, escolhendo a saída certa para o caso:
+      - **Arquivo inteiro não deveria ser versionado** (`.env`, `*.pem`): `git restore --staged <arquivo>`,
+        acrescente ao `.gitignore` e deixe um `<arquivo>.example` sem valores no lugar.
+      - **Valor solto no meio do código/config**: troque por variável de ambiente ou pela solução de
+        secrets da stack — em .NET, `dotnet user-secrets set "Chave" "valor"` no desenvolvimento e
+        variável de ambiente/cofre em produção; em frontend, variável de ambiente no build, lembrando que
+        **tudo que vai pro bundle é público** (chave secreta em frontend não existe — ela precisa ficar no
+        backend).
+      - Em qualquer caso, registre em `knowledge/vault/13 - Segurança/` o que foi encontrado e como foi
+        resolvido, para a próxima rodada não repetir.
+    - **Se o segredo já estiver em algum commit anterior** (confira com `git log -S '<trecho>' --oneline`),
+      avise com todas as letras: tirar do stage agora **não** resolve, porque ele continua no histórico e,
+      se já houve push, já vazou. A única correção de verdade é **rotacionar a credencial** (invalidar a
+      antiga no provedor e gerar outra); reescrever o histórico (`git filter-repo`, BFG) é opcional e
+      secundário, e nunca deve ser feito sem o usuário mandar.
+
+    Só siga para o passo 11 depois que o usuário confirmar que é falso positivo ou que já corrigiu.
+    Este gate é uma rede rápida baseada em padrões, não uma auditoria — quem faz a auditoria completa é o
+    agente `08-security-scan-sdd` do `/orchestrator`. Não anuncie o repositório como "sem segredos": diga
+    apenas que a varredura do commit não encontrou nada.
+
+11. `git commit -m "..."` (heredoc se a mensagem tiver corpo em múltiplas linhas) e `git push`.
+
+12. Reporte o resultado: hash do commit, resumo de uma linha do que foi commitado, **quantos arquivos de
+    `knowledge/` foram junto** (ou "vault já sincronizado"), o resultado da varredura de segredos, e
+    confirmação do push (ou o erro, se o push falhar — não tente forçar).
 COMMITEOF
 echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
 
@@ -4571,7 +4616,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.17.1**
+**Projeto criado com Claude SDD v3.18.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

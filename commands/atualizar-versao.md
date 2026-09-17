@@ -127,7 +127,7 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 - `.claude/agents/` — os agentes `00` a `10` da stack detectada
 - `.claude/rules/` — convenções por caminho de arquivo
 - `.claude/skills/` — a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou
-  `vue-expert`, conforme o projeto) mais as de apoio (`cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `dba-expert`,
+  `vue-expert`, conforme o projeto) mais as de apoio (`cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `dba-expert`,
   `dotnet-security-expert`/`frontend-security-expert`). Todas terminam em `-expert`.
 - `.claude/hooks/generate-token-report.cjs` e `.claude/scripts/knowledge-engine-build.cjs`
 

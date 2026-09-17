@@ -26,7 +26,7 @@ do plugin (`christiananjos/criar-template-claude` é só o repositório/marketpl
 | Comando | O que faz |
 |---|---|
 | `/sdd:comecar` | Gera a estrutura SDD num projeto novo, ou acopla o pipeline a um projeto já existente sem sobrescrever código — ver seções "Uso" e "Acoplar num projeto já existente". |
-| `/sdd:atualizar-versao` | Sincroniza o marketplace e atualiza este plugin instalado para a versão mais recente numa tacada só — ver seção "Mantendo o plugin atualizado". |
+| `/sdd:atualizar-versao` | Sincroniza o marketplace, atualiza este plugin instalado e **reaplica o template no projeto da pasta atual**, preservando `docs/raw/` e `knowledge/` — ver seção "Mantendo o plugin atualizado". |
 
 ## Mantendo o plugin atualizado
 
@@ -40,6 +40,15 @@ controle; é uma escolha de quem instala.
 ```
 Sincroniza o marketplace e atualiza o plugin para a versão mais recente numa tacada só (equivale aos passos
 manuais abaixo). Pede restart da sessão do Claude Code pra aplicar, se atualizar alguma coisa.
+
+Além disso, se você rodar esse comando **de dentro de um projeto gerado pelo template**, ele reaplica a
+estrutura da versão nova nesse projeto — atualizar o plugin sozinho não atualiza projetos já criados, porque
+`.claude/commands/` e `.claude/agents/` são cópias gravadas no projeto na hora em que ele foi gerado. O que
+é reescrito: `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `.claude/skills/`, hooks e scripts.
+O que **nunca** é tocado: `docs/raw/` e `knowledge/` (a documentação bruta e o vault já injetados),
+além de `src/`, `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `COMECE-AQUI.md` e `.mcp.json`; o
+`.claude/settings.json` sofre merge em vez de sobrescrita. Antes de reescrever, o comando salva um backup
+da `.claude/` anterior em `output/.claude-backup-<timestamp>/`.
 
 **Manual, passo a passo:**
 ```
@@ -239,7 +248,7 @@ criar-template-claude/
 │   └── marketplace.json
 ├── commands/
 │   ├── comecar.md                        # /comecar — gera/acopla a estrutura SDD no projeto
-│   └── atualizar-versao.md                # /atualizar-versao — atualiza este plugin instalado para a versão mais recente
+│   └── atualizar-versao.md                # /atualizar-versao — atualiza o plugin e reaplica o template no projeto atual
 ├── .claude/commands/                     # só neste repo (dev) — não vai para quem instala o plugin
 │   ├── bump-versao.md
 │   └── commit.md

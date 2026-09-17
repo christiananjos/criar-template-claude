@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.15.0
+# 🚀 Criar Template Claude SDD v3.16.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -104,7 +104,7 @@ esac
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.15.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.16.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -154,6 +154,9 @@ fi
 # CRIAR docs/raw/README.md — instruções para o usuário sobre a pasta de entrada
 # ============================================================================
 
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/docs/raw/README.md" ]; then
+    echo -e "${YELLOW}⏭️  docs/raw/README.md já existe — mantido sem alterações${NC}"
+else
 cat > ""$PROJECT_DIR/docs/raw/README.md"" << 'DOCSREADMEEOF'
 # 📥 Pasta de Documentação Bruta (docs/raw/)
 
@@ -192,8 +195,8 @@ como no fluxo original.
 Os arquivos originais **nunca são alterados**. Eles ficam preservados também em `knowledge/source/`,
 como referência permanente.
 DOCSREADMEEOF
-
 echo -e "${GREEN}✅ docs/raw/README.md criado${NC}"
+fi
 
 # ============================================================================
 # knowledge/ fica vazia na criação do projeto — nada é pré-gravado aqui.
@@ -4153,9 +4156,6 @@ fi
 
 mkdir -p "$PROJECT_DIR/.claude/rules"
 
-if [ -f "$PROJECT_DIR/.claude/rules/knowledge-vault.md" ]; then
-    echo -e "${YELLOW}⏭️  .claude/rules/knowledge-vault.md já existe — mantido sem alterações${NC}"
-else
 cat > "$PROJECT_DIR/.claude/rules/knowledge-vault.md" << 'RULEEOF'
 ---
 paths:
@@ -4181,12 +4181,8 @@ paths:
   ele diz isso explicitamente no relatório, para não restar dúvida se foi esquecido.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/knowledge-vault.md criado${NC}"
-fi
 
 if [ "$STACK" = "dotnet" ]; then
-    if [ -f "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" ]; then
-        echo -e "${YELLOW}⏭️  .claude/rules/dotnet-clean-architecture.md já existe — mantido sem alterações${NC}"
-    else
 cat > "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" << 'RULEEOF'
 ---
 paths:
@@ -4203,11 +4199,7 @@ paths:
 - Código pronto para produção, sem placeholders ou `TODO`.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/dotnet-clean-architecture.md criado${NC}"
-    fi
 else
-    if [ -f "$PROJECT_DIR/.claude/rules/frontend-components.md" ]; then
-        echo -e "${YELLOW}⏭️  .claude/rules/frontend-components.md já existe — mantido sem alterações${NC}"
-    else
         case "$STACK" in
             react)   FRONTEND_RULE_PATHS='  - "src/**/*.ts"
   - "src/**/*.tsx"' ;;
@@ -4233,11 +4225,7 @@ $FRONTEND_RULE_PATHS
 - Código pronto para produção, sem placeholders ou \`TODO\`.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-components.md criado${NC}"
-    fi
 
-    if [ -f "$PROJECT_DIR/.claude/rules/frontend-security.md" ]; then
-        echo -e "${YELLOW}⏭️  .claude/rules/frontend-security.md já existe — mantido sem alterações${NC}"
-    else
 cat > "$PROJECT_DIR/.claude/rules/frontend-security.md" << RULEEOF
 ---
 paths:
@@ -4279,11 +4267,7 @@ inspecionando o site no ar.
   um debounce cosmético no botão de submit do formulário.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-security.md criado${NC}"
-    fi
 
-    if [ -f "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" ]; then
-        echo -e "${YELLOW}⏭️  .claude/rules/frontend-design-direction.md já existe — mantido sem alterações${NC}"
-    else
 cat > "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" << RULEEOF
 ---
 paths:
@@ -4324,7 +4308,6 @@ antes de salvar, não apenas relate:
 - O scroll conta uma história ou é só uma lista de seções empilhadas?
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-design-direction.md criado${NC}"
-    fi
 fi
 
 # ============================================================================
@@ -4442,7 +4425,7 @@ esbarram nos mesmos arquivos.
 
 ---
 
-**Projeto criado com Claude SDD v3.15.0**
+**Projeto criado com Claude SDD v3.16.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado${NC}"

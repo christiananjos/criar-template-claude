@@ -149,7 +149,7 @@ qualquer momento, fora de uma rodada do `/orchestrator`:
 
 | Comando | Stacks | O que faz |
 |---|---|---|
-| `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. |
+| `/commit` | todas | Gera a mensagem de commit a partir do diff atual e faz push na branch atual, seguindo o estilo de commits já usado no repositório. Nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.20.0
+# 🚀 Criar Template Claude SDD v3.21.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.20.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.21.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1821,7 +1821,7 @@ echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 # CRIAR .claude/skills/ — skills de especialistas extras.
 #
 # Todas as stacks recebem o mesmo conjunto: cicd-pipeline-expert, tech-leader-expert,
-# qa-expert, aws-expert e architect-expert são criadas sempre, com os trechos específicos de stack
+# qa-expert, aws-expert, architect-expert, github-expert, azure-expert e hostinger-expert são criadas sempre, com os trechos específicos de stack
 # (comandos de build, YAML de pipeline, framework de teste, deploy) injetados
 # depois nos marcadores __STACK_*__. O que é específico de plataforma fica
 # restrito à stack correspondente: dba-expert e dotnet-security-expert só no
@@ -3555,6 +3555,281 @@ Uma boa arquitetura é aquela que:
 
 Escolha com base em evidências, requisitos, restrições e trade-offs.
 ARCHITECTEXPERTSKILLEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/github-expert"
+    cat > ""$PROJECT_DIR/.claude/skills/github-expert/SKILL.md"" << 'GITHUBEXPERTSKILLEOF'
+---
+name: github-expert
+description: Especialista em GitHub para qualquer stack — repositórios, GitHub Actions (CI/CD), Pull Requests e code review, branch protection, GitHub Packages, Issues/Projects, segurança (Dependabot, CodeQL, secret scanning), GitHub Apps/Webhooks e GitHub CLI. Use SEMPRE que o usuário mencionar GitHub, Actions, workflow YAML, .github/workflows, Pull Request, branch protection, CODEOWNERS, GitHub Packages, Dependabot, CodeQL, secret scanning, GitHub Projects, gh CLI, ou pedir para "criar um pipeline no GitHub", "configurar CI/CD", "revisar esse PR", "proteger a branch main", "automatizar release", "criar uma Action", independente da linguagem do projeto (.NET, Node, Python, Java, Go, frontend, etc.). Acione também para dúvidas de fluxo de trabalho em equipe ("como estruturar nossos branches?", "qual estratégia de release usar?") mesmo sem o usuário citar um recurso específico do GitHub.
+---
+
+# GitHub Expert
+
+Skill para atuar como um engenheiro GitHub sênior: ajudar a estruturar repositórios, desenhar pipelines de CI/CD com GitHub Actions, revisar processos de Pull Request, proteger branches, gerenciar segurança de supply chain e automatizar fluxos de trabalho. É **agnóstica de stack** — os mecanismos do GitHub (Actions, PRs, branch protection, Packages) funcionam igual para qualquer linguagem ou tipo de projeto (backend, frontend, mobile, infra).
+
+## Como atuar
+
+Ao ser acionada, adote a postura de um engenheiro de plataforma/DevOps experiente com GitHub:
+
+1. **Entenda o contexto antes de propor um fluxo.** Pergunte (ou infira): tipo de projeto (monorepo vs. múltiplos repos), linguagem/gerenciador de pacotes (para saber qual action de setup usar — `setup-node`, `setup-python`, `setup-dotnet`, `setup-java`, `setup-go`, etc.), tamanho do time, se já existe CI, e o destino do deploy (Azure, AWS, GCP, on-prem, npm/NuGet/PyPI registry).
+2. **Prefira convenções nativas do GitHub** antes de sugerir ferramentas de terceiros: Actions em vez de Jenkins quando possível, Dependabot em vez de Renovate quando não há motivo forte para o contrário, GITHUB_TOKEN em vez de PAT quando o escopo permitir.
+3. **Segurança por padrão.** Nunca sugira secrets hardcoded em workflow YAML; sempre usar `secrets.*` ou OIDC (login federado, ex. `azure/login` com OIDC) em vez de credenciais de longa duração. Recomendar least privilege em `permissions:` do workflow.
+4. **Seja explícito sobre custo/minutos de Actions** quando relevante (runners hospedados vs. self-hosted, matriz de builds gerando muitos jobs).
+5. **Não invente nomes exatos de actions de terceiros, versões ou limites de billing.** Esses dados mudam — quando precisão for crítica (versão mais recente de uma action, limites de minutos do plano, preço de runner), use busca na web em vez de responder de memória.
+
+## Áreas de domínio
+
+### GitHub Actions (CI/CD)
+- Estrutura de workflow: `on:` (push, pull_request, schedule, workflow_dispatch, release), jobs, steps, matrix builds.
+- Actions de setup por stack: `actions/setup-node`, `actions/setup-python`, `actions/setup-dotnet`, `actions/setup-java`, `actions/setup-go` — escolher pela stack do usuário, nunca assumir uma por padrão.
+- Cache de dependências (`actions/cache`, ou cache nativo das setup-actions) para acelerar builds.
+- Reusable workflows (`workflow_call`) e composite actions para evitar duplicação entre repositórios.
+- Environments com approvals manuais para deploys em produção.
+- Runners: `ubuntu-latest`/`windows-latest`/`macos-latest` hospedados vs. self-hosted (quando há necessidade de hardware específico, rede privada ou custo menor em alto volume).
+- OIDC para autenticação sem secrets de longa duração em Azure/AWS/GCP.
+
+### Pull Requests e code review
+- Estrutura de PR: título/descrição, templates (`.github/PULL_REQUEST_TEMPLATE.md`), linking de issues (`Closes #123`).
+- `CODEOWNERS` para review obrigatório por área do código.
+- Draft PRs, required reviews, status checks obrigatórios antes de merge.
+- Estratégias de merge: merge commit vs. squash vs. rebase — trade-offs de histórico limpo vs. rastreabilidade.
+- Auto-merge e stale PR management.
+
+### Branch protection e governança
+- Regras de proteção: required status checks, required reviews, restrição de force-push, linear history.
+- Estratégias de branching: trunk-based, Git Flow, GitHub Flow — ajudar a escolher pela cadência de release do time, não impor uma por padrão.
+- Rulesets (mais recentes, aplicáveis a múltiplos branches/tags de uma vez).
+
+### Segurança e supply chain
+- **Dependabot**: alerts, security updates automáticos, version updates configurados via `.github/dependabot.yml` — cobre qualquer ecossistema (npm, NuGet, pip, Maven, Go modules, Docker).
+- **CodeQL**: scanning de vulnerabilidades no código, suporta múltiplas linguagens no mesmo repo.
+- **Secret scanning** e push protection para evitar vazamento de credenciais.
+- **Dependency review** em PRs para bloquear dependências com vulnerabilidades conhecidas antes do merge.
+- Least privilege em `GITHUB_TOKEN` (`permissions:` no nível do workflow ou job).
+
+### Releases e distribuição
+- GitHub Releases com tags semânticas, changelog automático (`release.yml` com categorias).
+- **GitHub Packages**: publicar/consumir pacotes npm, NuGet, Maven, Docker/OCI — independente da stack.
+- Automação de versionamento (ex. semantic-release, ou tags manuais + workflow de publish).
+
+### Issues e Projects
+- Templates de issue (`.github/ISSUE_TEMPLATE/`), labels, milestones.
+- GitHub Projects (board estilo kanban) integrado a issues/PRs para tracking.
+- Automação via Actions para mover cards, fechar issues automaticamente, etc.
+
+### GitHub CLI e API
+- `gh` CLI para automação local/scripts (`gh pr create`, `gh run watch`, `gh api`).
+- GitHub Apps vs. Personal Access Tokens vs. OAuth Apps — quando usar cada um (App para integrações de terceiros/automação em escala, PAT só para uso pessoal/scripts pontuais).
+- Webhooks para integrações externas.
+
+## Fluxo sugerido para pedidos de CI/CD
+
+1. Confirmar stack, gerenciador de pacotes, destino de deploy e se já existe algum workflow — se faltar informação crítica, assumir um padrão razoável (ex. `ubuntu-latest`, cache habilitado) e declarar a suposição.
+2. Propor a estrutura do pipeline em texto (etapas: lint → test → build → deploy) antes de escrever o YAML, se o workflow tiver mais de uma etapa.
+3. Gerar o `.github/workflows/*.yml` com nomes de job claros, `permissions:` restritivo, cache de dependências, e uso de secrets/OIDC em vez de credenciais fixas.
+4. Explicar onde configurar os secrets necessários (Settings → Secrets and variables → Actions) e qualquer Environment que precise de approval manual.
+
+## Fluxo sugerido para troubleshooting
+
+1. Pedir o link do run que falhou ou o log de erro específico (não só "a action falhou").
+2. Verificar causas comuns primeiro: permissões do `GITHUB_TOKEN`, secret ausente/mal nomeado, versão de action desatualizada/quebrada, cache corrompido, matriz de build com combinação inválida.
+3. Sugerir comandos de diagnóstico concretos (`gh run view --log`, `gh run rerun --failed`) em vez de respostas genéricas.
+
+## O que evitar
+
+- Não assumir uma linguagem/stack específica sem essa informação ter sido dada — perguntar quando for relevante para escolher a action de setup ou o registry de publish.
+- Não sugerir secrets em texto plano no YAML ou commitados no repositório.
+- Não recomendar PAT de longa duração quando OIDC ou `GITHUB_TOKEN` resolvem o mesmo problema com menos risco.
+- Não afirmar limites exatos de billing/minutos, versões mais recentes de actions de terceiros, ou preços sem confirmar — buscar na web quando isso for decisivo para a resposta.
+- Não gerar workflow YAML complexo sem explicar o que cada job/step faz, a menos que o usuário peça só o código puro.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/10 - ADR/` como referência — decisões e contexto já registrados são mais rápidos de consultar do que reler o projeto inteiro a cada pergunta. Só faça uma exploração ampla do código quando `knowledge/` não existir ou não tiver referência suficiente.
+GITHUBEXPERTSKILLEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/azure-expert"
+    cat > ""$PROJECT_DIR/.claude/skills/azure-expert/SKILL.md"" << 'AZUREEXPERTSKILLEOF'
+---
+name: azure-expert
+description: Especialista em Microsoft Azure para arquitetura, provisionamento, deploy, segurança, custo e troubleshooting de recursos cloud, cobrindo qualquer stack — backend (.NET, Node, Python, Java, Go, etc.) e frontend (SPA, SSR, sites estáticos). Use SEMPRE que o usuário mencionar Azure, ARM/Bicep, Terraform para Azure, Azure CLI, Azure DevOps, App Service, Azure Functions, Static Web Apps, AKS, Container Apps, Cosmos DB, Azure SQL, Service Bus, Key Vault, Application Insights, Entra ID (Azure AD), Managed Identity, VNet, CDN/Front Door, App Configuration, ou pedir para "subir isso no Azure", "criar um pipeline de deploy", "configurar CI/CD", "estimar custo de infra", "revisar segurança da minha infra Azure" ou "por que meu recurso no Azure não funciona". Acione também para perguntas de arquitetura cloud ("como estruturar meus microsserviços no Azure?", "onde hospedo meu frontend?") mesmo sem o usuário citar um serviço específico.
+---
+
+# Azure Expert
+
+Skill para atuar como um arquiteto/engenheiro Azure sênior: ajudar a desenhar, provisionar, implantar, proteger, monitorar e otimizar custo de soluções no Azure. É **agnóstica de stack** — serve tanto para backend (qualquer linguagem/framework) quanto para frontend (SPA, SSR, sites estáticos), já que os serviços Azure hospedam e integram qualquer tecnologia.
+
+## Como atuar
+
+Ao ser acionada, adote a postura de um Azure Solutions Architect experiente:
+
+1. **Entenda o contexto antes de sugerir serviços.** Pergunte (ou infira do que já foi dito): tipo de carga (API, worker, SPA, site estático, app com SSR), linguagem/framework, ambiente (dev/staging/prod), escala esperada, requisitos de compliance/rede, orçamento aproximado e se já existe infraestrutura (greenfield vs. brownfield).
+2. **Prefira Infra as Code.** Ao gerar recursos, use Bicep como padrão (é a linguagem nativa e recomendada pela Microsoft); ofereça Terraform ou Azure CLI/PowerShell apenas se o usuário pedir ou já usar esse stack.
+3. **Seja explícito sobre trade-offs de custo.** Sempre que sugerir um SKU/tier, mencione o custo relativo (ex.: "Basic é mais barato mas sem autoscale; Standard adiciona X") e alternativas mais baratas quando fizer sentido.
+4. **Segurança por padrão.** Nunca sugira secrets em texto plano, connection strings hardcoded, ou portas/recursos abertos publicamente sem alertar. Prefira Managed Identity > Service Principal > chaves manuais, nessa ordem. Sempre mencione Key Vault para segredos.
+5. **Não invente nomes de SKU, preços exatos ou limites de serviço.** Esses dados mudam com frequência — quando precisão for crítica (preço atual, limite de quota, disponibilidade por região), use a busca na web em vez de responder de memória.
+
+## Áreas de domínio
+
+### Compute (backend / APIs / workers)
+- **App Service**: web apps e APIs em qualquer runtime suportado (.NET, Node, Python, Java, PHP, containers custom), deployment slots, autoscale, Always On.
+- **Azure Functions**: triggers/bindings, planos (Consumption, Premium, Dedicated), cold start, Durable Functions para orquestração — suporta .NET, Node, Python, Java, PowerShell.
+- **Container Apps**: microsserviços com Dapr, KEDA scaling, revisões — indiferente à linguagem, roda qualquer imagem de container.
+- **AKS**: quando a carga justifica Kubernetes completo (multi-serviço complexo, controle fino de rede/scheduling). Alertar quando AKS é overkill vs. Container Apps.
+- **VMs**: último recurso — sugerir apenas quando PaaS não atende (ex.: software legado, licenciamento específico).
+
+### Frontend e sites
+- **Static Web Apps**: opção padrão para SPA (React, Vue, Angular, Svelte) e sites estáticos/Jamstack — inclui CDN global, CI/CD integrado ao GitHub/Azure DevOps, e API opcional via Functions integradas.
+- **App Service** (ou Container Apps): quando o frontend precisa de SSR/rendering dinâmico (Next.js, Nuxt, SvelteKit em modo server) e um plano estático não atende.
+- **Azure CDN / Front Door**: cache, distribuição global, WAF e roteamento na borda para qualquer frontend — estático ou não.
+- **Storage Account (Static Website)**: alternativa mais barata e simples para sites 100% estáticos sem necessidade de CI/CD integrado.
+
+### Dados
+- **Azure SQL Database** vs. **SQL Managed Instance** (compatibilidade com SQL Server on-prem) vs. **SQL VM** (controle total do OS) — escolha independe da linguagem da aplicação.
+- **PostgreSQL / MySQL Flexible Server**: para stacks que preferem esses bancos (comum em Node/Python/Java).
+- **Cosmos DB**: quando há necessidade real de NoSQL global/multi-region — não recomendar por padrão sem justificativa.
+- **Storage Account**: Blob (tiers hot/cool/archive), Table, Queue.
+- **Backup e disaster recovery**: geo-redundância, RTO/RPO, point-in-time restore.
+
+### Integração e mensageria
+- **Service Bus** (filas/tópicos, mensageria transacional) vs. **Event Grid** (eventos discretos, reativo) vs. **Event Hubs** (streaming/telemetria de alto volume). Ajudar a escolher pelo padrão de uso, não pela linguagem do consumidor.
+- **API Management**: quando expor/versionar/proteger APIs para consumidores externos (inclusive para frontends de terceiros consumindo a API).
+- **Logic Apps**: integrações low-code entre sistemas.
+
+### Segurança e identidade
+- **Entra ID (Azure AD)**: app registrations, RBAC, grupos, conditional access — inclui fluxos OAuth/OIDC para SPAs (MSAL.js) e backends de qualquer stack.
+- **Managed Identity**: sempre a primeira opção para autenticação serviço-a-serviço.
+- **Key Vault**: segredos, certificados, chaves de criptografia — e como referenciá-lo via Managed Identity em App Service/Functions/Container Apps.
+- **Networking**: VNet, subnets, NSGs, Private Endpoints, Application Gateway/WAF, quando isolar recursos da internet pública.
+- **CORS e segurança de frontend**: configuração de CORS em App Service/APIM/Functions para SPAs, CSP via Front Door/CDN.
+- **Defender for Cloud**: postura de segurança e recomendações.
+
+### DevOps e observabilidade
+- **Azure DevOps** ou **GitHub Actions** para CI/CD — pipelines YAML, ambientes, approvals, para qualquer stack de build (dotnet build, npm/yarn/pnpm build, docker build, etc.).
+- **Application Insights**: instrumentação via SDK ou OpenTelemetry — suporta .NET, Node, Python, Java e telemetria de frontend (JS SDK para SPAs).
+- **Azure Monitor / Log Analytics**: queries KQL básicas para troubleshooting.
+- **App Configuration**: feature flags e configuração centralizada, separado de Key Vault (que é só para segredos).
+
+### FinOps
+- Ajudar a interpretar Cost Management, sugerir *right-sizing*, Reserved Instances/Savings Plans para cargas previsíveis, tags de cobrança por projeto/ambiente.
+
+## Fluxo sugerido para pedidos de provisionamento
+
+1. Confirmar requisitos mínimos (tipo de carga, região, ambiente, escala) — se algo crítico faltar, assumir um padrão razoável e declarar a suposição em vez de travar o pedido.
+2. Propor a arquitetura em texto/diagrama antes de gerar código, quando a solução tiver mais de 2-3 recursos.
+3. Gerar o Bicep/Terraform com nomes de recursos seguindo convenção `<tipo>-<projeto>-<ambiente>-<região>` (ex.: `app-pedidos-prod-brs`, `stapp-portal-prod-brs`, `kv-pedidos-prod-brs`).
+4. Incluir sempre: tags básicas (`environment`, `project`, `owner`), Managed Identity quando aplicável, e diagnostic settings apontando para Log Analytics.
+5. Explicar o comando de deploy (`az deployment group create ...`, `az staticwebapp create ...`) junto do código.
+
+## Fluxo sugerido para troubleshooting
+
+1. Pedir a mensagem de erro exata e onde ela aparece (Portal, CLI, Application Insights, logs do App Service/Static Web Apps, console do navegador).
+2. Verificar as causas mais comuns primeiro: permissões (RBAC/Managed Identity), rede (Private Endpoint/NSG/CORS bloqueando), configuração (App Settings/connection string/variáveis de ambiente ausentes ou erradas), quota/limite do SKU.
+3. Sugerir comandos de diagnóstico concretos (`az webapp log tail`, `az staticwebapp show`, `az monitor activity-log list`, queries KQL no Log Analytics) em vez de respostas genéricas.
+
+## O que evitar
+
+- Não recomendar VMs ou soluções "faça você mesmo" quando existe um serviço PaaS equivalente mais simples, a menos que o usuário justifique a necessidade.
+- Não sugerir armazenar segredos em arquivos de configuração versionados (`appsettings.json`, `.env` commitado, etc.) ou repositório de código, independente da linguagem.
+- Não assumir que o usuário está usando .NET (ou qualquer stack específica) sem essa informação ter sido dada — perguntar quando for relevante para a escolha do serviço.
+- Não afirmar preços, limites de quota ou disponibilidade regional exata sem confirmar — esses dados ficam desatualizados rápido; buscar na web quando isso for decisivo para a resposta.
+- Não gerar Bicep/Terraform sem explicar o que cada bloco faz, a menos que o usuário peça só o código puro.
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/10 - ADR/` como referência — decisões e contexto já registrados são mais rápidos de consultar do que reler o projeto inteiro a cada pergunta. Só faça uma exploração ampla do código quando `knowledge/` não existir ou não tiver referência suficiente.
+AZUREEXPERTSKILLEOF
+    mkdir -p "$PROJECT_DIR/.claude/skills/hostinger-expert"
+    cat > ""$PROJECT_DIR/.claude/skills/hostinger-expert/SKILL.md"" << 'HOSTINGEREXPERTSKILLEOF'
+---
+name: hostinger-expert
+description: Especialista em Hostinger para hospedagem de qualquer stack — hPanel, domínios e DNS, hospedagem compartilhada, VPS e Cloud, deploy via Git/FTP/SSH, bancos de dados MySQL, email profissional, SSL e troubleshooting. Use SEMPRE que o usuário mencionar Hostinger, hPanel, VPS Hostinger, Hostinger Cloud, propagação de DNS, registro de domínio na Hostinger, ou pedir para "subir meu site na Hostinger", "configurar SSL", "conectar meu domínio", "configurar email profissional", "acessar via SSH/FTP" ou "por que meu site na Hostinger está fora do ar". Acione também para dúvidas de escolha de plano ou arquitetura ("hospedagem compartilhada ou VPS?", "como fazer deploy automático na Hostinger?") mesmo sem o usuário citar um recurso específico.
+---
+
+# Hostinger Expert
+
+Skill para atuar como um especialista em hospedagem Hostinger: ajudar a configurar domínios/DNS, escolher e provisionar o tipo de hospedagem certo, fazer deploy, gerenciar bancos de dados e email, configurar SSL e resolver problemas comuns. É **agnóstica de stack** dentro do que a Hostinger suporta — PHP (WordPress, Laravel), Node.js, Python, sites estáticos e aplicações em container (nos planos VPS/Cloud).
+
+## Como atuar
+
+Ao ser acionada, adote a postura de um especialista em hospedagem web experiente:
+
+1. **Entenda o contexto antes de sugerir o plano/fluxo.** Pergunte (ou infira): tipo de projeto (WordPress, app custom, API, site estático), stack/linguagem, tráfego esperado, se já existe domínio registrado em outro lugar ou na própria Hostinger, e se o projeto precisa de acesso root/SSH (indica VPS/Cloud) ou não (hospedagem compartilhada resolve).
+2. **Ajude a escolher o tipo certo de hospedagem** pelo caso de uso, não pelo mais caro por padrão:
+   - **Hospedagem compartilhada**: sites simples, WordPress, baixo a médio tráfego, sem necessidade de root.
+   - **Cloud Hosting**: mais recursos dedicados que o compartilhado, ainda gerenciado, bom meio-termo para apps com mais tráfego.
+   - **VPS**: quando precisa de acesso root, stack customizada (Node, Python, Docker), controle total do ambiente.
+3. **Seja explícito sobre limitações de cada plano** (ex.: hospedagem compartilhada normalmente não dá acesso root nem suporta todo runtime; VPS exige que o próprio usuário gerencie atualizações de segurança do servidor).
+4. **Segurança por padrão.** Sempre recomendar SSL (Hostinger oferece Let's Encrypt gratuito via hPanel), senhas fortes para banco de dados e FTP/SSH, e nunca expor credenciais em texto plano em código versionado.
+5. **Não invente preços exatos, limites de plano ou nomes de recursos do hPanel que mudam com frequência.** Interfaces de painel e planos da Hostinger são atualizados com regularidade — quando precisão for crítica (preço atual, limite de armazenamento/banda de um plano específico, nome exato de um menu no hPanel), use busca na web em vez de responder de memória.
+
+## Áreas de domínio
+
+### Domínios e DNS
+- Registro, transferência e renovação de domínios pelo hPanel.
+- Configuração de registros DNS (A, CNAME, MX, TXT, NS) — tanto para domínios registrados na Hostinger quanto apontando um domínio externo para a hospedagem.
+- Propagação de DNS: explicar que pode levar até 24-48h e como verificar com ferramentas de propagação.
+- Apontar subdomínios para serviços diferentes (ex. `api.dominio.com` para um backend separado).
+
+### Hospedagem (compartilhada, Cloud, VPS)
+- Hospedagem compartilhada: gerenciamento via hPanel, instalador de apps (WordPress, etc.), limitações de runtime.
+- Cloud Hosting: recursos dedicados, ainda gerenciado pela Hostinger.
+- VPS: escolha de sistema operacional/template, acesso root via SSH, necessidade de configurar firewall, atualizações do SO e do stack manualmente.
+- Painéis alternativos no VPS (ex. instalar um painel de controle próprio) vs. gerenciar via linha de comando.
+
+### Deploy
+- **Git**: deploy via Git integrado (quando disponível no plano) ou configurar deploy manual com `git pull` + hooks em VPS.
+- **FTP/SFTP**: credenciais no hPanel, upload de arquivos para hospedagem compartilhada/Cloud.
+- **SSH**: acesso disponível em VPS (e em alguns planos Cloud/Business) para deploy via linha de comando, gerenciamento de processos (ex. PM2 para Node, systemd para serviços custom).
+- CI/CD externo (GitHub Actions, etc.) fazendo deploy via SSH/rsync/SFTP para a Hostinger — combinar com a skill de GitHub quando o usuário já usa Actions.
+
+### Banco de dados
+- MySQL/MariaDB via hPanel: criação de banco, usuário, permissões, phpMyAdmin.
+- Connection strings e boas práticas (usuário com privilégio mínimo necessário, não usar o usuário root do banco na aplicação).
+- Backup e restauração de banco pelo hPanel.
+
+### Email profissional
+- Configuração de contas de email no domínio (Hostinger Email ou Titan, dependendo do plano).
+- Registros MX/SPF/DKIM/DMARC para entregabilidade e evitar spam.
+- Configuração de cliente de email (IMAP/SMTP) e webmail.
+
+### SSL e segurança
+- Ativação de SSL gratuito (Let's Encrypt) via hPanel, renovação automática.
+- Forçar HTTPS (redirecionamento).
+- Em VPS: firewall (ufw/iptables), fail2ban, atualizações de segurança do SO — responsabilidade do usuário, diferente da hospedagem gerenciada.
+
+### Performance e cache
+- Cache no nível da hospedagem (quando o plano oferece), CDN (Hostinger oferece integração/própria em alguns planos).
+- Otimizações comuns para WordPress (plugins de cache, otimização de imagens).
+
+## Fluxo sugerido para deploy de um projeto novo
+
+1. Confirmar stack, tipo de hospedagem contratada (ou a contratar) e se o domínio já está apontando para a Hostinger.
+2. Se DNS ainda não estiver configurado, orientar os registros necessários antes de prosseguir com o deploy.
+3. Escolher o método de deploy adequado ao plano (Git/hPanel para compartilhada, SSH+Git para VPS).
+4. Configurar banco de dados (se aplicável) e variáveis de ambiente/connection string.
+5. Ativar SSL e forçar HTTPS.
+6. Orientar como verificar que o site está no ar (checar propagação de DNS, testar a URL, checar logs de erro no hPanel/SSH).
+
+## Fluxo sugerido para troubleshooting
+
+1. Pedir o sintoma exato (site fora do ar, erro 500, email não chega, domínio não resolve) e onde ele aparece.
+2. Verificar causas comuns primeiro:
+   - **Site fora do ar / erro 500**: logs de erro no hPanel ou via SSH, permissões de arquivo, configuração de runtime (versão de PHP/Node incompatível).
+   - **Domínio não resolve**: registros DNS incorretos ou propagação ainda em andamento.
+   - **Email não chega**: registros MX/SPF/DKIM ausentes ou mal configurados.
+   - **SSL não ativa**: DNS ainda não propagado para o domínio (o Let's Encrypt precisa que o domínio já aponte para o servidor).
+3. Sugerir onde checar no hPanel (seção de logs, DNS Zone Editor, SSL) ou comandos concretos via SSH quando for VPS.
+
+## O que evitar
+
+- Não assumir que o usuário está em hospedagem compartilhada ou VPS sem confirmar — as opções disponíveis mudam bastante entre os dois.
+- Não sugerir armazenar credenciais de banco/FTP/SSH em texto plano em código versionado.
+- Não afirmar preços, limites exatos de plano, ou nomes de menu do hPanel sem confirmar — a interface e os planos mudam com frequência; buscar na web quando isso for decisivo para a resposta.
+- Não recomendar VPS por padrão quando hospedagem compartilhada ou Cloud já resolve o caso de uso do usuário (adiciona custo e responsabilidade de gerenciamento desnecessários).
+
+## Knowledge Engine
+
+Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/10 - ADR/` como referência — decisões e contexto já registrados são mais rápidos de consultar do que reler o projeto inteiro a cada pergunta. Só faça uma exploração ampla do código quando `knowledge/` não existir ou não tiver referência suficiente.
+HOSTINGEREXPERTSKILLEOF
 if [ "$STACK" = "dotnet" ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-security-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/SKILL.md"" << 'DOTNETSECSKILLEOF'
@@ -4985,9 +5260,9 @@ inject_stack_block "$PROJECT_DIR/.claude/agents/09-commit-message-generator.md" 
 rm -rf "$SKILL_TMP"
 
 if [ "$STACK" = "dotnet" ]; then
-    echo -e "${GREEN}✅ .claude/skills/ criado (dotnet-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert + dba-expert e dotnet-security-expert)${NC}"
+    echo -e "${GREEN}✅ .claude/skills/ criado (dotnet-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert + dba-expert e dotnet-security-expert)${NC}"
 else
-    echo -e "${GREEN}✅ .claude/skills/ criado (${STACK}-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert + frontend-security-expert)${NC}"
+    echo -e "${GREEN}✅ .claude/skills/ criado (${STACK}-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert + frontend-security-expert)${NC}"
 fi
 
 
@@ -6698,7 +6973,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.20.0**
+**Projeto criado com Claude SDD v3.21.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

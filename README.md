@@ -207,7 +207,7 @@ para a stack escolhida:
 | `angular-expert` | Angular moderno — standalone e signals, `OnPush` e change detection, RxJS sem vazar (`takeUntilDestroyed`, operadores de achatamento), Reactive Forms tipados, lazy loading e interceptors |
 | `vue-expert` | Vue 3 — onde a reatividade se perde (`ref` vs `reactive`, destructuring), `computed` vs `watch`, props/eventos e `defineModel`, composables, Pinia, keys e render |
 
-**Cinco skills vão para todas as stacks**, com os trechos específicos (comandos de build, YAML de pipeline,
+**Oito skills vão para todas as stacks**, com os trechos específicos (comandos de build, YAML de pipeline,
 framework de teste, escopo de commit, deploy) adaptados à stack na hora da geração. Adaptados **por framework**,
 não por família: React, Angular e Vue recebem blocos próprios, não um bloco "frontend" genérico — o projeto
 Angular fala de `TestBed`, `HttpTestingController` e `--browsers=ChromeHeadless`, o de Vue fala de Vue Test
@@ -220,6 +220,9 @@ Utils, `nextTick` e `createTestingPinia`, e nenhum dos dois menciona as ferramen
 | `qa-expert` | Estratégia e plano de testes, design de casos de teste, testes exploratórios, gestão de bugs — com a seção de automação escrita para a stack: xUnit/Testcontainers no .NET, Testing Library + MSW no React, TestBed + `HttpTestingController` no Angular, Vue Test Utils + `createTestingPinia` no Vue |
 | `aws-expert` | Arquitetura e operação AWS — EC2/ECS/Lambda, S3, RDS/DynamoDB, VPC/IAM, otimização de custo — com a seção de deploy da aplicação .NET ou do SPA (S3+CloudFront, Amplify) |
 | `architect-expert` | Arquitetura de software e sistemas agnóstica de tecnologia — backend, frontend, dados, mensageria, infraestrutura, cloud, CI/CD, observabilidade, segurança, auditoria, resiliência, custos e governança; ADRs, DDD, microsserviços vs modular monolith, evitar overengineering |
+| `github-expert` | GitHub em qualquer stack — Actions (CI/CD), Pull Requests e code review, branch protection e CODEOWNERS, Packages, Dependabot/CodeQL/secret scanning, `gh` CLI, estratégia de branches e release |
+| `azure-expert` | Microsoft Azure em qualquer stack — App Service, Functions, Static Web Apps, AKS/Container Apps, Cosmos DB/Azure SQL, Key Vault, Managed Identity, Bicep/Terraform, Azure DevOps, segurança e custo |
+| `hostinger-expert` | Hospedagem Hostinger — hPanel, domínios e DNS, compartilhada vs VPS/Cloud, deploy via Git/FTP/SSH, MySQL, email profissional, SSL e troubleshooting |
 
 **Duas são específicas de `.NET`**, porque não teriam o que fazer num projeto sem backend:
 
@@ -234,7 +237,7 @@ Utils, `nextTick` e `createTestingPinia`, e nenhum dos dois menciona as ferramen
 |---|---|
 | `frontend-security-expert` | Segurança no browser — XSS e sanitização, CSP e headers, onde guardar token de sessão, OAuth2/PKCE, segredos que vazam no bundle, dependências npm |
 
-Ou seja: 8 skills num projeto `.NET` e 7 num projeto de frontend, com o mesmo núcleo em ambos.
+Ou seja: 11 skills num projeto `.NET` e 10 num projeto de frontend, com o mesmo núcleo em ambos.
 
 Todas seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
 `knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
@@ -307,7 +310,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
 - **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
-- **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert` e `architect-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
+- **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert` e `hostinger-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.

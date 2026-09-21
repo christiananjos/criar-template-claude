@@ -4,10 +4,10 @@ Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.
 
 ## Como funciona
 
-1. `/comecar` gera a estrutura do projeto (`.claude/commands/`, `.claude/agents/`, `CLAUDE.md`, `.mcp.json`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
+1. `/comecar` gera a estrutura do projeto (`.claude/` com `commands/`, `agents/`, `skills/`, `rules/`, `hooks/` e `scripts/`, mais `CLAUDE.md`, `.mcp.json`, `README.md`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e (só no `.NET`) testa a API — parando automaticamente se algum gate de qualidade reprovar
+4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e monta o roteiro de testes de ponta a ponta (workflow de API no `.NET`, fluxos E2E no frontend) — parando automaticamente se algum gate de qualidade reprovar
 5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
 
 ## Instalação
@@ -102,9 +102,9 @@ nano docs/SPEC.md
 /orchestrator
 ```
 
-Na criação, o plugin pergunta três coisas, uma de cada vez: caminho, nome do projeto e a stack, como uma única
-escolha (`.NET`, `Angular`, `React` ou `Vue`) — cada projeto sai com **uma stack só**, sem backend e frontend
-misturados. Isso muda o que é gerado — o `orchestrator.md`, `.claude/commands/README.md`, `CLAUDE.md`, `docs/SPEC.md`, os agentes e
+O plugin pergunta uma coisa de cada vez: projeto novo ou existente, caminho, nome do projeto (só no modo novo — no
+existente usa o nome da pasta) e a stack, como uma única escolha (`.NET`, `Angular`, `React` ou `Vue`) — cada
+projeto sai com **uma stack só**, sem backend e frontend misturados. Isso muda o que é gerado — o `orchestrator.md`, `.claude/commands/README.md`, `CLAUDE.md`, `docs/SPEC.md`, os agentes e
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
@@ -148,7 +148,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `05-test-validator` | Gera testes automatizados | sempre |
 | `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
 | `07-build-test-validator` | Valida build e testes | sempre |
-| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF com issues prontas para o GitHub | sempre |
+| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 | `09-commit-message-generator` | Gera commits semânticos | sempre |
 | `10-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
 | `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
@@ -239,6 +239,8 @@ Utils, `nextTick` e `createTestingPinia`, e nenhum dos dois menciona as ferramen
 
 Ou seja: 11 skills num projeto `.NET` e 10 num projeto de frontend, com o mesmo núcleo em ambos.
 
+Cada skill traz, quando faz sentido, um checklist em `references/` (revisão de código, plano de teste, arquitetura AWS, OWASP, segurança de frontend) carregado só quando o assunto pede.
+
 Todas seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
 `knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
 do `vault/` relevante ao assunto — e só cai pra busca ampla no código/projeto se a referência ali não for
@@ -313,7 +315,8 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert` e `hostinger-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
-- **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`, separação componente/estado no frontend, convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
+- **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança e direção de design no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
+- **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`).
 - **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
@@ -324,6 +327,7 @@ criar-template-claude/
 ├── .claude-plugin/
 │   ├── plugin.json
 │   └── marketplace.json
+├── README.md
 ├── commands/
 │   ├── comecar.md                        # /comecar — gera/acopla a estrutura SDD no projeto
 │   └── atualizar-versao.md                # /atualizar-versao — atualiza o plugin e reaplica o template no projeto atual

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.21.0
+# 🚀 Criar Template Claude SDD v3.21.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.21.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.21.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6973,7 +6973,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.21.0**
+**Projeto criado com Claude SDD v3.21.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

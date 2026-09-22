@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v4.0.0
+# 🚀 Criar Template Claude SDD v4.1.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.0.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.1.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1634,7 +1634,9 @@ tipo(escopo): descrição curta no imperativo
 ## O Que Você Faz
 
 1. Rode `git status --short` e `git diff` para ver tudo que o pipeline mudou desde o início da rodada
-   (código, testes, `output/`, `knowledge/`). Se não houver nada para commitar, avise e pare.
+   (código, testes, `knowledge/`, `.claude/`, `CLAUDE.md`, `.mcp.json`). Toda configuração nova do Claude e
+   `knowledge/` **sempre** entra num dos commits — nunca deixe nada delas para trás. Se não houver nada
+   para commitar, avise e pare.
 2. Divida em commits logicamente coesos (não um commit gigante). Exemplo:
 
 __STACK_COMMIT_EXAMPLES__
@@ -5975,7 +5977,7 @@ cat > ""$PROJECT_DIR/.claude/commands/commit.md"" << 'COMMITEOF'
 ---
 description: Sincroniza o Knowledge Engine, varre o que vai subir em busca de segredos expostos, gera a mensagem de commit a partir do diff atual e faz push na branch atual
 argument-hint: [contexto opcional sobre o que mudou]
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*), Bash(git check-ignore:*), Bash(git restore:*), Bash(node .claude/scripts/knowledge-engine-build.cjs), Bash(ls:*), Bash(cat:*), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git branch:*), Bash(git check-ignore:*), Bash(git ls-files:*), Bash(git restore:*), Bash(node .claude/scripts/knowledge-engine-build.cjs), Bash(ls:*), Bash(cat:*), Read, Edit, Write, Grep, Glob
 ---
 
 Contexto opcional passado pelo usuário (pode estar vazio): $ARGUMENTS
@@ -6020,18 +6022,26 @@ mensagem, e nenhum commit sai sem eles.
    Nunca escreva `knowledge/graph/` ou `knowledge/embeddings/` na mão. Se o script falhar, reporte o erro e
    siga com o commit mesmo assim — o vault em Markdown é a fonte de verdade, o grafo é derivado.
 
-3. **Confirme que `knowledge/` não está sendo ignorada pelo Git**:
+3. **Confirme que nenhuma configuração do Claude (`.claude/`, `CLAUDE.md`, `.mcp.json`) nem `knowledge/`
+   está sendo ignorada pelo Git**:
    ```bash
-   git check-ignore -v knowledge/vault knowledge/index.json 2>/dev/null
+   git ls-files --others --ignored --exclude-standard -- .claude CLAUDE.md .mcp.json knowledge | grep -v '^knowledge/embeddings/chunks/'
    ```
-   Se algum caminho for reportado como ignorado, é um `.gitignore` do projeto engolindo a memória.
-   Corrija acrescentando ao final do `.gitignore` (a regra de negação precisa vir depois da que ignora):
+   Se algum caminho for reportado como ignorado, é um `.gitignore` do projeto engolindo a configuração do
+   Claude ou a memória. Corrija acrescentando ao final do `.gitignore` (a negação precisa vir depois da regra
+   que ignora):
    ```
-   # knowledge/ é a memória do projeto e vai versionada
+   # toda configuração do Claude e knowledge/ vão versionados
+   !.claude/
+   !.claude/**
+   !CLAUDE.md
+   !.mcp.json
    !knowledge/
+   !knowledge/**
    knowledge/embeddings/chunks/
    ```
    Só `knowledge/embeddings/chunks/` fica de fora, porque é derivado e regenerado pelo script do passo 2.
+   Toda configuração nova do Claude — inclusive `.claude/settings.local.json` — vai no commit.
    Avise o usuário que você ajustou o `.gitignore` e por quê.
 
 4. Rode `git status --short` e `git diff` (staged + unstaged) para ver exatamente o que mudou.
@@ -6060,8 +6070,9 @@ mensagem, e nenhum commit sai sem eles.
 8. Rode `git branch --show-current` e commite/pushe nessa mesma branch — não crie nem troque de branch
    por conta própria. Se a branch atual não tiver upstream configurado, use `git push -u origin <branch>`.
 
-9. `git add -A` e, se `knowledge/` existir, também `git add -A knowledge/` explicitamente (garante que o
-   vault entre mesmo que algum `.gitignore` aninhado tenha escapado da checagem do passo 3).
+9. `git add -A` e, explicitamente, `git add -A .claude/ CLAUDE.md .mcp.json knowledge/` (só os que existirem) —
+   toda alteração do Claude no projeto sobe sempre, mesmo que algum `.gitignore` aninhado tenha escapado
+   da checagem do passo 3.
    **Ainda não commite** — falta o gate do passo 10.
 
 10. **Varredura de segredos — o último portão antes do commit.** Agora que tudo está no stage, você sabe
@@ -6611,7 +6622,8 @@ descartável e fica fora do Git, então plano que more só lá morre com a sess�
 \`knowledge/\` é versionada — **nunca a acrescente ao \`.gitignore\`**; só \`knowledge/embeddings/chunks/\` fica
 de fora, por ser derivado. Use \`/commit\`: ele sincroniza o vault com o diff, roda o rebuild do grafo, confere
 que nada está ignorando \`knowledge/\` e commita memória e código no mesmo commit. Mudança em \`knowledge/\` não
-vira commit separado — vai junto com o código que a provocou.
+vira commit separado — vai junto com o código que a provocou. O mesmo vale para \`.claude/\` e \`CLAUDE.md\`:
+toda alteração neles (inclusive \`.claude/settings.local.json\` e \`.mcp.json\`) sobe sempre, nunca vão para o \`.gitignore\`.
 
 ## Fluxo
 
@@ -6980,7 +6992,7 @@ Este projeto já sai alinhado à estrutura recomendada pela documentação ofici
 - **\`.claude/settings.json\`** — já sai com um bloco \`permissions\` liberando leitura e as ações que o
   próprio pipeline precisa (escrita em \`output/\`, \`docs/\`, \`knowledge/\`, \`src/\`, build/test da stack), pra
   \`/inicia-orquestracao\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
-  durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, pessoal e fora do git.
+  durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, que também vai versionado.
 
 **Trabalhar em duas frentes ao mesmo tempo?** Rode \`claude --worktree nome-da-frente\` — cada sessão trabalha
 num checkout isolado do Git, então duas rodadas de \`/inicia-orquestracao\` (ex: duas features diferentes) não
@@ -7005,7 +7017,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v4.0.0**
+**Projeto criado com Claude SDD v4.1.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -7727,10 +7739,24 @@ if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
         GI_REPORT="${GI_REPORT}output/ "
     fi
 
-    if ! grep -qxF ".claude/" "$GI" 2>/dev/null; then
-        GI_APPEND="${GI_APPEND}.claude/
+    # .claude/ e CLAUDE.md são a configuração do Claude no projeto e VÃO
+    # versionados. Versões antigas do template ignoravam .claude/ — remove essa
+    # linha e acrescenta a negação, que também vence qualquer outra regra
+    # anterior (ex: ".*") que estivesse pegando a pasta.
+    if grep -qxF ".claude/" "$GI" 2>/dev/null; then
+        sed -i '/^\.claude\/$/d' "$GI"
+        GI_REPORT="${GI_REPORT}-.claude/ "
+    fi
+    if ! grep -qxF '!.claude/' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
+# Claude Code — .claude/ (inclusive settings.local.json), CLAUDE.md e .mcp.json
+# VÃO versionados: toda configuração nova do Claude sobe no commit.
+!.claude/
+!.claude/**
+!CLAUDE.md
+!.mcp.json
 "
-        GI_REPORT="${GI_REPORT}.claude/ "
+        GI_REPORT="${GI_REPORT}!.claude/ "
     fi
 
     # A linha dos chunks precisa vir DEPOIS da negação para continuar valendo —
@@ -7755,8 +7781,8 @@ knowledge/embeddings/chunks/
         printf '\n# Pipeline SDD (criar-template-claude)\n%s' "$GI_APPEND" >> "$GI"
         echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras que faltavam: ${GI_REPORT}${NC}"
         case "$GI_REPORT" in
-            *'!knowledge/'*)
-                echo -e "${YELLOW}    knowledge/ agora vai versionada. Confirme com: git check-ignore -v knowledge/vault${NC}"
+            *'!.claude/'*|*'!knowledge/'*)
+                echo -e "${YELLOW}    .claude/, CLAUDE.md e knowledge/ vão versionados. Confirme com: git check-ignore -v .claude CLAUDE.md knowledge/vault${NC}"
                 echo -e "${YELLOW}    (sem saída = não está mais sendo ignorada)${NC}"
                 ;;
         esac
@@ -7789,8 +7815,13 @@ output/
 # derivados e regenerados por .claude/scripts/knowledge-engine-build.cjs.
 knowledge/embeddings/chunks/
 
-# Claude Code
-.claude/
+# Claude Code — .claude/ (inclusive settings.local.json), CLAUDE.md e .mcp.json
+# VÃO versionados: toda configuração nova do Claude sobe no commit. NÃO
+# acrescente nada disso aqui. As negações vencem um gitignore global.
+!.claude/
+!.claude/**
+!CLAUDE.md
+!.mcp.json
 
 # IDE
 .idea/

@@ -129,8 +129,10 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 **Toda stack recebe os mesmos 11 agentes**, na mesma ordem: 9 sempre presentes (`00-knowledge-bootstrap` como
 Fase 0 dedicada + os 8 do pipeline principal), o specialist da stack escolhida e o agente 09 de testes — que é
 `09-swagger-tester` no `.NET` (testa a API) e `09-e2e-flow-tester` no frontend (testa os fluxos pela interface).
-`10-commit-message-generator` roda sempre por último, depois do agente de testes, para que os commits sugeridos
-cubram também o arquivo de testes gerado — não só o código de aplicação.
+`10-commit-message-generator` roda sempre por último, depois do agente de testes, para que os commits cubram
+também o arquivo de testes gerado — não só o código de aplicação. Diferente dos demais agentes do pipeline,
+ele não só sugere: aplica os commits de verdade (`git commit`, um por unidade lógica) e dá `git push` na
+branch atual antes de encerrar a rodada — sem pedir confirmação e nunca citando IA na mensagem.
 O que muda entre as stacks é o conteúdo de cada agente, nunca a existência dele.
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
 `01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-e2e-flow-tester.md`
@@ -154,7 +156,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 | `09-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
 | `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
-| `10-commit-message-generator` | Gera commits semânticos — roda sempre por último, depois do agente de testes | sempre |
+| `10-commit-message-generator` | Gera, aplica e dá push nos commits semânticos — roda sempre por último, depois do agente de testes | sempre |
 
 O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
 

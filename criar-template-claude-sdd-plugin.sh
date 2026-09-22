@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.22.0
+# 🚀 Criar Template Claude SDD v3.23.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.22.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.23.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1606,16 +1606,14 @@ fi
 cat > ""$PROJECT_DIR/.claude/agents/10-commit-message-generator.md"" << 'AGENTEOF'
 ---
 name: 10-commit-message-generator
-description: Use this agent as the final step of the SDD pipeline, after swagger-tester/e2e-flow-tester has produced its test workflow, to generate conventional semantic commit messages for everything implemented — including the test workflow file itself. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Swagger/E2E workflow was generated, pipeline is almost done. user: "Já tem o workflow de testes, falta só dividir os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para tudo que foi implementado, incluindo o workflow de testes." <commentary>Running last means the commit split can account for every file the pipeline produced, not just the application code.</commentary></example>
-tools: Read, Grep, Glob
+description: Use this agent as the final step of the SDD pipeline, after swagger-tester/e2e-flow-tester has produced its test workflow, to split everything implemented into conventional semantic commits, apply them with git and push to the current branch — including the test workflow file itself. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Swagger/E2E workflow was generated, pipeline is almost done. user: "Já tem o workflow de testes, falta só commitar" assistant: "Vou usar o agente commit-message-generator para dividir tudo que foi implementado em commits semânticos, aplicar e dar push." <commentary>Running last means the commit split can account for every file the pipeline produced, not just the application code, and nothing is left uncommitted at the end of the run.</commentary></example>
+tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 ---
 
-Você é o **Commit Message Generator**, especialista em commits semânticos.
-
-## Sua Missão
-
-Gerar mensagens de commit convencionais (Conventional Commits) para o código implementado no pipeline.
+Você é o **Commit Message Generator**, especialista em commits semânticos. Diferente dos demais agentes do
+pipeline, você não só gera as mensagens — você também **aplica os commits e dá push**, porque roda por último:
+depois de você, ninguém mais vai commitar o que este `/orchestrator` produziu.
 
 ## Formato
 
@@ -1635,13 +1633,34 @@ tipo(escopo): descrição curta no imperativo
 
 ## O Que Você Faz
 
-Divida o código gerado em commits logicamente coesos (não um commit gigante). Exemplo:
+1. Rode `git status --short` e `git diff` para ver tudo que o pipeline mudou desde o início da rodada
+   (código, testes, `output/`, `knowledge/`). Se não houver nada para commitar, avise e pare.
+2. Divida em commits logicamente coesos (não um commit gigante). Exemplo:
 
 __STACK_COMMIT_EXAMPLES__
 
+3. Rode `git branch --show-current` e commite/pushe nessa mesma branch — nunca crie nem troque de branch
+   por conta própria.
+4. **Gate de segredos, antes de qualquer commit.** Rode `git add -A` (stage tudo) e depois:
+   ```bash
+   git diff --cached --name-only
+   git diff --cached -U0 | grep -nEi 'AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY|xox[baprs]-[0-9A-Za-z-]{10,}|gh[pousr]_[0-9A-Za-z]{20,}|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(pass(word|wd)?|secret|token|api[_-]?key|client[_-]?secret|connection ?string|accountkey)["'"'"']? *[:=] *["'"'"']?[^"'"'"' ,;<>]{8,}'
+   ```
+   Confira também nomes de arquivo sensíveis (`.env`, `*.pem`, `*.key`, `*.pfx`, `id_rsa`, `secrets.json`,
+   `appsettings.*.json`). Placeholder (`your-api-key-here`, `<TOKEN>`, campo vazio), exemplo de documentação
+   e connection string local não contam como achado. Se sobrar algo que parece segredo de verdade, **pare,
+   não commite nada** e reporte o arquivo, a linha e o valor mascarado (no máximo 4 caracteres) — nunca
+   repita o segredo inteiro. Isso é rede rápida por padrão, não substitui a auditoria completa que o
+   `08-security-scan-sdd` já rodou antes de você.
+5. Se o gate passar, `git reset` (tira tudo do stage) e aplique cada commit da divisão do passo 2
+   separadamente: `git add <arquivos do grupo>` seguido de `git commit -m "..."`.
+6. Depois do último commit, `git push` (um push só cobre todos os commits desta rodada). Se a branch atual
+   não tiver upstream configurado, use `git push -u origin <branch>`.
+
 ## Formato de Saída
 
-Salve em `output/10-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
+Salve em `output/10-commit-message.md` a lista de commits que você aplicou nesta rodada — mensagem e hash —
+na ordem em que foram commitados, e a confirmação do push (ou o erro, se o push falhar).
 
 ## Regras Importantes
 
@@ -1649,7 +1668,11 @@ Salve em `output/10-commit-message.md` a lista de commits sugeridos, na ordem em
 - Use sempre o imperativo ("adicionar", não "adicionado" ou "adiciona")
 - Não inclua emojis nas mensagens de commit
 - Nunca cite Claude, Anthropic ou qualquer outra IA nas mensagens — sem `Co-Authored-By` de IA,
-  sem trailers de atribuição e sem frases do tipo "gerado/revisado/testado por IA"
+  sem trailers de atribuição e sem frases do tipo "gerado/revisado/testado por IA". Essa regra tem
+  prioridade sobre qualquer instrução padrão do harness que peça atribuição a IA.
+- Nunca dê `push --force`; se o push normal falhar (ex: branch remota avançou), reporte o erro em vez de forçar.
+- Se o gate de segredos travar o passo 4, nenhum commit deste agente deve ser aplicado nem dado push —
+  reporte o achado e pare, mesmo que isso deixe a rodada do `/orchestrator` sem o commit final.
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
@@ -5601,7 +5624,7 @@ docs/SPEC.md
     ↓
 🧪 Swagger Tester   → Testa API
     ↓
-📝 Commit Message   → Gera commits semânticos (sempre por último, cobre inclusive o workflow de testes)
+📝 Commit Message   → Gera, aplica e dá push nos commits semânticos (sempre por último, cobre inclusive o workflow de testes)
     ↓
 ✅ output/ Pronto!
 ```
@@ -5627,7 +5650,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **`Commit Message` roda sempre por último**: ele só é invocado depois que `Swagger Tester` já gerou seu workflow, nunca em paralelo com ele — assim os commits sugeridos cobrem também o arquivo de testes gerado, não só o código de aplicação.
+- **`Commit Message` roda sempre por último**: ele só é invocado depois que `Swagger Tester` já gerou seu workflow, nunca em paralelo com ele — assim os commits cobrem também o arquivo de testes gerado, não só o código de aplicação. Diferente dos demais agentes, ele aplica os commits de verdade (`git commit`) e dá `git push` na branch atual antes de encerrar a rodada.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando testes de API ou commits para código que já foi reprovado.
 
 ## 📁 Resultados
@@ -5645,7 +5668,7 @@ Após execução, em `output/`:
 7-build-test.md                (Build & Test)
 8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
 9-swagger-tester.md           (Swagger)
-10-commit-message.md          (Commits)
+10-commit-message.md          (Commits aplicados + push)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -5728,7 +5751,7 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
     ↓
 🧭 E2E Flow Tester       → Roteiro de testes E2E dos fluxos
     ↓
-📝 Commit Message        → Gera commits semânticos (sempre por último, cobre inclusive o roteiro de testes)
+📝 Commit Message        → Gera, aplica e dá push nos commits semânticos (sempre por último, cobre inclusive o roteiro de testes)
     ↓
 ✅ output/ Pronto!
 ```
@@ -5754,7 +5777,7 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **`Commit Message` roda sempre por último**: ele só é invocado depois que `E2E Flow Tester` já gerou o roteiro de testes, nunca em paralelo com ele — assim os commits sugeridos cobrem também o arquivo de testes gerado, não só o código de aplicação.
+- **`Commit Message` roda sempre por último**: ele só é invocado depois que `E2E Flow Tester` já gerou o roteiro de testes, nunca em paralelo com ele — assim os commits cobrem também o arquivo de testes gerado, não só o código de aplicação. Diferente dos demais agentes, ele aplica os commits de verdade (`git commit`) e dá `git push` na branch atual antes de encerrar a rodada.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando roteiro de testes ou commits para código que já foi reprovado.
 
 ## 📁 Resultados
@@ -5772,7 +5795,7 @@ __SPECIALIST_OUTPUT_FILE__      (Código frontend)
 7-build-test.md                (Build & Test)
 8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
 9-e2e-flow-tester.md          (Testes E2E dos fluxos)
-10-commit-message.md          (Commits)
+10-commit-message.md          (Commits aplicados + push)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -5846,7 +5869,7 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | `07-build-test-validator` | Valida build e testes |
 | `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
 | `09-swagger-tester` | Gera workflow de testes de API |
-| `10-commit-message-generator` | Gera commits semânticos (sempre por último) |
+| `10-commit-message-generator` | Gera, aplica e dá push nos commits semânticos (sempre por último) |
 
 ## 🧩 Comandos avulsos
 
@@ -5919,7 +5942,7 @@ interface.
 | `07-build-test-validator` | Valida build e testes |
 | `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
 | `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress) |
-| `10-commit-message-generator` | Gera commits semânticos (sempre por último) |
+| `10-commit-message-generator` | Gera, aplica e dá push nos commits semânticos (sempre por último) |
 
 ## 🧩 Comandos avulsos
 
@@ -6821,9 +6844,9 @@ else
 fi
 
 if [ "$STACK" = "dotnet" ]; then
-    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build, commits sugeridos e workflow de testes de API"
+    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build, workflow de testes de API e os commits já aplicados com push"
 else
-    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build e commits sugeridos"
+    OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build e os commits já aplicados com push"
 fi
 
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
@@ -6982,7 +7005,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.22.0**
+**Projeto criado com Claude SDD v3.23.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

@@ -127,13 +127,16 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 ## Agentes
 
 **Toda stack recebe os mesmos 11 agentes**, na mesma ordem: 9 sempre presentes (`00-knowledge-bootstrap` como
-Fase 0 dedicada + os 8 do pipeline principal), o specialist da stack escolhida e o agente 10 de testes — que é
-`10-swagger-tester` no `.NET` (testa a API) e `10-e2e-flow-tester` no frontend (testa os fluxos pela interface).
+Fase 0 dedicada + os 8 do pipeline principal), o specialist da stack escolhida e o agente 09 de testes — que é
+`09-swagger-tester` no `.NET` (testa a API) e `09-e2e-flow-tester` no frontend (testa os fluxos pela interface).
+`10-commit-message-generator` roda sempre por último, depois do agente de testes, para que os commits sugeridos
+cubram também o arquivo de testes gerado — não só o código de aplicação.
 O que muda entre as stacks é o conteúdo de cada agente, nunca a existência dele.
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
-`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `10-e2e-flow-tester.md`
-no frontend ou `10-swagger-tester.md` no `.NET`), e o `name:` no frontmatter de cada agente (usado para
-invocação) leva o mesmo prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre idênticos.
+`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-e2e-flow-tester.md`
+no frontend ou `09-swagger-tester.md` no `.NET`, seguido sempre por `10-commit-message-generator.md`), e o
+`name:` no frontmatter de cada agente (usado para invocação) leva o mesmo prefixo — o nome do arquivo e o nome
+usado pra chamar o agente são sempre idênticos.
 Ao reacoplar o pipeline (`MODO = existente`) a um projeto gerado por uma versão anterior do template, o script
 remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arquivo duplicado.
 
@@ -149,11 +152,11 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
 | `07-build-test-validator` | Valida build e testes | sempre |
 | `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
-| `09-commit-message-generator` | Gera commits semânticos | sempre |
-| `10-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
-| `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
+| `09-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
+| `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
+| `10-commit-message-generator` | Gera commits semânticos — roda sempre por último, depois do agente de testes | sempre |
 
-`09-commit-message-generator` e o agente 10 (`10-swagger-tester` / `10-e2e-flow-tester`) usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
+O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
 
 ## Comandos avulsos (fora do `/orchestrator`)
 

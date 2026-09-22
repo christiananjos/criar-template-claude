@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.21.1
+# 🚀 Criar Template Claude SDD v3.22.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.21.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.22.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -120,6 +120,14 @@ for legacy_agent in knowledge-bootstrap orchestrator-sdd architect-sdd dotnet-sp
     code-review-sdd build-test-validator security-scan-sdd commit-message-generator swagger-tester; do
     rm -f "$PROJECT_DIR/.claude/agents/$legacy_agent.md"
 done
+
+# commit-message-generator virou o último passo do pipeline (era 09, agora 10) e
+# swagger-tester/e2e-flow-tester passaram a rodar antes dele (eram 10, agora 09) —
+# remove os arquivos com a numeração antiga antes de recriá-los, senão o projeto
+# reacoplado fica com os dois conjuntos de arquivos ao mesmo tempo.
+rm -f "$PROJECT_DIR/.claude/agents/09-commit-message-generator.md" \
+    "$PROJECT_DIR/.claude/agents/10-swagger-tester.md" \
+    "$PROJECT_DIR/.claude/agents/10-e2e-flow-tester.md"
 
 # Skills renomeadas: a pasta antiga precisa sair, senão o projeto fica com as duas
 # ativas ao mesmo tempo (o script reescreve arquivo, mas não apaga o que sumiu do
@@ -1536,8 +1544,9 @@ e o caminho de todos os arquivos gerados.
 - Nunca audite dependências de terceiros (`node_modules/`, `bin/`, `obj/`, `dist/`, `vendor/`).
 - Nunca corrija Medium/Low; nunca corrija Critical/High que altere comportamento observável sem sinalizar.
 - Se houver qualquer achado Critical/High **não corrigido** (bloqueante) ao final, marque o status como
-  ❌ REPROVADO — isso interrompe o pipeline antes de `09-commit-message-generator`, seguindo a mesma regra de gate
-  técnico que `04-compliance-validator`, `06-code-review-sdd` e `07-build-test-validator` já usam.
+  ❌ REPROVADO — isso interrompe o pipeline antes das etapas seguintes (`09-swagger-tester`/`09-e2e-flow-tester`
+  e `10-commit-message-generator`), seguindo a mesma regra de gate técnico que `04-compliance-validator`,
+  `06-code-review-sdd` e `07-build-test-validator` já usam.
 - Falha ao gerar o PDF não reprova a auditoria — o gate é o resultado dos achados, não a ferramenta de relatório.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
@@ -1594,10 +1603,10 @@ else
     sed -i "/__FRONTEND_SECURITY_STEP__/d;/__FRONTEND_SECURITY_RULE__/d;s/__FRONTEND_SECURITY_SECTION__//" ""$PROJECT_DIR/.claude/agents/08-security-scan-sdd.md""
 fi
 
-cat > ""$PROJECT_DIR/.claude/agents/09-commit-message-generator.md"" << 'AGENTEOF'
+cat > ""$PROJECT_DIR/.claude/agents/10-commit-message-generator.md"" << 'AGENTEOF'
 ---
-name: 09-commit-message-generator
-description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to generate conventional semantic commit messages for the implemented code. Use PROACTIVELY as step 9 of the SDD pipeline. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para o código implementado." <commentary>Commits are generated only after code is confirmed to build, pass tests, and clear the security gate.</commentary></example>
+name: 10-commit-message-generator
+description: Use this agent as the final step of the SDD pipeline, after swagger-tester/e2e-flow-tester has produced its test workflow, to generate conventional semantic commit messages for everything implemented — including the test workflow file itself. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Swagger/E2E workflow was generated, pipeline is almost done. user: "Já tem o workflow de testes, falta só dividir os commits" assistant: "Vou usar o agente commit-message-generator para criar commits semânticos para tudo que foi implementado, incluindo o workflow de testes." <commentary>Running last means the commit split can account for every file the pipeline produced, not just the application code.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -1632,7 +1641,7 @@ __STACK_COMMIT_EXAMPLES__
 
 ## Formato de Saída
 
-Salve em `output/9-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
+Salve em `output/10-commit-message.md` a lista de commits sugeridos, na ordem em que devem ser aplicados.
 
 ## Regras Importantes
 
@@ -1644,10 +1653,10 @@ Salve em `output/9-commit-message.md` a lista de commits sugeridos, na ordem em 
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/.claude/agents/10-swagger-tester.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/09-swagger-tester.md"" << 'AGENTEOF'
 ---
-name: 10-swagger-tester
-description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta só o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>This is the final agent in the cascade, producing the artifact developers use to manually validate the API.</commentary></example>
+name: 09-swagger-tester
+description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to produce a complete API testing workflow with cURL examples and Swagger/OpenAPI test scenarios. Use PROACTIVELY as step 9 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera o workflow de testes da API" assistant: "Vou usar o agente swagger-tester para gerar o workflow completo de testes da API." <commentary>The workflow file is generated before the commit split, so commit-message-generator can include it in the suggested commits.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -1675,7 +1684,7 @@ Para cada endpoint definido em `docs/SPEC.md` e implementado por `03-dotnet-spec
 
 ## Formato de Saída
 
-Salve em `output/10-swagger-tester.md`:
+Salve em `output/9-swagger-tester.md`:
 
 ```markdown
 # Swagger Test Workflow
@@ -1715,10 +1724,10 @@ curl -X POST ... -d '{ "titulo": "" }'
 - Use dados de exemplo realistas e coerentes com o domínio da spec
 AGENTEOF
 else
-    cat > ""$PROJECT_DIR/.claude/agents/10-e2e-flow-tester.md"" << 'AGENTEOF'
+    cat > ""$PROJECT_DIR/.claude/agents/09-e2e-flow-tester.md"" << 'AGENTEOF'
 ---
-name: 10-e2e-flow-tester
-description: Use this agent as the final step of the SDD pipeline, after commit-message-generator, to produce a complete end-to-end test workflow for the implemented frontend flows (Playwright or Cypress), including the session-invalidation check required by the project's frontend security rules. Use PROACTIVELY as step 10, the last step of the pipeline. Examples: <example>Context: Commits were generated, pipeline is almost done. user: "Já tem os commits, falta o roteiro de testes dos fluxos" assistant: "Vou usar o agente e2e-flow-tester para gerar o workflow completo de testes end-to-end dos fluxos implementados." <commentary>This is the final agent in the cascade, producing the artifact developers use to validate the app end to end.</commentary></example>
+name: 09-e2e-flow-tester
+description: Use this agent after security-scan-sdd has approved the code (no unresolved Critical/High findings), to produce a complete end-to-end test workflow for the implemented frontend flows (Playwright or Cypress), including the session-invalidation check required by the project's frontend security rules. Use PROACTIVELY as step 9 of the SDD pipeline, right before commit-message-generator. Examples: <example>Context: Security scan passed. user: "Scan de segurança ok, gera o roteiro de testes dos fluxos" assistant: "Vou usar o agente e2e-flow-tester para gerar o workflow completo de testes end-to-end dos fluxos implementados." <commentary>The workflow file is generated before the commit split, so commit-message-generator can include it in the suggested commits.</commentary></example>
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -1759,7 +1768,7 @@ Além dos fluxos da spec, gere sempre:
 
 ## Formato de Saída
 
-Salve em `output/10-e2e-flow-tester.md`:
+Salve em `output/9-e2e-flow-tester.md`:
 
 ```markdown
 # Workflow de Testes E2E
@@ -5256,7 +5265,7 @@ inject_stack_block "$CICD_SKILL/references/github-actions.md" "__STACK_GH_DEPLOY
 inject_stack_block "$PROJECT_DIR/.claude/skills/qa-expert/SKILL.md" "__STACK_QA_AUTOMATION__" "$SKILL_TMP/qa_automation"
 inject_stack_block "$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md" "__STACK_AWS_DEPLOY__" "$SKILL_TMP/aws_deploy"
 inject_stack_block "$PROJECT_DIR/.claude/skills/tech-leader-expert/SKILL.md" "__STACK_TECHLEADER_CONTEXT__" "$SKILL_TMP/techleader"
-inject_stack_block "$PROJECT_DIR/.claude/agents/09-commit-message-generator.md" "__STACK_COMMIT_EXAMPLES__" "$SKILL_TMP/commit_examples"
+inject_stack_block "$PROJECT_DIR/.claude/agents/10-commit-message-generator.md" "__STACK_COMMIT_EXAMPLES__" "$SKILL_TMP/commit_examples"
 rm -rf "$SKILL_TMP"
 
 if [ "$STACK" = "dotnet" ]; then
@@ -5489,12 +5498,12 @@ for agent_file in "$PROJECT_DIR"/.claude/agents/*.md; do
             OWNED='`11 - Bugs Conhecidos/` — falha de build ou teste que ficou pendente, com o comando que a reproduz' ;;
         08-security-scan-sdd)
             OWNED='`13 - Segurança/` — achados por severidade, o que foi corrigido e o que segue aberto' ;;
-        09-commit-message-generator)
-            OWNED='nenhuma pasta por padrão — mas, se ao dividir os commits você perceber algo implementado que não está documentado, registre em `02 - Funcionalidades/`' ;;
-        10-swagger-tester)
+        09-swagger-tester)
             OWNED='`04 - APIs/` — endpoints, exemplos de requisição e respostas confirmadas nos testes' ;;
-        10-e2e-flow-tester)
+        09-e2e-flow-tester)
             OWNED='`09 - Casos de Teste/` — os fluxos E2E cobertos, usando `knowledge/templates/TestCase.md`' ;;
+        10-commit-message-generator)
+            OWNED='nenhuma pasta por padrão — mas, se ao dividir os commits você perceber algo implementado que não está documentado, registre em `02 - Funcionalidades/`' ;;
         *)
             OWNED='a pasta do vault correspondente ao que você produziu' ;;
     esac
@@ -5590,9 +5599,9 @@ docs/SPEC.md
     ↓
 🛡️ Security Scan    → Auditoria de segurança (5 categorias) + relatório PDF
     ↓
-📝 Commit Message   → Gera commits semânticos
-    ↓
 🧪 Swagger Tester   → Testa API
+    ↓
+📝 Commit Message   → Gera commits semânticos (sempre por último, cobre inclusive o workflow de testes)
     ↓
 ✅ output/ Pronto!
 ```
@@ -5618,8 +5627,8 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `Commit Message` e `Swagger Tester` só dependem do `Security Scan` já ter aprovado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
-- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou testes de API para código que já foi reprovado.
+- **`Commit Message` roda sempre por último**: ele só é invocado depois que `Swagger Tester` já gerou seu workflow, nunca em paralelo com ele — assim os commits sugeridos cobrem também o arquivo de testes gerado, não só o código de aplicação.
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando testes de API ou commits para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -5635,8 +5644,8 @@ Após execução, em `output/`:
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
 8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
-9-commit-message.md           (Commits)
-10-swagger-tester.md          (Swagger)
+9-swagger-tester.md           (Swagger)
+10-commit-message.md          (Commits)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -5717,9 +5726,9 @@ FE_EMOJI __SPECIALIST__   → Implementa o frontend
     ↓
 🛡️ Security Scan         → Auditoria de segurança (5 categorias) + relatório PDF
     ↓
-📝 Commit Message        → Gera commits semânticos
-    ↓
 🧭 E2E Flow Tester       → Roteiro de testes E2E dos fluxos
+    ↓
+📝 Commit Message        → Gera commits semânticos (sempre por último, cobre inclusive o roteiro de testes)
     ↓
 ✅ output/ Pronto!
 ```
@@ -5745,8 +5754,8 @@ rodar sozinho sem ficar confirmando etapa por etapa.
 
 - **Fase 0 é condicional**: `00-knowledge-bootstrap` só roda se `docs/raw/` existir e tiver pelo menos um arquivo.
   Caso contrário, pule direto para o `Orchestrator` (validação da spec) — não crie a pasta `knowledge/` à toa.
-- **Paralelize quando possível**: `Commit Message` e `E2E Flow Tester` só dependem do `Security Scan` já ter aprovado, não dependem um do outro — invoque os dois na mesma mensagem (duas chamadas de Agent tool).
-- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando commits ou roteiro de testes para código que já foi reprovado.
+- **`Commit Message` roda sempre por último**: ele só é invocado depois que `E2E Flow Tester` já gerou o roteiro de testes, nunca em paralelo com ele — assim os commits sugeridos cobrem também o arquivo de testes gerado, não só o código de aplicação.
+- **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `Compliance`, `Code Review`, `Build & Test` ou `Security Scan` reportar falha (❌ NON-COMPLIANT / REPROVADO / FAILED), interrompa o pipeline e reporte ao usuário o que precisa ser corrigido antes de continuar. Não gaste as próximas etapas gerando roteiro de testes ou commits para código que já foi reprovado.
 
 ## 📁 Resultados
 
@@ -5762,8 +5771,8 @@ __SPECIALIST_OUTPUT_FILE__      (Código frontend)
 6-code-review.md              (Code Review)
 7-build-test.md                (Build & Test)
 8-security-scan.md            (Auditoria de Segurança — 5 categorias + PDF)
-9-commit-message.md           (Commits)
-10-e2e-flow-tester.md         (Testes E2E dos fluxos)
+9-e2e-flow-tester.md          (Testes E2E dos fluxos)
+10-commit-message.md          (Commits)
 token-report.md               (Uso de tokens do pipeline)
 state.json                    (Estado)
 ```
@@ -5836,8 +5845,8 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | `06-code-review-sdd` | Revisa qualidade do código |
 | `07-build-test-validator` | Valida build e testes |
 | `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
-| `09-commit-message-generator` | Gera commits semânticos |
-| `10-swagger-tester` | Gera workflow de testes de API |
+| `09-swagger-tester` | Gera workflow de testes de API |
+| `10-commit-message-generator` | Gera commits semânticos (sempre por último) |
 
 ## 🧩 Comandos avulsos
 
@@ -5895,7 +5904,7 @@ Stack deste projeto: **__STACK_LABEL__**
 ## 🤖 Os Agentes (em `.claude/agents/`)
 
 Este projeto é **somente frontend** — não há agente de backend .NET. O lugar do agente de teste de API
-(`10-swagger-tester`, do pipeline .NET) é ocupado aqui pelo `10-e2e-flow-tester`, que testa os fluxos pela
+(`09-swagger-tester`, do pipeline .NET) é ocupado aqui pelo `09-e2e-flow-tester`, que testa os fluxos pela
 interface.
 
 | Agente | Responsabilidade |
@@ -5909,8 +5918,8 @@ interface.
 | `06-code-review-sdd` | Revisa qualidade do código |
 | `07-build-test-validator` | Valida build e testes |
 | `08-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
-| `09-commit-message-generator` | Gera commits semânticos |
-| `10-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress) |
+| `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress) |
+| `10-commit-message-generator` | Gera commits semânticos (sempre por último) |
 
 ## 🧩 Comandos avulsos
 
@@ -6973,7 +6982,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v3.21.1**
+**Projeto criado com Claude SDD v3.22.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

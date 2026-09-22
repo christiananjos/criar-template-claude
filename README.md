@@ -7,7 +7,7 @@ Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.
 1. `/comecar` gera a estrutura do projeto (`.claude/` com `commands/`, `agents/`, `skills/`, `rules/`, `hooks/` e `scripts/`, mais `CLAUDE.md`, `.mcp.json`, `README.md`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/orchestrator` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e monta o roteiro de testes de ponta a ponta (workflow de API no `.NET`, fluxos E2E no frontend) — parando automaticamente se algum gate de qualidade reprovar
+4. Dentro do projeto, `/inicia-orquestracao` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e monta o roteiro de testes de ponta a ponta (workflow de API no `.NET`, fluxos E2E no frontend) — parando automaticamente se algum gate de qualidade reprovar
 5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
 
 ## Instalação
@@ -99,16 +99,16 @@ de "nova versão disponível" na interface hoje.
 /sdd:comecar meu-projeto
 cd meu-projeto
 nano docs/SPEC.md
-/orchestrator
+/inicia-orquestracao
 ```
 
 O plugin pergunta uma coisa de cada vez: projeto novo ou existente, caminho, nome do projeto (só no modo novo — no
 existente usa o nome da pasta) e a stack, como uma única escolha (`.NET`, `Angular`, `React` ou `Vue`) — cada
-projeto sai com **uma stack só**, sem backend e frontend misturados. Isso muda o que é gerado — o `orchestrator.md`, `.claude/commands/README.md`, `CLAUDE.md`, `docs/SPEC.md`, os agentes e
+projeto sai com **uma stack só**, sem backend e frontend misturados. Isso muda o que é gerado — o `inicia-orquestracao.md`, `.claude/commands/README.md`, `CLAUDE.md`, `docs/SPEC.md`, os agentes e
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
-O `/orchestrator` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `01-orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
+O `/inicia-orquestracao` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `01-orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
 ## Acoplar num projeto já existente
 
@@ -122,7 +122,7 @@ essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do pr
 - **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
 - **`02-architect-sdd` e os `03-*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 
-Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o que falta implementar) e rodar `/orchestrator`.
+Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o que falta implementar) e rodar `/inicia-orquestracao`.
 
 ## Agentes
 
@@ -160,15 +160,15 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 
 O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
 
-## Comandos avulsos (fora do `/orchestrator`)
+## Comandos avulsos (fora do `/inicia-orquestracao`)
 
 Além do pipeline em si, todo projeto gerado sai com comandos soltos em `.claude/commands/`, para chamar a
-qualquer momento, fora de uma rodada do `/orchestrator`:
+qualquer momento, fora de uma rodada do `/inicia-orquestracao`:
 
 | Comando | Stacks | O que faz |
 |---|---|---|
 | `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
-| `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/orchestrator`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
+| `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/inicia-orquestracao`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
 `.csproj`, `DbContext`/EF Core e violação de camada; a de frontend procura `package.json`, mapa de rotas,
@@ -183,12 +183,12 @@ mecanismos diferentes do Claude Code:
 | | **Agente** — `.claude/agents/03-<stack>-specialist.md` | **Skill** — `.claude/skills/<stack>-expert/SKILL.md` |
 |---|---|---|
 | O que é | Um subagente: executa | Conhecimento: informa |
-| Quem dispara | O `/orchestrator`, na ordem do pipeline | O próprio Claude, quando o assunto aparece na conversa |
+| Quem dispara | O `/inicia-orquestracao`, na ordem do pipeline | O próprio Claude, quando o assunto aparece na conversa |
 | Contexto | Roda numa janela própria e devolve só o relatório | Entra no contexto da conversa atual |
 | O que faz | Escreve código em `src/`, grava relatório em `output/`, atualiza o vault | Não executa nada — orienta quem está escrevendo |
 | Quando age | Só durante uma rodada do pipeline | Em qualquer sessão, dentro ou fora do pipeline |
 
-Na prática: o **specialist** é quem implementa a spec quando você roda `/orchestrator`. O **expert** é quem
+Na prática: o **specialist** é quem implementa a spec quando você roda `/inicia-orquestracao`. O **expert** é quem
 responde quando você pergunta "esse `useEffect` está certo?" numa terça-feira qualquer, sem pipeline nenhum
 rodando — e é carregado também pelo próprio specialist na hora de implementar, então a mesma régua vale nos
 dois caminhos.
@@ -199,7 +199,7 @@ dois viram "especialista", que é justamente o que confunde — por isso os arqu
 ## Skills — especialistas extras
 
 Todo projeto sai também com skills em `.claude/skills/`, complementares aos agentes do pipeline — não são
-chamadas automaticamente pelo `/orchestrator`, mas ficam disponíveis pro Claude consultar (e você invocar
+chamadas automaticamente pelo `/inicia-orquestracao`, mas ficam disponíveis pro Claude consultar (e você invocar
 manualmente) durante ou depois de uma rodada, para dúvidas que vão além do que os agentes fixos cobrem.
 
 **Uma skill é da stack do projeto** — a contraparte consultável do agente `03-<stack>-specialist`, criada só
@@ -254,7 +254,7 @@ suficiente. Isso evita reler o projeto inteiro a cada consulta e usa os tokens d
 ## Base de Conhecimento (Knowledge Engine)
 
 Se você tiver documentação já pronta do projeto (Word, PDF, planilhas, imagens, atas de reunião), coloque tudo
-em `docs/raw/` antes de chamar `/orchestrator`. A Fase 0 (`00-knowledge-bootstrap`) lê e consolida todo esse material
+em `docs/raw/` antes de chamar `/inicia-orquestracao`. A Fase 0 (`00-knowledge-bootstrap`) lê e consolida todo esse material
 em `knowledge/vault/` — uma base de conhecimento em Markdown, compatível com Obsidian (pastas por domínio,
 links `[[internos]]`, glossário e índice), além de um grafo de relacionamentos (`knowledge/graph/`), chunks
 prontos para busca semântica (`knowledge/embeddings/`) e um resumo por área (`knowledge/cache/`) para os
@@ -299,12 +299,12 @@ por variável de ambiente / `dotnet user-secrets`. Se o segredo já estiver em c
 com todas as letras que tirar do stage não resolve — a correção é **rotacionar a credencial**.
 
 É uma rede rápida baseada em padrões, não uma auditoria: quem faz a auditoria completa (cinco categorias de
-falha, com relatório em PDF) é o agente `08-security-scan-sdd` do `/orchestrator`. O `/commit` deste
+falha, com relatório em PDF) é o agente `08-security-scan-sdd` do `/inicia-orquestracao`. O `/commit` deste
 repositório-template tem o mesmo gate, em versão condensada.
 
 ## Relatório de tokens
 
-Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`) que, ao final de cada rodada do `/orchestrator`, atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente e por modelo — lido direto dos transcripts da sessão, sem estimativa do modelo.
+Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`) que, ao final de cada rodada do `/inicia-orquestracao`, atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente e por modelo — lido direto dos transcripts da sessão, sem estimativa do modelo.
 
 O custo é calculado pelo modelo que realmente respondeu cada mensagem, então o relatório continua correto seja qual for o modelo de cada agente, inclusive se você trocar. A conta considera leitura e escrita de cache (com o multiplicador de cada modelo), fast mode, inferência restrita aos EUA e buscas na web (cobradas à parte, US$ 10 por 1.000). Modelo que ainda não estiver na tabela de preços entra pelo preço do modelo mais recente da mesma família, e o relatório avisa que aquele valor é aproximado — a tabela fica em `PRICING`, no topo de `.claude/hooks/generate-token-report.cjs`.
 
@@ -316,7 +316,7 @@ Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/D
 
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
 
-- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/orchestrator`, `/commit` e `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
+- **`.claude/commands/`** e **`.claude/agents/`** — comandos (`/inicia-orquestracao`, `/commit` e `/raio-x-projeto` — ver seção "Comandos avulsos" acima) e subagentes do pipeline, nos caminhos que o Claude Code descobre automaticamente numa sessão normal.
 - **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert` e `hostinger-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).

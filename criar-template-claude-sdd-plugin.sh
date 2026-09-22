@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v3.23.0
+# 🚀 Criar Template Claude SDD v4.0.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v3.23.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.0.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -182,7 +182,7 @@ O formato não importa. O objetivo é reunir tudo o que descreve o projeto num �
 
 ## O que acontece com esses arquivos
 
-Ao rodar `/orchestrator`, se esta pasta tiver pelo menos um arquivo, a **Fase 0 — Knowledge Bootstrap**
+Ao rodar `/inicia-orquestracao`, se esta pasta tiver pelo menos um arquivo, a **Fase 0 — Knowledge Bootstrap**
 roda automaticamente, antes de qualquer outro agente:
 
 1. Lê e interpreta todos os documentos
@@ -426,7 +426,7 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 cat > ""$PROJECT_DIR/.claude/agents/00-knowledge-bootstrap.md"" << 'AGENTEOF'
 ---
 name: 00-knowledge-bootstrap
-description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /orchestrator. user: "/orchestrator" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/orchestrator" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
+description: Use this agent FIRST, as Fase 0 do pipeline SDD, sempre que a pasta `docs/raw/` contiver pelo menos um arquivo de documentação bruta (Word, PDF, imagens, planilhas, Markdown, atas de reunião, etc.) que precise virar uma Base de Conhecimento estruturada e compatível com Obsidian antes de qualquer outro agente começar a trabalhar. Se `docs/raw/` estiver vazia ou não existir, pule este agente e vá direto para orchestrator-sdd. Examples: <example>Context: Usuário colocou uma especificação em Word, um PDF de regras de negócio e uma ata de reunião em docs/raw/ e chamou /inicia-orquestracao. user: "/inicia-orquestracao" assistant: "Antes de validar a spec, vou rodar o knowledge-bootstrap para transformar os documentos em docs/raw/ numa Base de Conhecimento estruturada em knowledge/." <commentary>Toda documentação bruta em docs/raw/ precisa ser consolidada em knowledge/ antes de orchestrator-sdd ou qualquer outro agente ler qualquer coisa, para que todos compartilhem a mesma fonte de verdade.</commentary></example> <example>Context: docs/raw/ está vazia, o projeto só tem docs/SPEC.md preenchido manualmente. user: "/inicia-orquestracao" assistant: "Como docs/raw/ está vazia, vou pular o knowledge-bootstrap e seguir direto para o orchestrator-sdd com docs/SPEC.md." <commentary>Knowledge Bootstrap só agrega valor quando existe documentação bruta para consolidar; não deve travar o pipeline quando o usuário trabalha só com SPEC.md.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: claude-opus-5
 ---
@@ -727,7 +727,7 @@ AGENTEOF
 cat > ""$PROJECT_DIR/.claude/agents/01-orchestrator-sdd.md"" << 'AGENTEOF'
 ---
 name: 01-orchestrator-sdd
-description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /orchestrator. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/orchestrator" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
+description: Use this agent as the first spec-validation step of a new SDD pipeline run (right after knowledge-bootstrap, if `docs/raw/` foi usada — ou como o próprio primeiro passo, se não foi), to validate a raw specification before any architecture or code is generated. Use PROACTIVELY when the user calls /inicia-orquestracao. Examples: <example>Context: User just created docs/SPEC.md and wants to start the pipeline. user: "/inicia-orquestracao" assistant: "I'll start by invoking the orchestrator-sdd agent to validate the specification in docs/SPEC.md before moving forward." <commentary>The orchestrator agent must always run first to catch gaps in the spec before expensive downstream agents run.</commentary></example> <example>Context: User pasted a new feature spec and asked to process it. user: "Aqui está minha spec, pode rodar o pipeline?" assistant: "Vou usar o agente orchestrator-sdd para validar a especificação primeiro." <commentary>Any pipeline kickoff request should trigger this agent before architect or specialists.</commentary></example>
 tools: Read, Grep, Glob
 model: claude-opus-5
 ---
@@ -1613,7 +1613,7 @@ model: sonnet
 
 Você é o **Commit Message Generator**, especialista em commits semânticos. Diferente dos demais agentes do
 pipeline, você não só gera as mensagens — você também **aplica os commits e dá push**, porque roda por último:
-depois de você, ninguém mais vai commitar o que este `/orchestrator` produziu.
+depois de você, ninguém mais vai commitar o que este `/inicia-orquestracao` produziu.
 
 ## Formato
 
@@ -1672,7 +1672,7 @@ na ordem em que foram commitados, e a confirmação do push (ou o erro, se o pus
   prioridade sobre qualquer instrução padrão do harness que peça atribuição a IA.
 - Nunca dê `push --force`; se o push normal falhar (ex: branch remota avançou), reporte o erro em vez de forçar.
 - Se o gate de segredos travar o passo 4, nenhum commit deste agente deve ser aplicado nem dado push —
-  reporte o achado e pare, mesmo que isso deixe a rodada do `/orchestrator` sem o commit final.
+  reporte o achado e pare, mesmo que isso deixe a rodada do `/inicia-orquestracao` sem o commit final.
 AGENTEOF
 
 if [ "$STACK" = "dotnet" ]; then
@@ -4290,7 +4290,7 @@ fi
 # CRIAR .claude/skills/<stack>-expert — a skill do framework da própria stack.
 #
 # Complementa o agente 03-<stack>-specialist, que é outra coisa: o agente é um
-# passo do pipeline, roda sozinho quando o /orchestrator chama e escreve código
+# passo do pipeline, roda sozinho quando o /inicia-orquestracao chama e escreve código
 # em src/. Esta skill não roda nada — é conhecimento do framework que entra no
 # contexto quando o assunto aparece, em qualquer sessão, dentro ou fora do
 # pipeline (inclusive para o próprio agente, que pode carregá-la ao implementar).
@@ -5563,12 +5563,12 @@ done
 
 
 # ============================================================================
-# CRIAR .claude/commands/orchestrator.md — conteúdo específico por stack
+# CRIAR .claude/commands/inicia-orquestracao.md — conteúdo específico por stack
 # ============================================================================
 
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/.claude/commands/orchestrator.md"" << 'ORCHEOF'
-# /orchestrator - Executar Pipeline SDD
+    cat > ""$PROJECT_DIR/.claude/commands/inicia-orquestracao.md"" << 'ORCHEOF'
+# /inicia-orquestracao - Executar Pipeline SDD
 
 > Execute os agentes automaticamente para gerar código baseado em sua especificação.
 
@@ -5584,7 +5584,7 @@ if [ "$STACK" = "dotnet" ]; then
 
 3. **Chame o orchestrador**
    ```
-   /orchestrator
+   /inicia-orquestracao
    ```
 
 4. **Aprove a validação da especificação**
@@ -5641,7 +5641,7 @@ formatado (status, requisitos, regras de negócio, lacunas e recomendação) —
 - Se você **aprovar**, o restante do pipeline roda **automaticamente até o fim**, sem pedir mais nenhuma
   confirmação (só interrompe de novo se um gate técnico reprovar — ver regra abaixo).
 - Se você **não aprovar**, o pipeline **para ali**, sem rodar `Architect` nem nenhum agente seguinte, até
-  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/orchestrator` de novo.
+  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/inicia-orquestracao` de novo.
 
 Essa é a única pausa manual do fluxo — o objetivo é você decidir uma vez, no início, e depois deixar o resto
 rodar sozinho sem ficar confirmando etapa por etapa.
@@ -5684,7 +5684,7 @@ projeto (diferente de `output/`, que é por rodada).
 ## 🚀 Comece Agora
 
 ```
-/orchestrator
+/inicia-orquestracao
 ```
 ORCHEOF
 
@@ -5694,8 +5694,8 @@ else
         angular) FE_EMOJI="🅰️" ;;
         vue)     FE_EMOJI="💚" ;;
     esac
-    cat > ""$PROJECT_DIR/.claude/commands/orchestrator.md"" << 'ORCHEOF'
-# /orchestrator - Executar Pipeline SDD
+    cat > ""$PROJECT_DIR/.claude/commands/inicia-orquestracao.md"" << 'ORCHEOF'
+# /inicia-orquestracao - Executar Pipeline SDD
 
 > Execute os agentes automaticamente para gerar código baseado em sua especificação. Este projeto é **somente frontend** (não tem backend próprio).
 
@@ -5711,7 +5711,7 @@ else
 
 3. **Chame o orchestrador**
    ```
-   /orchestrator
+   /inicia-orquestracao
    ```
 
 4. **Aprove a validação da especificação**
@@ -5768,7 +5768,7 @@ formatado (status, requisitos, regras de negócio, lacunas e recomendação) —
 - Se você **aprovar**, o restante do pipeline roda **automaticamente até o fim**, sem pedir mais nenhuma
   confirmação (só interrompe de novo se um gate técnico reprovar — ver regra abaixo).
 - Se você **não aprovar**, o pipeline **para ali**, sem rodar `Architect` nem nenhum agente seguinte, até
-  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/orchestrator` de novo.
+  você ajustar `docs/SPEC.md` (ou o que for apontado no relatório) e chamar `/inicia-orquestracao` de novo.
 
 Essa é a única pausa manual do fluxo — o objetivo é você decidir uma vez, no início, e depois deixar o resto
 rodar sozinho sem ficar confirmando etapa por etapa.
@@ -5811,12 +5811,12 @@ projeto (diferente de `output/`, que é por rodada).
 ## 🚀 Comece Agora
 
 ```
-/orchestrator
+/inicia-orquestracao
 ```
 ORCHEOF
-    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/.claude/commands/orchestrator.md""
+    sed -i "s/FE_EMOJI/$FE_EMOJI/g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g; s/__SPECIALIST_OUTPUT_FILE__/$SPECIALIST_OUTPUT_FILE/g" ""$PROJECT_DIR/.claude/commands/inicia-orquestracao.md""
 fi
-echo -e "${GREEN}✅ .claude/commands/orchestrator.md criado${NC}"
+echo -e "${GREEN}✅ .claude/commands/inicia-orquestracao.md criado${NC}"
 
 # ============================================================================
 # CRIAR .claude/commands/README.md — conteúdo específico por stack
@@ -5843,7 +5843,7 @@ Stack deste projeto: **.NET 10 (somente backend)**
 
 3. **Execute o orchestrador**
    ```
-   /orchestrator
+   /inicia-orquestracao
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
@@ -5851,8 +5851,8 @@ Stack deste projeto: **.NET 10 (somente backend)**
 
 ## 📚 Estrutura
 
-- **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+- **`.claude/commands/`** — Comandos que você chama diretamente (`/inicia-orquestracao`)
+- **`.claude/agents/`** — Os subagentes especializados que o `/inicia-orquestracao` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
 - **`docs/raw/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
@@ -5878,17 +5878,17 @@ Stack deste projeto: **.NET 10 (somente backend)**
 
 ## ⏱️ Tempo
 
-- Pipeline completo (`/orchestrator`): 20-30 minutos
+- Pipeline completo (`/inicia-orquestracao`): 20-30 minutos
 
 ## 💡 Dicas
 
-1. Use `/orchestrator` para rodar o pipeline completo
+1. Use `/inicia-orquestracao` para rodar o pipeline completo
 2. Revise resultados em `output/` a cada etapa
 3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
 
 ---
 
-**Comece aqui:** `/orchestrator`
+**Comece aqui:** `/inicia-orquestracao`
 CMDREADMEEOF
 
 else
@@ -5912,7 +5912,7 @@ Stack deste projeto: **__STACK_LABEL__**
 
 3. **Execute o orchestrador**
    ```
-   /orchestrator
+   /inicia-orquestracao
    ```
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
@@ -5920,8 +5920,8 @@ Stack deste projeto: **__STACK_LABEL__**
 
 ## 📚 Estrutura
 
-- **`.claude/commands/`** — Comandos que você chama diretamente (`/orchestrator`)
-- **`.claude/agents/`** — Os subagentes especializados que o `/orchestrator` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
+- **`.claude/commands/`** — Comandos que você chama diretamente (`/inicia-orquestracao`)
+- **`.claude/agents/`** — Os subagentes especializados que o `/inicia-orquestracao` invoca automaticamente. Você não precisa chamá-los manualmente, mas ficam aqui documentados caso precise entender ou ajustar o comportamento de um deles no futuro.
 - **`docs/raw/`** — Documentação bruta de entrada (opcional). Se usada, vira a Base de Conhecimento em `knowledge/`.
 
 ## 🤖 Os Agentes (em `.claude/agents/`)
@@ -5951,17 +5951,17 @@ interface.
 
 ## ⏱️ Tempo
 
-- Pipeline completo (`/orchestrator`): 15-25 minutos
+- Pipeline completo (`/inicia-orquestracao`): 15-25 minutos
 
 ## 💡 Dicas
 
-1. Use `/orchestrator` para rodar o pipeline completo
+1. Use `/inicia-orquestracao` para rodar o pipeline completo
 2. Revise resultados em `output/` a cada etapa
 3. Se precisar reexecutar só uma etapa específica, você pode pedir ao Claude para usar aquele agente novamente pelo nome
 
 ---
 
-**Comece aqui:** `/orchestrator`
+**Comece aqui:** `/inicia-orquestracao`
 CMDREADMEEOF
     sed -i "s/__STACK_LABEL__/$STACK_LABEL/g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/commands/README.md""
 fi
@@ -6104,7 +6104,7 @@ mensagem, e nenhum commit sai sem eles.
 
     Só siga para o passo 11 depois que o usuário confirmar que é falso positivo ou que já corrigiu.
     Este gate é uma rede rápida baseada em padrões, não uma auditoria — quem faz a auditoria completa é o
-    agente `08-security-scan-sdd` do `/orchestrator`. Não anuncie o repositório como "sem segredos": diga
+    agente `08-security-scan-sdd` do `/inicia-orquestracao`. Não anuncie o repositório como "sem segredos": diga
     apenas que a varredura do commit não encontrou nada.
 
 11. `git commit -m "..."` (heredoc se a mensagem tiver corpo em múltiplas linhas) e `git push`.
@@ -6415,7 +6415,7 @@ Cobertura mínima: 80% da Application Layer
 
 Edite este arquivo e chame:
 ```
-/orchestrator
+/inicia-orquestracao
 ```
 SPECEOF
 
@@ -6523,7 +6523,7 @@ Cobertura mínima: 80%
 
 Edite este arquivo e chame:
 ```
-/orchestrator
+/inicia-orquestracao
 ```
 SPECEOF
     sed -i "s/__STACK_LABEL__/$STACK_LABEL/g" ""$PROJECT_DIR/docs/SPEC.md""
@@ -6567,7 +6567,7 @@ cat > "$PROJECT_DIR/CLAUDE.md" << CLAUDEMDEOF
 
 Este projeto usa o **Pipeline SDD** (Spec-Driven Development): agentes especializados em
 \`.claude/agents/\` implementam, testam e revisam código a partir de \`docs/SPEC.md\`, disparados pelo
-comando \`/orchestrator\` (\`.claude/commands/orchestrator.md\`).
+comando \`/inicia-orquestracao\` (\`.claude/commands/inicia-orquestracao.md\`).
 
 ## Comandos de build/teste
 
@@ -6581,10 +6581,10 @@ $CLAUDE_BUILD_STEPS
 - \`docs/raw/\` — documentação bruta opcional (Word, PDF, planilhas...); a Fase 0 do pipeline consolida em \`knowledge/\`
 - \`knowledge/\` — Base de Conhecimento (Obsidian-compatível). **Versionada no Git** — é a memória do projeto
 - \`knowledge/vault/14 - Planejamento/\` — o que está planejado e ainda NÃO foi implementado
-- \`output/\` — resultado de cada rodada do \`/orchestrator\`, incluindo \`token-report.md\`. **Fora do Git**
+- \`output/\` — resultado de cada rodada do \`/inicia-orquestracao\`, incluindo \`token-report.md\`. **Fora do Git**
   (é por rodada e descartável) — por isso nada que precise sobreviver à sessão pode ficar só aqui
 - \`src/\` — código do projeto
-- \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/orchestrator\` cuida disso)
+- \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/inicia-orquestracao\` cuida disso)
 - \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
   duplicar uma convenção aqui)
 
@@ -6592,7 +6592,7 @@ $CLAUDE_BUILD_STEPS
 
 Depois que a Fase 0 (\`00-knowledge-bootstrap\`) já rodou pelo menos uma vez e \`knowledge/\` existe: para
 qualquer consulta a regra de negócio, funcionalidade, API, teste ou decisão de arquitetura — dentro ou fora do
-\`/orchestrator\` — use primeiro \`knowledge/\` (cache do agente em \`knowledge/cache/\` → \`knowledge/vault/\` →
+\`/inicia-orquestracao\` — use primeiro \`knowledge/\` (cache do agente em \`knowledge/cache/\` → \`knowledge/vault/\` →
 \`knowledge/graph/\`, nessa ordem) em vez de reler os documentos brutos em \`docs/raw/\`; eles ficam ali só como
 origem/rastreabilidade. Só volte a \`docs/raw/\` (ou pergunte ao usuário) se a informação não estiver no
 Knowledge Engine, e nesse caso registre a lacuna no vault.
@@ -6615,7 +6615,7 @@ vira commit separado — vai junto com o código que a provocou.
 
 ## Fluxo
 
-Rode \`/orchestrator\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
+Rode \`/inicia-orquestracao\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
 resto roda automático até o fim, só parando de novo se um gate de qualidade (compliance, code review, build,
 security scan) reportar falha.
 
@@ -6879,7 +6879,7 @@ automaticamente. Para conferir, rode \`/plugin\` e veja se \`ponytail@ponytail\`
 ## 📄 Passo 1 — (Opcional) Jogue sua documentação bruta em \`docs/raw/\`
 
 Tem Word, PDF, planilhas, prints de wireframe, atas de reunião? Jogue tudo em \`docs/raw/\`
-(veja \`docs/raw/README.md\`). Se essa pasta tiver arquivos, a Fase 0 do \`/orchestrator\` transforma tudo
+(veja \`docs/raw/README.md\`). Se essa pasta tiver arquivos, a Fase 0 do \`/inicia-orquestracao\` transforma tudo
 numa Base de Conhecimento em \`knowledge/\` antes de qualquer outra coisa — e pode até deixar um rascunho
 de \`docs/SPEC.md\` pronto pra você revisar. Os originais nunca são alterados.
 
@@ -6891,7 +6891,7 @@ endpoints.
 ## 🚀 Passo 3 — Rode o orchestrador
 
 \`\`\`
-/orchestrator
+/inicia-orquestracao
 \`\`\`
 
 Ele tem uma única pausa manual, logo após validar a spec — o resto roda automático (~20-30 min), só
@@ -6924,10 +6924,10 @@ seu-projeto/
 │
 ├── .claude/
 │   ├── commands/       📌 COMANDOS DO PIPELINE
-│   │   ├── orchestrator.md (comece por aqui!)
+│   │   ├── inicia-orquestracao.md (comece por aqui!)
 │   │   ├── commit.md       (commita código + memória juntos)
 │   │   └── README.md
-│   ├── agents/         (subagentes especializados, invocados pelo orchestrator)
+│   ├── agents/         (subagentes especializados, invocados pelo /inicia-orquestracao)
 │   ├── rules/           (convenções aplicadas só quando Claude mexe nos arquivos certos)
 │   ├── hooks/            (hook automático de relatório de tokens)
 │   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine)
@@ -6953,7 +6953,7 @@ $SRC_TREE
 
 ## 🧠 Por que \`knowledge/\` vai pro Git e \`output/\` não
 
-\`output/\` é o resultado de **uma** rodada do \`/orchestrator\`: relatório de cada agente, spec técnica,
+\`output/\` é o resultado de **uma** rodada do \`/inicia-orquestracao\`: relatório de cada agente, spec técnica,
 matriz de rastreabilidade. É descartável e é sobrescrito na rodada seguinte — por isso fica fora do
 controle de versão.
 
@@ -6979,11 +6979,11 @@ Este projeto já sai alinhado à estrutura recomendada pela documentação ofici
   contexto quando o Claude mexe em arquivos que batem o padrão certo, em vez de pesar em toda sessão.
 - **\`.claude/settings.json\`** — já sai com um bloco \`permissions\` liberando leitura e as ações que o
   próprio pipeline precisa (escrita em \`output/\`, \`docs/\`, \`knowledge/\`, \`src/\`, build/test da stack), pra
-  \`/orchestrator\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
+  \`/inicia-orquestracao\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
   durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, pessoal e fora do git.
 
 **Trabalhar em duas frentes ao mesmo tempo?** Rode \`claude --worktree nome-da-frente\` — cada sessão trabalha
-num checkout isolado do Git, então duas rodadas de \`/orchestrator\` (ex: duas features diferentes) não
+num checkout isolado do Git, então duas rodadas de \`/inicia-orquestracao\` (ex: duas features diferentes) não
 esbarram nos mesmos arquivos.
 
 ## 🔄 Manter o pipeline atualizado
@@ -7000,12 +7000,12 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 **Comece agora:**
 
 \`\`\`
-/orchestrator
+/inicia-orquestracao
 \`\`\`
 
 ---
 
-**Projeto criado com Claude SDD v3.23.0**
+**Projeto criado com Claude SDD v4.0.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -7031,14 +7031,14 @@ fi
 # ============================================================================
 # CRIAR .claude/hooks/generate-token-report.cjs + .claude/settings.json
 # Hook "Stop": ao final de cada resposta, verifica se output/ mudou nesta
-# rodada (ou seja, se o /orchestrator realmente rodou) e, se sim, gera/
+# rodada (ou seja, se o /inicia-orquestracao realmente rodou) e, se sim, gera/
 # atualiza output/token-report.md com o uso de tokens (total + por agente),
 # lendo os transcripts reais da sessão. Nunca falha o pipeline.
 # ============================================================================
 
 cat > ""$PROJECT_DIR/.claude/hooks/generate-token-report.cjs"" << 'TOKENHOOKEOF'
 #!/usr/bin/env node
-// Hook "Stop" — gera/atualiza output/token-report.md com o uso de tokens do pipeline /orchestrator.
+// Hook "Stop" — gera/atualiza output/token-report.md com o uso de tokens do pipeline /inicia-orquestracao.
 // Nunca deve falhar o pipeline: qualquer erro é engolido e, na pior hipótese, o script simplesmente não escreve nada.
 
 const fs = require("fs");
@@ -7378,7 +7378,7 @@ function main() {
     }
   }
 
-  // Nada mudou em output/ desde a última rodada processada -> este Stop não é do /orchestrator, ignora.
+  // Nada mudou em output/ desde a última rodada processada -> este Stop não é do /inicia-orquestracao, ignora.
   if (maxOutputMtime <= checkpoint) return;
 
   // ---- Uso do agente principal (transcript da conversa) ----
@@ -7467,7 +7467,7 @@ function main() {
   const lines = [];
   lines.push("# Relatório de Uso de Tokens");
   lines.push("");
-  lines.push("_Gerado e atualizado automaticamente pelo hook `Stop` após cada execução completa do pipeline `/orchestrator`. Números vêm diretamente dos transcripts da sessão — não são estimados pelo modelo. Horário local da máquina._");
+  lines.push("_Gerado e atualizado automaticamente pelo hook `Stop` após cada execução completa do pipeline `/inicia-orquestracao`. Números vêm diretamente dos transcripts da sessão — não são estimados pelo modelo. Horário local da máquina._");
   lines.push("");
   lines.push(`## Última rodada — ${stamp}`);
   lines.push("");
@@ -7509,7 +7509,7 @@ function main() {
   lines.push("| Agente | Modelo(s) | Tokens | Custo (USD) |");
   lines.push("|---|---|---|---|");
   const mainCost = mainUsage ? costFromByModel(mainUsage.byModel) : null;
-  lines.push(`| orchestrator (agente principal) | ${mainUsage ? modelsOf(mainUsage) : "n/d"} | ${mainUsage ? fmt(totalOf(mainUsage.totals)) : "n/d"} | ${mainCost ? fmtUsd(mainCost.usd) : "n/d"} |`);
+  lines.push(`| inicia-orquestracao (agente principal) | ${mainUsage ? modelsOf(mainUsage) : "n/d"} | ${mainUsage ? fmt(totalOf(mainUsage.totals)) : "n/d"} | ${mainCost ? fmtUsd(mainCost.usd) : "n/d"} |`);
   const sortedAgents = [...grouped.entries()].sort((a, b) => totalOf(b[1].totals) - totalOf(a[1].totals));
   for (const [label, usage] of sortedAgents) {
     const cost = costFromByModel(usage.byModel);
@@ -7664,7 +7664,7 @@ fi
 
 # ============================================================================
 # PERMISSÕES — libera leitura + as ações que o próprio pipeline precisa, pra
-# /orchestrator não ficar parando pra pedir aceite o tempo todo. Roda sempre
+# /inicia-orquestracao não ficar parando pra pedir aceite o tempo todo. Roda sempre
 # (novo ou existente) como merge idempotente, nunca removendo regra já
 # configurada por fora deste script.
 # ============================================================================
@@ -7839,7 +7839,7 @@ if [ "$MODE" = "existente" ]; then
     echo "     nano docs/SPEC.md"
     echo ""
     echo "  2️⃣  Executar orchestrador (no Claude Code)"
-    echo "     /orchestrator"
+    echo "     /inicia-orquestracao"
     echo ""
     echo -e "${YELLOW}Nada do seu código existente foi tocado ou sobrescrito${NC} — só foram acrescentadas as"
     echo "pastas e arquivos do pipeline (.claude/commands/, .claude/agents/, knowledge/). Os agentes de arquitetura"
@@ -7855,14 +7855,14 @@ else
     echo "     nano docs/SPEC.md"
     echo ""
     echo "  4️⃣  Executar orchestrador (no Claude Code)"
-    echo "     /orchestrator"
+    echo "     /inicia-orquestracao"
 fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
 echo -e "${BLUE}Comandos disponíveis em:${NC} .claude/commands/"
 echo -e "${BLUE}Subagentes disponíveis em:${NC} .claude/agents/"
-echo -e "${BLUE}Documentação bruta (opcional):${NC} docs/raw/ — vira Base de Conhecimento em knowledge/ na Fase 0 do /orchestrator"
-echo -e "${BLUE}Relatório de tokens:${NC} gerado automaticamente em output/token-report.md a cada rodada do /orchestrator"
+echo -e "${BLUE}Documentação bruta (opcional):${NC} docs/raw/ — vira Base de Conhecimento em knowledge/ na Fase 0 do /inicia-orquestracao"
+echo -e "${BLUE}Relatório de tokens:${NC} gerado automaticamente em output/token-report.md a cada rodada do /inicia-orquestracao"
 echo -e "${BLUE}Memória do projeto:${NC} knowledge/ vai VERSIONADA no Git (menos embeddings/chunks) — use /commit, que sincroniza o vault antes de commitar"
 echo ""

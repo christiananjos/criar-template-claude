@@ -86,7 +86,7 @@ E então:
    - (Se `novo`) Entrar na pasta do projeto criado
    - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `docs/raw/`
    - Editar `docs/SPEC.md` com a especificação (no modo `existente`, descrevendo o que falta implementar/mudar)
-   - Rodar `/orchestrator` dentro do projeto para disparar os agentes automaticamente
+   - Rodar `/inicia-orquestracao` dentro do projeto para disparar os agentes automaticamente
 
 ## Resultado Esperado
 
@@ -101,7 +101,7 @@ NOME_DO_PROJETO/
 ├── .mcp.json                 🔌 servidores MCP (context7 pronto; github com placeholder de token)
 ├── .claude/
 │   ├── commands/
-│   │   ├── orchestrator.md    ← comando que o usuário vai chamar depois
+│   │   ├── inicia-orquestracao.md    ← comando que o usuário vai chamar depois
 │   │   └── README.md
 │   ├── agents/                 ← knowledge-bootstrap (Fase 0) + agentes da stack escolhida
 │   │                              (dotnet: 11 agentes, incl. dotnet-specialist, security-scan-sdd e
@@ -118,28 +118,28 @@ NOME_DO_PROJETO/
 ├── knowledge/                 ← vazia na criação; tudo dentro dela (templates/, vault/, graph/,
 │                                embeddings/, cache/, index.json) é gerado pelo agente knowledge-bootstrap
 │                                na primeira vez que docs/raw/ tiver arquivos
-├── output/                   ← ao final de cada rodada do /orchestrator, ganha output/token-report.md
+├── output/                   ← ao final de cada rodada do /inicia-orquestracao, ganha output/token-report.md
 └── src/                      ← dotnet: Domain, Application, Infrastructure, API, Tests
                                   frontend: pasta única, organizada pelo specialist da stack
 ```
 
-O conteúdo de `.claude/commands/orchestrator.md`, `.claude/commands/README.md`, `CLAUDE.md` e `docs/SPEC.md`
+O conteúdo de `.claude/commands/inicia-orquestracao.md`, `.claude/commands/README.md`, `CLAUDE.md` e `docs/SPEC.md`
 já vem ajustado automaticamente para refletir a stack escolhida — não é preciso editar nada manualmente
 depois. `CLAUDE.md` e `.mcp.json` só são criados se ainda não existirem (mesma regra de não sobrescrita de
 `README.md`/`docs/SPEC.md`), e `claude --worktree nome-da-frente` deixa rodar duas frentes do
 pipeline em paralelo sem os agentes esbarrarem nos mesmos arquivos.
 
-Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/orchestrator` (Fase 0 — `00-knowledge-bootstrap`)
+Se o usuário colocar arquivos em `docs/raw/`, a primeira etapa do `/inicia-orquestracao` (Fase 0 — `00-knowledge-bootstrap`)
 transforma tudo numa Base de Conhecimento estruturada em `knowledge/vault/`, compatível com Obsidian, que
 os demais agentes passam a consultar como fonte única de verdade. Se `docs/raw/` ficar vazia, essa fase é pulada
 automaticamente e o pipeline segue como antes, só a partir de `docs/SPEC.md`.
 
-Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/orchestrator`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
+Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/inicia-orquestracao`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
 
 O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado (`extraKnownMarketplaces` + `enabledPlugins`), que ajuda a reduzir o consumo de tokens da sessão. Isso registra o marketplace e a intenção de habilitá-lo, mas não instala o plugin sozinho — a partir do Claude Code v2.1.195, um plugin de fonte externa só carrega depois de instalado pelo menos uma vez. Na primeira abertura do projeto, é preciso rodar `claude plugin install ponytail@ponytail` (ou aceitar quando o Claude Code avisar que ele não está instalado); dali em diante fica habilitado automaticamente.
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/orchestrator`. O `/orchestrator`, por sua vez, tem **uma única pausa manual**, logo após `01-orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/inicia-orquestracao`. O `/inicia-orquestracao`, por sua vez, tem **uma única pausa manual**, logo após `01-orchestrator-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd`) reportar falha. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
 
 

@@ -47,7 +47,7 @@ Rode esta parte **mesmo que o plugin já estivesse na versão mais recente** —
 em relação ao plugin.
 
 5. Verifique se a pasta atual é um projeto gerado por este template: precisa existir
-   `.claude/commands/orchestrator.md`. Se não existir, **pule a parte 2 inteira**, reporte só o resultado da
+   `.claude/commands/inicia-orquestracao.md`. Se não existir, **pule a parte 2 inteira**, reporte só o resultado da
    parte 1 e explique que a pasta atual não é um projeto SDD (para acoplar o pipeline a ela, o comando é
    `/comecar`, escolhendo "projeto existente").
 
@@ -95,7 +95,7 @@ em relação ao plugin.
 
    Se a pasta `knowledge/` estiver vazia, o `git check-ignore` não prova nada e o `git status` também não
    vai mostrar nada — **o Git não versiona diretório vazio**. Nesse caso diga ao usuário que ainda não há
-   memória para versionar: ela passa a existir na primeira rodada do `/orchestrator` (ou assim que algum
+   memória para versionar: ela passa a existir na primeira rodada do `/inicia-orquestracao` (ou assim que algum
    agente gravar no vault), e aí sim o `/commit` a leva junto.
 
 10. Reporte o resultado (ver "O que reportar" abaixo).
@@ -123,7 +123,7 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 
 **Reescrito com a versão nova (é a "máquina" do pipeline, não conteúdo do usuário):**
 
-- `.claude/commands/` — `orchestrator.md`, `commit.md`, `raio-x-projeto.md`, `README.md`
+- `.claude/commands/` — `inicia-orquestracao.md`, `commit.md`, `raio-x-projeto.md`, `README.md`
 - `.claude/agents/` — os agentes `00` a `10` da stack detectada
 - `.claude/rules/` — convenções por caminho de arquivo
 - `.claude/skills/` — a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou

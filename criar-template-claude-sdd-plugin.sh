@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v4.1.0
+# 🚀 Criar Template Claude SDD v4.2.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.1.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.2.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -223,7 +223,9 @@ fi
 # roda depois de escrever knowledge/vault/*.md. Ele lê o vault, resolve os
 # wikilinks [[...]] em grafo (graph/nodes.json + graph/edges.json) e fatia
 # cada documento em chunks prontos para embeddings (embeddings/chunks/ +
-# embeddings/metadata.json). Não gera vetores de verdade — isso exigiria uma
+# embeddings/metadata.json). Também fatia o texto integral das fontes
+# originais (knowledge/source/texto/) em embeddings/fontes/, para que um
+# grep ache o trecho da fonte sem reabrir o PDF/DOCX. Não gera vetores de verdade — isso exigiria uma
 # API/modelo de embeddings real, fora do escopo de um agente de texto; os
 # chunks ficam prontos para quem quiser plugar esse passo depois.
 # ============================================================================
@@ -241,6 +243,8 @@ const VAULT_DIR = path.join(ROOT, "knowledge", "vault");
 const GRAPH_DIR = path.join(ROOT, "knowledge", "graph");
 const EMBED_DIR = path.join(ROOT, "knowledge", "embeddings");
 const CHUNKS_DIR = path.join(EMBED_DIR, "chunks");
+const SOURCE_TEXT_DIR = path.join(ROOT, "knowledge", "source", "texto");
+const SOURCE_CHUNKS_DIR = path.join(EMBED_DIR, "fontes");
 
 function walkMarkdown(dir) {
   let results = [];
@@ -332,11 +336,52 @@ function main() {
   fs.writeFileSync(path.join(GRAPH_DIR, "edges.json"), JSON.stringify(edges, null, 2), "utf-8");
 
   // ---- Chunking para embeddings ----
-  fs.mkdirSync(CHUNKS_DIR, { recursive: true });
+  const metadata = writeChunks(docs, CHUNKS_DIR, "knowledge/vault", "chunks", "vault");
+
+  // Texto integral das fontes originais (knowledge/source/texto/), gravado pelo
+  // knowledge-bootstrap ao extrair cada PDF/DOCX/e-mail.
+  const sourceDocs = walkMarkdown(SOURCE_TEXT_DIR).map((file) => {
+    const relPath = path.relative(SOURCE_TEXT_DIR, file).split(path.sep).join("/");
+    return { id: relPath.replace(/\.md$/i, ""), relPath, content: fs.readFileSync(file, "utf-8") };
+  });
+  metadata.push(...writeChunks(sourceDocs, SOURCE_CHUNKS_DIR, "knowledge/source/texto", "fontes", "fonte"));
+
+  fs.writeFileSync(path.join(EMBED_DIR, "metadata.json"), JSON.stringify(metadata, null, 2), "utf-8");
+
+  const readmePath = path.join(EMBED_DIR, "README.md");
+  if (!fs.existsSync(readmePath)) {
+    fs.writeFileSync(
+      readmePath,
+      [
+        "# embeddings/",
+        "",
+        "Os arquivos em `chunks/` e `metadata.json` são gerados automaticamente por",
+        "`.claude/scripts/knowledge-engine-build.cjs` a partir de `knowledge/vault/`;",
+        "`fontes/` sai do texto integral dos documentos originais em `knowledge/source/texto/`.",
+        "Para achar um detalhe, `grep -ril \"termo\" knowledge/embeddings/` e leia só os chunks que casarem.",
+        "",
+        "Este pipeline **não calcula vetores reais** — isso exigiria uma API ou modelo de",
+        "embeddings de verdade, fora do escopo de um agente baseado em texto. Os chunks já",
+        "estão no tamanho e formato certos para alimentar qualquer pipeline de embeddings",
+        "(local ou via API) que você queira plugar depois; `vectors.bin` fica como extensão",
+        "futura, não como dado fabricado.",
+      ].join("\n"),
+      "utf-8"
+    );
+  }
+
+  console.log(
+    `Knowledge graph: ${nodes.length} nós, ${edges.length} links (${edges.filter((e) => e.resolved).length} resolvidos). ` +
+      `Embeddings: ${metadata.length} chunks a partir de ${docs.length} documentos do vault e ${sourceDocs.length} fontes.`
+  );
+}
+
+function writeChunks(docs, dir, sourcePrefix, dirName, tipo) {
+  fs.mkdirSync(dir, { recursive: true });
   // limpa chunks antigos para não acumular lixo de rodadas anteriores
-  for (const f of fs.readdirSync(CHUNKS_DIR)) {
+  for (const f of fs.readdirSync(dir)) {
     try {
-      fs.unlinkSync(path.join(CHUNKS_DIR, f));
+      fs.unlinkSync(path.join(dir, f));
     } catch {
       // ignora
     }
@@ -351,47 +396,22 @@ function main() {
       const chunkFileName = `${baseSlug}--${i + 1}.md`;
       const headingMatch = chunkText.match(/^##?\s+(.+)$/m);
       fs.writeFileSync(
-        path.join(CHUNKS_DIR, chunkFileName),
-        `<!-- fonte: knowledge/vault/${doc.relPath} -->\n\n${chunkText.trim()}\n`,
+        path.join(dir, chunkFileName),
+        `<!-- fonte: ${sourcePrefix}/${doc.relPath} -->\n\n${chunkText.trim()}\n`,
         "utf-8"
       );
       metadata.push({
         chunkId: `${baseSlug}--${i + 1}`,
-        sourceDoc: `knowledge/vault/${doc.relPath}`,
+        tipo,
+        sourceDoc: `${sourcePrefix}/${doc.relPath}`,
         heading: headingMatch ? headingMatch[1].trim() : null,
         order: i + 1,
         charCount: chunkText.length,
-        file: `knowledge/embeddings/chunks/${chunkFileName}`,
+        file: `knowledge/embeddings/${dirName}/${chunkFileName}`,
       });
     });
   }
-
-  fs.writeFileSync(path.join(EMBED_DIR, "metadata.json"), JSON.stringify(metadata, null, 2), "utf-8");
-
-  const readmePath = path.join(EMBED_DIR, "README.md");
-  if (!fs.existsSync(readmePath)) {
-    fs.writeFileSync(
-      readmePath,
-      [
-        "# embeddings/",
-        "",
-        "Os arquivos em `chunks/` e `metadata.json` são gerados automaticamente por",
-        "`.claude/scripts/knowledge-engine-build.cjs` a partir de `knowledge/vault/`.",
-        "",
-        "Este pipeline **não calcula vetores reais** — isso exigiria uma API ou modelo de",
-        "embeddings de verdade, fora do escopo de um agente baseado em texto. Os chunks já",
-        "estão no tamanho e formato certos para alimentar qualquer pipeline de embeddings",
-        "(local ou via API) que você queira plugar depois; `vectors.bin` fica como extensão",
-        "futura, não como dado fabricado.",
-      ].join("\n"),
-      "utf-8"
-    );
-  }
-
-  console.log(
-    `Knowledge graph: ${nodes.length} nós, ${edges.length} links (${edges.filter((e) => e.resolved).length} resolvidos). ` +
-      `Embeddings: ${metadata.length} chunks a partir de ${docs.length} documentos.`
-  );
+  return metadata;
 }
 
 function chunkByLength(text, maxLen) {
@@ -622,6 +642,11 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
      não processado no relatório final.
    - Áudio/vídeo: não são transcritos automaticamente. Liste como não processado e sugira ao usuário fornecer
      uma transcrição em texto.
+   - **Grave o texto integral extraído** de cada documento em `knowledge/source/texto/<mesmo caminho>.md`
+     (ex.: `knowledge/source/Especificacao.docx` → `knowledge/source/texto/Especificacao.docx.md`), começando
+     por `> Fonte: knowledge/source/<arquivo>`. É o texto completo, não um resumo — o resumo é o vault. Grave
+     direto ali, nunca numa pasta temporária: é esse arquivo que os agentes pesquisam depois em vez de reabrir
+     o binário original. Documento não processado não ganha arquivo de texto.
 4. **Consolide e organize** o conteúdo extraído por domínio, criando um arquivo Markdown por assunto dentro de
    `knowledge/vault/`, usando exatamente esta estrutura de pastas:
    ```
@@ -654,8 +679,8 @@ Transformar toda a documentação bruta recebida em `docs/raw/` numa **Base de C
    node .claude/scripts/knowledge-engine-build.cjs
    ```
    Esse script lê `knowledge/vault/`, resolve os wikilinks e escreve `knowledge/graph/nodes.json`,
-   `knowledge/graph/edges.json`, `knowledge/embeddings/chunks/` e `knowledge/embeddings/metadata.json`.
-   Não escreva esses arquivos manualmente.
+   `knowledge/graph/edges.json`, `knowledge/embeddings/chunks/` e `knowledge/embeddings/metadata.json`; e
+   fatia `knowledge/source/texto/` em `knowledge/embeddings/fontes/`. Não escreva esses arquivos manualmente.
 6. **Crie o cache por agente** em `knowledge/cache/`, cada um um JSON curto e focado, só com o que aquele
    agente precisa (evita que cada agente tenha que ler o vault inteiro):
    - `analyst.json` — requisitos, regras de negócio, glossário
@@ -705,7 +730,8 @@ Salve em `output/0-knowledge-bootstrap.md`:
 ## Estrutura Gerada
 - knowledge/vault/ — N documentos
 - knowledge/graph/ — N nós, N links
-- knowledge/embeddings/ — N chunks
+- knowledge/source/texto/ — N documentos com texto integral extraído
+- knowledge/embeddings/ — N chunks (vault) + N chunks (fontes)
 - knowledge/cache/ — 6 arquivos
 - knowledge/index.json
 
@@ -6015,7 +6041,7 @@ mensagem, e nenhum commit sai sem eles.
    implícito. Siga `.claude/rules/knowledge-vault.md` ao editar: links `[[...]]`, fonte declarada, assunto
    consolidado num arquivo só.
 
-2. **Reconstrua o grafo**, se você editou qualquer coisa em `knowledge/vault/`:
+2. **Reconstrua o grafo**, se você editou qualquer coisa em `knowledge/vault/` ou `knowledge/source/texto/`:
    ```bash
    node .claude/scripts/knowledge-engine-build.cjs
    ```
@@ -6025,7 +6051,7 @@ mensagem, e nenhum commit sai sem eles.
 3. **Confirme que nenhuma configuração do Claude (`.claude/`, `CLAUDE.md`, `.mcp.json`) nem `knowledge/`
    está sendo ignorada pelo Git**:
    ```bash
-   git ls-files --others --ignored --exclude-standard -- .claude CLAUDE.md .mcp.json knowledge | grep -v '^knowledge/embeddings/chunks/'
+   git ls-files --others --ignored --exclude-standard -- .claude CLAUDE.md .mcp.json knowledge | grep -Ev '^knowledge/embeddings/(chunks|fontes)/'
    ```
    Se algum caminho for reportado como ignorado, é um `.gitignore` do projeto engolindo a configuração do
    Claude ou a memória. Corrija acrescentando ao final do `.gitignore` (a negação precisa vir depois da regra
@@ -6039,8 +6065,9 @@ mensagem, e nenhum commit sai sem eles.
    !knowledge/
    !knowledge/**
    knowledge/embeddings/chunks/
+   knowledge/embeddings/fontes/
    ```
-   Só `knowledge/embeddings/chunks/` fica de fora, porque é derivado e regenerado pelo script do passo 2.
+   Só `knowledge/embeddings/chunks/` e `fontes/` ficam de fora, porque são derivados e regenerados pelo script do passo 2.
    Toda configuração nova do Claude — inclusive `.claude/settings.local.json` — vai no commit.
    Avise o usuário que você ajustou o `.gitignore` e por quê.
 
@@ -6603,10 +6630,27 @@ $CLAUDE_BUILD_STEPS
 
 Depois que a Fase 0 (\`00-knowledge-bootstrap\`) já rodou pelo menos uma vez e \`knowledge/\` existe: para
 qualquer consulta a regra de negócio, funcionalidade, API, teste ou decisão de arquitetura — dentro ou fora do
-\`/inicia-orquestracao\` — use primeiro \`knowledge/\` (cache do agente em \`knowledge/cache/\` → \`knowledge/vault/\` →
-\`knowledge/graph/\`, nessa ordem) em vez de reler os documentos brutos em \`docs/raw/\`; eles ficam ali só como
-origem/rastreabilidade. Só volte a \`docs/raw/\` (ou pergunte ao usuário) se a informação não estiver no
-Knowledge Engine, e nesse caso registre a lacuna no vault.
+\`/inicia-orquestracao\` — busque nesta ordem e pare no primeiro nível que responder:
+
+1. \`knowledge/cache/<agente>.json\` — resumo já filtrado por área.
+2. \`knowledge/vault/\` (comece por \`Index.md\`) — o resumo consolidado. \`knowledge/graph/\` serve para achar
+   as notas ligadas a uma que você já abriu.
+3. Chunks: \`grep -ril "<termo>" knowledge/embeddings/chunks/ knowledge/embeddings/fontes/\` e leia **só os
+   chunks que casaram** — a primeira linha de cada um diz de qual arquivo ele veio. É o jeito mais barato de
+   achar um detalhe sem ler documentos inteiros.
+4. \`knowledge/source/texto/\` — o texto integral de cada documento original (PDF, DOCX, e-mail, procedure),
+   já extraído e pesquisável.
+
+Não abra os binários de \`knowledge/source/\` nem de \`docs/raw/\`, e não converta documento para pasta
+temporária: \`docs/raw/\` é só a caixa de entrada da Fase 0, e o texto de tudo que entrou já está em
+\`knowledge/source/texto/\`. Se os chunks não existirem (clone novo — são derivados e ficam fora do Git), rode
+\`node .claude/scripts/knowledge-engine-build.cjs\`. Se faltar o texto de um documento, extraia uma única vez,
+grave em \`knowledge/source/texto/<mesmo caminho>.md\` e rode o script.
+
+**Antes de afirmar que algo está pendente, em aberto ou sem decisão, confira os níveis 3 e 4.** O vault é
+resumo e pode ter deixado de fora a resposta que a fonte já dá; se a fonte responder, corrija o vault (e
+\`14 - Planejamento/\`) na hora. Só pergunte ao usuário se nenhum nível cobrir o assunto, e registre a lacuna
+no vault.
 
 Sempre que implementar algo novo (endpoint, tela, regra, fluxo, decisão), verifique se \`knowledge/vault/\`
 precisa ser atualizado para refletir o que mudou. Se atualizar, rode
@@ -6619,8 +6663,8 @@ descartável e fica fora do Git, então plano que more só lá morre com a sess�
 
 ## O commit leva a memória junto
 
-\`knowledge/\` é versionada — **nunca a acrescente ao \`.gitignore\`**; só \`knowledge/embeddings/chunks/\` fica
-de fora, por ser derivado. Use \`/commit\`: ele sincroniza o vault com o diff, roda o rebuild do grafo, confere
+\`knowledge/\` é versionada — **nunca a acrescente ao \`.gitignore\`**; só \`knowledge/embeddings/chunks/\` e
+\`knowledge/embeddings/fontes/\` ficam de fora, por serem derivados. Use \`/commit\`: ele sincroniza o vault com o diff, roda o rebuild do grafo, confere
 que nada está ignorando \`knowledge/\` e commita memória e código no mesmo commit. Mudança em \`knowledge/\` não
 vira commit separado — vai junto com o código que a provocou. O mesmo vale para \`.claude/\` e \`CLAUDE.md\`:
 toda alteração neles (inclusive \`.claude/settings.local.json\` e \`.mcp.json\`) sobe sempre, nunca vão para o \`.gitignore\`.
@@ -6694,8 +6738,11 @@ paths:
 - Depois de editar o vault, rode `node .claude/scripts/knowledge-engine-build.cjs` para reconstruir o grafo e
   os chunks de embeddings — não escreva `knowledge/graph/` ou `knowledge/embeddings/` manualmente.
 - **O vault é a fonte de conhecimento do projeto, não a documentação bruta.** Todo agente lê `knowledge/`
-  primeiro (cache e vault, já fatiados por contexto) e só recorre a `docs/raw/`, `docs/SPEC.md` ou ao código
-  quando o vault não existe ou não cobre o assunto.
+  primeiro, na ordem cache → vault → chunks (`grep` em `knowledge/embeddings/chunks/` e
+  `knowledge/embeddings/fontes/`) → `knowledge/source/texto/`. Nunca reabre `docs/raw/` nem converte os
+  binários para pasta temporária — o texto integral das fontes já está em `knowledge/source/texto/`.
+- **Antes de dar algo como pendente ou sem decisão, confira a fonte** (chunks de `fontes/` e
+  `knowledge/source/texto/`): o vault é resumo e pode ter deixado passar a resposta.
 - **Toda implementação atualiza o vault.** Qualquer agente que produza ou altere algo (código, arquitetura,
   testes, achados de segurança) confere ao terminar se aquilo muda alguma nota e atualiza antes de encerrar —
   cada agente tem a seção "Sincronização do Knowledge Engine" dizendo quais pastas são dele. Se nada mudou,
@@ -6950,7 +6997,7 @@ seu-projeto/
 │   └── raw/           (opcional: sua documentação bruta — Word, PDF, planilhas...)
 │
 ├── knowledge/         ✅ VERSIONADA — a memória do projeto
-│   ├── source/        (documentos originais preservados)
+│   ├── source/        (documentos originais preservados; texto/ = texto integral pesquisável)
 │   ├── vault/          (conteúdo organizado em Markdown, compatível com Obsidian)
 │   │                    inclui "14 - Planejamento/": o que falta implementar
 │   ├── graph/          (grafo de relacionamentos entre documentos)
@@ -7017,7 +7064,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v4.1.0**
+**Projeto criado com Claude SDD v4.2.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -7773,8 +7820,14 @@ if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
 !knowledge/
 !knowledge/**
 knowledge/embeddings/chunks/
+knowledge/embeddings/fontes/
 "
         GI_REPORT="${GI_REPORT}!knowledge/ "
+    elif ! grep -qxF 'knowledge/embeddings/fontes/' "$GI" 2>/dev/null; then
+        # projeto de versão anterior: a negação já existe, falta só a linha nova (vai no fim, depois dela)
+        GI_APPEND="${GI_APPEND}knowledge/embeddings/fontes/
+"
+        GI_REPORT="${GI_REPORT}knowledge/embeddings/fontes/ "
     fi
 
     if [ -n "$GI_APPEND" ]; then
@@ -7814,6 +7867,7 @@ output/
 # NÃO acrescente "knowledge/" aqui. A única exceção são os chunks de embeddings,
 # derivados e regenerados por .claude/scripts/knowledge-engine-build.cjs.
 knowledge/embeddings/chunks/
+knowledge/embeddings/fontes/
 
 # Claude Code — .claude/ (inclusive settings.local.json), CLAUDE.md e .mcp.json
 # VÃO versionados: toda configuração nova do Claude sobe no commit. NÃO

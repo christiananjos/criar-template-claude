@@ -89,6 +89,7 @@ em relação ao plugin.
      !knowledge/
      !knowledge/**
      knowledge/embeddings/chunks/
+     knowledge/embeddings/fontes/
      ```
      Se a regra culpada estiver num `.gitignore` de subpasta (o `git check-ignore -v` mostra o caminho do
      arquivo), corrija naquele arquivo. Rode o comando de novo até não sair nada.

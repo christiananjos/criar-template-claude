@@ -118,7 +118,7 @@ essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do pr
 
 - **Nada do código é tocado** — `src/` não recebe a estrutura de pastas do template, só o que o script sempre cria (`.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/`).
 - **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
-- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/` ignorado; `!.claude/` (inclusive `settings.local.json`), `!CLAUDE.md`, `!.mcp.json` e `!knowledge/` versionados, menos `knowledge/embeddings/chunks/`) são acrescentadas, sem duplicar em reexecuções. Uma linha `.claude/` deixada por versões antigas do template é removida.
+- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/` ignorado; `!.claude/` (inclusive `settings.local.json`), `!CLAUDE.md`, `!.mcp.json` e `!knowledge/` versionados, menos `knowledge/embeddings/chunks/` e `fontes/`) são acrescentadas, sem duplicar em reexecuções. Uma linha `.claude/` deixada por versões antigas do template é removida.
 - **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
 - **`02-architect-sdd` e os `03-*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 
@@ -264,12 +264,14 @@ segue normalmente a partir de `docs/SPEC.md`, como sempre funcionou.
 `knowledge/graph/` e `knowledge/embeddings/` são reconstruídos deterministicamente por
 `.claude/scripts/knowledge-engine-build.cjs` (sem dependências) a partir dos wikilinks do vault — não são
 escritos à mão pelo agente. Vetores de embedding "de verdade" não são calculados aqui (exigiria uma API/modelo
-de embeddings); os chunks já ficam prontos para quem quiser plugar esse passo depois.
+de embeddings); os chunks já ficam prontos para quem quiser plugar esse passo depois. O texto integral de
+cada documento original fica em `knowledge/source/texto/` (fatiado em `knowledge/embeddings/fontes/`), e os
+agentes buscam nesta ordem: cache → vault → `grep` nos chunks → texto da fonte — nunca reabrem `docs/raw/`.
 
 ### A memória vai versionada no Git
 
 `knowledge/` é a memória do projeto e **entra no controle de versão junto com o código** — só
-`knowledge/embeddings/chunks/` fica de fora, por ser derivado e regenerável. O `.gitignore` gerado diz isso
+`knowledge/embeddings/chunks/` e `knowledge/embeddings/fontes/` ficam de fora, por serem derivados e regeneráveis. O `.gitignore` gerado diz isso
 explicitamente, e no modo "existente" acrescenta uma negação (`!knowledge/`) caso o repositório já ignorasse a
 pasta por alguma regra anterior.
 

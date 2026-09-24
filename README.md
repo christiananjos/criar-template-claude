@@ -158,7 +158,7 @@ remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arqu
 | `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
 | `10-commit-message-generator` | Gera, aplica e dá push nos commits semânticos — roda sempre por último, depois do agente de testes | sempre |
 
-O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5 (`claude-opus-5`, fixado na versão).
+O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5.5 (`claude-opus-5-5`, fixado na versão).
 
 ## Comandos avulsos (fora do `/inicia-orquestracao`)
 

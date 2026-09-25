@@ -1,6 +1,6 @@
 {
   "name": "sdd",
-  "version": "4.4.0",
+  "version": "4.5.0",
   "description": "Monta a estrutura de projeto SDD (.NET, Angular, React ou Vue — uma stack por vez), seguindo as convenções oficiais do Claude Code, com agentes especializados que implementam, testam e validam código automaticamente.",
   "author": {
     "name": "Christian Anjos"

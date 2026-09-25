@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v4.4.0
+# 🚀 Criar Template Claude SDD v4.5.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.4.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.5.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -5386,6 +5386,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-react-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.tsx`)
 - Não gere testes aqui — isso é responsabilidade do `05-test-validator`
@@ -5447,6 +5448,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-angular-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/app/tarefas/tarefa-list.component.ts`)
 - Não gere testes aqui — isso é responsabilidade do `05-test-validator`
@@ -5507,6 +5509,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Consuma exatamente os endpoints definidos na especificação técnica — não invente rotas
 - Se algo parecer lógica de negócio que deveria viver num backend, sinalize no relatório em vez de implementar um backend improvisado dentro do frontend
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
+- Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
 - Salve os arquivos gerados em `output/3-vue-specialist.md` com blocos de código organizados por caminho de arquivo (ex: `src/components/TarefaList.vue`)
 - Não gere testes aqui — isso é responsabilidade do `05-test-validator`
@@ -6593,6 +6596,18 @@ npm test"
         ;;
 esac
 
+if [ "$STACK" = "dotnet" ]; then
+    CLAUDE_FRONTEND_DESIGN=""
+else
+    CLAUDE_FRONTEND_DESIGN="
+## Design de interface
+
+Sempre que o pedido envolver tela, componente ou visual, use (e sugira ao usuário usar) a skill
+\`frontend-design\` do plugin oficial da Anthropic \`frontend-design@claude-plugins-official\`, já habilitado em
+\`.claude/settings.json\`. Não instalado? Sugira \`claude plugin install frontend-design@claude-plugins-official\`.
+"
+fi
+
 # ============================================================================
 # CRIAR CLAUDE.md — memória do projeto (lida pelo Claude a cada sessão)
 # ============================================================================
@@ -6661,6 +6676,7 @@ contexto acumulado não se perde entre sessões e entre agentes.
 E o que **não** foi implementado importa tanto quanto o que foi: escopo adiado, próximo passo, pendência e
 decisão em aberto vão para \`knowledge/vault/14 - Planejamento/\`, uma nota por assunto. \`output/\` é
 descartável e fica fora do Git, então plano que more só lá morre com a sessão.
+$CLAUDE_FRONTEND_DESIGN
 
 ## O commit leva a memória junto
 
@@ -6855,6 +6871,11 @@ $FRONTEND_RULE_PATHS
 
 Objetivo: sair de layout genérico de IA (cards iguais, hero previsível, fontes óbvias, grid sem hierarquia)
 para algo com direção de arte real. Siga isto ao criar ou revisar qualquer tela.
+
+**Sempre use a skill \`frontend-design\`** (plugin oficial da Anthropic, \`frontend-design@claude-plugins-official\`,
+já habilitado em \`.claude/settings.json\`) ao criar ou redesenhar tela/componente, e sugira ao usuário usá-la
+sempre que o pedido envolver interface. Se o plugin não estiver instalado, sugira
+\`claude plugin install frontend-design@claude-plugins-official\`.
 
 ## 1. Hierarquia e Tipografia
 - No máximo 2 famílias de fonte, com contraste real de peso/tamanho entre título, subtítulo e corpo.
@@ -7079,7 +7100,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v4.4.0**
+**Projeto criado com Claude SDD v4.5.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

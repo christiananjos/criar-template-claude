@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v4.3.0
+# 🚀 Criar Template Claude SDD v4.4.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.3.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v4.4.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6652,10 +6652,11 @@ resumo e pode ter deixado de fora a resposta que a fonte já dá; se a fonte res
 \`14 - Planejamento/\`) na hora. Só pergunte ao usuário se nenhum nível cobrir o assunto, e registre a lacuna
 no vault.
 
-Sempre que implementar algo novo (endpoint, tela, regra, fluxo, decisão), verifique se \`knowledge/vault/\`
-precisa ser atualizado para refletir o que mudou. Se atualizar, rode
-\`node .claude/scripts/knowledge-engine-build.cjs\` para reconstruir \`knowledge/graph/\` e
-\`knowledge/embeddings/\` — assim o contexto acumulado não se perde entre sessões e entre agentes.
+**Toda alteração atualiza o vault na hora, sem esperar o usuário pedir.** Mudou código, regra, endpoint,
+tela, fluxo ou decisão? No mesmo turno, atualize a nota correspondente em \`knowledge/vault/\` (ou crie uma).
+O grafo e os embeddings se reconstroem sozinhos: o hook \`.claude/hooks/knowledge-sync.cjs\` roda
+\`knowledge-engine-build.cjs\` a cada escrita em \`knowledge/vault/\` — não precisa rodar na mão. Assim o
+contexto acumulado não se perde entre sessões e entre agentes.
 
 E o que **não** foi implementado importa tanto quanto o que foi: escopo adiado, próximo passo, pendência e
 decisão em aberto vão para \`knowledge/vault/14 - Planejamento/\`, uma nota por assunto. \`output/\` é
@@ -6908,6 +6909,19 @@ else
     OUTPUTS_DESC="a arquitetura, código, testes, code review, relatório de build e os commits já aplicados com push"
 fi
 
+if [ "$STACK" = "dotnet" ]; then
+    FRONTEND_PLUGIN_STEP=""
+else
+    FRONTEND_PLUGIN_STEP="
+Stack de front: o plugin oficial de design da Anthropic, \`frontend-design\` (marketplace
+\`claude-plugins-official\`), também já vem habilitado. Instale uma vez:
+
+\`\`\`
+claude plugin install frontend-design@claude-plugins-official
+\`\`\`
+"
+fi
+
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
     echo -e "${YELLOW}⏭️  README.md já existe — mantido sem alterações${NC}"
 else
@@ -6934,6 +6948,7 @@ claude plugin install ponytail@ponytail
 
 (ou aceite quando o Claude Code avisar que ele não está instalado). Dali em diante fica habilitado
 automaticamente. Para conferir, rode \`/plugin\` e veja se \`ponytail@ponytail\` aparece habilitado.
+$FRONTEND_PLUGIN_STEP
 
 ## 📄 Passo 1 — (Opcional) Jogue sua documentação bruta em \`docs/raw/\`
 
@@ -6988,7 +7003,7 @@ seu-projeto/
 │   │   └── README.md
 │   ├── agents/         (subagentes especializados, invocados pelo /inicia-orquestracao)
 │   ├── rules/           (convenções aplicadas só quando Claude mexe nos arquivos certos)
-│   ├── hooks/            (hook automático de relatório de tokens)
+│   ├── hooks/            (relatório de tokens + rebuild do grafo a cada edição do vault)
 │   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine)
 │   └── settings.json       (permissões + hook de tokens + plugin ponytail habilitado)
 │
@@ -7064,7 +7079,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v4.3.0**
+**Projeto criado com Claude SDD v4.4.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -7765,6 +7780,68 @@ fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
 ' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
 
 echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, src/, build/test da stack)${NC}"
+
+# ============================================================================
+# KNOWLEDGE SYNC — hook PostToolUse: escrita em knowledge/vault/ reconstrói o
+# grafo/embeddings na hora; escrita em qualquer outro arquivo do projeto lembra
+# o Claude de atualizar o vault no mesmo turno, sem o usuário precisar pedir.
+# ============================================================================
+
+cat > ""$PROJECT_DIR/.claude/hooks/knowledge-sync.cjs"" << 'KSYNCEOF'
+#!/usr/bin/env node
+// PostToolUse (Edit|Write|MultiEdit). Nunca falha a sessão.
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("child_process");
+
+const ROOT = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+let input = {};
+try { input = JSON.parse(fs.readFileSync(0, "utf-8")); } catch { process.exit(0); }
+const file = input.tool_input && input.tool_input.file_path;
+if (!file) process.exit(0);
+const rel = path.relative(ROOT, path.resolve(ROOT, file)).split(path.sep).join("/");
+if (rel.startsWith("..")) process.exit(0);
+
+if (rel.startsWith("knowledge/vault/")) {
+  try {
+    execFileSync(process.execPath, [path.join(ROOT, ".claude", "scripts", "knowledge-engine-build.cjs")], { cwd: ROOT, stdio: "ignore", timeout: 50000 });
+  } catch {}
+  process.exit(0);
+}
+
+if (/^(knowledge|output|\.git)\//.test(rel)) process.exit(0);
+
+process.stdout.write(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: "PostToolUse",
+    additionalContext: `Você alterou ${rel}. Se isso muda regra, endpoint, tela, fluxo ou decisão, atualize a nota correspondente em knowledge/vault/ neste mesmo turno, sem esperar o usuário pedir (o grafo se reconstrói sozinho).`,
+  },
+}));
+KSYNCEOF
+
+node -e '
+const fs = require("fs");
+const [target, stack] = process.argv.slice(1);
+const settings = JSON.parse(fs.readFileSync(target, "utf-8"));
+settings.hooks = settings.hooks || {};
+const post = Array.isArray(settings.hooks.PostToolUse) ? settings.hooks.PostToolUse : [];
+if (!post.some((g) => Array.isArray(g.hooks) && g.hooks.some((h) => String(h.command).includes("knowledge-sync.cjs")))) {
+  post.push({ matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/knowledge-sync.cjs\"", timeout: 60 }] });
+}
+settings.hooks.PostToolUse = post;
+if (stack !== "dotnet") {
+  settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
+  settings.extraKnownMarketplaces["claude-plugins-official"] = { source: { source: "github", repo: "anthropics/claude-plugins-official" } };
+  settings.enabledPlugins = settings.enabledPlugins || {};
+  settings.enabledPlugins["frontend-design@claude-plugins-official"] = true;
+}
+fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
+' ""$PROJECT_DIR/.claude/settings.json"" "$STACK"
+
+echo -e "${GREEN}✅ .claude/hooks/knowledge-sync.cjs criado — vault atualizado reconstrói o grafo na hora${NC}"
+if [ "$STACK" != "dotnet" ]; then
+    echo -e "${GREEN}✅ Plugin oficial frontend-design@claude-plugins-official habilitado em .claude/settings.json${NC}"
+fi
 
 # ============================================================================
 # CRIAR .gitignore

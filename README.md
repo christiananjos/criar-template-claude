@@ -314,6 +314,8 @@ O custo é calculado pelo modelo que realmente respondeu cada mensagem, então o
 
 Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado — o `.claude/settings.json` do projeto já vem com `extraKnownMarketplaces` e `enabledPlugins` apontando pra ele. Isso registra o marketplace e a intenção de habilitá-lo, mas **não instala o plugin sozinho**: a partir do Claude Code v2.1.195, um plugin de fonte externa (como este, hospedado no GitHub) só carrega depois de instalado pelo menos uma vez. Na primeira vez que abrir o projeto gerado, rode `claude plugin install ponytail@ponytail` (ou aceite quando o Claude Code avisar que ele não está instalado) — dali em diante, `enabledPlugins` mantém ele habilitado automaticamente nas próximas sessões. Para conferir se está ativo, rode `/plugin` e veja `ponytail@ponytail` habilitado. (Este repositório-template, por ser só o gerador de estrutura, não precisa do ponytail — a configuração é escrita apenas no projeto gerado.)
 
+Nas stacks de front (React, Angular, Vue) o `settings.json` também habilita o plugin oficial de design da Anthropic, `frontend-design`, do marketplace `claude-plugins-official` ([anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)). Instale uma vez com `claude plugin install frontend-design@claude-plugins-official`.
+
 ## Estrutura de projeto oficial do Claude Code
 
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
@@ -323,7 +325,7 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança e direção de design no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`).
+- **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`), o hook `PostToolUse` `knowledge-sync.cjs` (toda escrita em `knowledge/vault/` reconstrói o grafo na hora; escrita em outro arquivo lembra o Claude de atualizar o vault no mesmo turno) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`).
 - **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 

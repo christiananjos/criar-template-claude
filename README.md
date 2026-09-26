@@ -108,7 +108,7 @@ projeto sai com **uma stack só**, sem backend e frontend misturados. Isso muda 
 a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
 externa (outro projeto/time) — o template não gera backend e frontend juntos.
 
-O `/inicia-orquestracao` leva ~15-30 minutos e tem **uma única pausa manual**: assim que `01-orchestrator-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-compliance-validator`, `06-code-review-sdd`, `07-build-test-validator` ou `08-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
+O `/inicia-orquestracao` leva ~12-25 minutos e tem **uma única pausa manual**: assim que `01-analyst-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
 ## Acoplar num projeto já existente
 
@@ -126,39 +126,46 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 
 ## Agentes
 
-**Toda stack recebe os mesmos 11 agentes**, na mesma ordem: 9 sempre presentes (`00-knowledge-bootstrap` como
-Fase 0 dedicada + os 8 do pipeline principal), o specialist da stack escolhida e o agente 09 de testes — que é
-`09-swagger-tester` no `.NET` (testa a API) e `09-e2e-flow-tester` no frontend (testa os fluxos pela interface).
-`10-commit-message-generator` roda sempre por último, depois do agente de testes, para que os commits cubram
-também o arquivo de testes gerado — não só o código de aplicação. Diferente dos demais agentes do pipeline,
-ele não só sugere: aplica os commits de verdade (`git commit`, um por unidade lógica) e dá `git push` na
-branch atual antes de encerrar a rodada — sem pedir confirmação e nunca citando IA na mensagem.
-O que muda entre as stacks é o conteúdo de cada agente, nunca a existência dele.
-Os arquivos em `.claude/agents/` saem numerados por ordem de execução do pipeline (`00-knowledge-bootstrap.md`,
-`01-orchestrator-sdd.md`, `02-architect-sdd.md`, `03-<stack>-specialist.md`, ... até `09-e2e-flow-tester.md`
-no frontend ou `09-swagger-tester.md` no `.NET`, seguido sempre por `10-commit-message-generator.md`), e o
-`name:` no frontmatter de cada agente (usado para invocação) leva o mesmo prefixo — o nome do arquivo e o nome
-usado pra chamar o agente são sempre idênticos.
-Ao reacoplar o pipeline (`MODO = existente`) a um projeto gerado por uma versão anterior do template, o script
-remove os nomes antigos sem prefixo antes de recriar os numerados, evitando arquivo duplicado.
+**Toda stack recebe os mesmos 6 agentes**, na mesma ordem — só o specialist (`03`) muda de stack para stack, e
+o conteúdo do `05-test-engineer` se adapta (API no `.NET`, fluxos E2E no frontend). O commit final **não é um
+subagente**: depois do `06-security-scan-sdd`, o próprio `/inicia-orquestracao` roda o fluxo do `/commit` na
+conversa principal (sincroniza o vault, passa pelo gate de segredos, divide em commits semânticos e dá push na
+branch atual, nunca citando IA na mensagem).
+
+Os arquivos em `.claude/agents/` saem numerados por ordem de execução e o `name:` no frontmatter leva o mesmo
+prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre idênticos. Ao reacoplar o pipeline
+(`MODO = existente`) a um projeto gerado por uma versão anterior, o script apaga os agentes da numeração antiga
+(`00` a `10`, anteriores à v5.0.0) antes de recriar os novos, evitando arquivo duplicado.
 
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
-| `00-knowledge-bootstrap` | Fase 0 — consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (só roda se `docs/raw/` tiver arquivos) | sempre |
-| `01-orchestrator-sdd` | Valida a especificação | sempre |
+| `01-analyst-sdd` | **Parte A** (só se `docs/raw/` tiver arquivos): consolida a documentação bruta na Base de Conhecimento em `knowledge/`. **Parte B** (sempre): valida `docs/SPEC.md` e gera o relatório da pausa de aprovação | sempre |
 | `02-architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
-| `03-dotnet-specialist` | Implementa o backend .NET 10 | só stack `dotnet` |
-| `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend | só a stack correspondente |
-| `04-compliance-validator` | Audita conformidade com a spec | sempre |
-| `05-test-validator` | Gera testes automatizados | sempre |
-| `06-code-review-sdd` | Revisa qualidade e SOLID | sempre |
-| `07-build-test-validator` | Valida build e testes | sempre |
-| `08-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
-| `09-swagger-tester` | Gera workflow de testes de API (cURL/Swagger) | só stack `dotnet` |
-| `09-e2e-flow-tester` | Gera o roteiro de testes E2E dos fluxos (Playwright/Cypress), incluindo invalidação de sessão | só stacks de frontend |
-| `10-commit-message-generator` | Gera, aplica e dá push nos commits semânticos — roda sempre por último, depois do agente de testes | sempre |
+| `03-dotnet-specialist` | Implementa o backend .NET 10 direto em `src/` — só termina com `dotnet build` passando | só stack `dotnet` |
+| `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend direto em `src/` — só termina com o build passando | só a stack correspondente |
+| `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte no frontend) | sempre |
+| `05-test-engineer` | Escreve os testes no projeto e **roda de verdade** build + testes + cobertura, corrigindo até ficar verde (até 3 rodadas). No `.NET`: unit + integração e o workflow de testes da API em `docs/api/testes-api.md`. No frontend: unit + E2E (smoke, invalidação de sessão, acessibilidade) | sempre |
+| `06-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 
-O agente 09 (`09-swagger-tester` / `09-e2e-flow-tester`) e `10-commit-message-generator` usam Sonnet por serem etapas mais simples; os demais (00 a 08) usam Opus 5.5 (`claude-opus-5-5`, fixado na versão).
+Todos usam Opus 5.5 (`claude-opus-5-5`, fixado na versão).
+
+### Por que 6 e não 11 (v5.0.0)
+
+Até a v4.x o pipeline tinha 11 agentes. Cada subagente relê a spec e o código do zero, então etapas que olhavam
+o mesmo material com perguntas diferentes custavam tokens e tempo sem ganho proporcional:
+
+- **Knowledge Bootstrap + Orchestrator → `01-analyst-sdd`**: os dois "entendiam a entrada" — o bootstrap já
+  listava lacunas e preenchia o `SPEC.md` que o orchestrator validava logo em seguida.
+- **Compliance + Code Review → `04-reviewer-sdd`**: dois revisores só-leitura relendo o mesmo código. A parte de
+  segurança do antigo code review saiu, porque o `06-security-scan-sdd` já audita isso a fundo.
+- **Test Validator + Build & Test + Swagger/E2E Tester → `05-test-engineer`**: o test validator não tinha como
+  rodar nada (cobertura "estimada") e o build validator só *simulava* o build. Agora os testes são escritos e
+  executados na mesma etapa. No frontend, o E2E deixou de ser gerado duas vezes.
+- **Commit Message Generator → fluxo do `/commit` na conversa principal**: o `/commit` já tinha o gate de segredos
+  e a sincronização do vault; o agente duplicava isso.
+
+Os specialists também deixaram de copiar o código inteiro para `output/3-*.md`: escrevem direto em `src/` e o
+relatório traz só a lista de arquivos, as decisões e o resultado do build.
 
 ## Comandos avulsos (fora do `/inicia-orquestracao`)
 
@@ -168,12 +175,12 @@ qualquer momento, fora de uma rodada do `/inicia-orquestracao`:
 | Comando | Stacks | O que faz |
 |---|---|---|
 | `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
-| `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `00-knowledge-bootstrap` na próxima rodada do `/inicia-orquestracao`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
+| `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `01-analyst-sdd` na próxima rodada do `/inicia-orquestracao`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
 `.csproj`, `DbContext`/EF Core e violação de camada; a de frontend procura `package.json`, mapa de rotas,
 store, cliente HTTP e configuração de build. O contrato de saída é o mesmo nos dois casos: um arquivo por tema
-em `docs/raw/`, que o `00-knowledge-bootstrap` consome na rodada seguinte.
+em `docs/raw/`, que o `01-analyst-sdd` consome na rodada seguinte.
 
 ## Agente (specialist) x Skill (expert) — a diferença
 
@@ -247,18 +254,18 @@ Ou seja: 11 skills num projeto `.NET` e 10 num projeto de frontend, com o mesmo 
 Cada skill traz, quando faz sentido, um checklist em `references/` (revisão de código, plano de teste, arquitetura AWS, OWASP, segurança de frontend) carregado só quando o assunto pede.
 
 Todas seguem a mesma regra de contexto: antes de vasculhar o projeto inteiro, cada skill consulta primeiro
-`knowledge/` (a Base de Conhecimento gerada pela Fase 0, quando existir) — `knowledge/index.json` e a pasta
+`knowledge/` (a Base de Conhecimento gerada pelo `01-analyst-sdd`, quando existir) — `knowledge/index.json` e a pasta
 do `vault/` relevante ao assunto — e só cai pra busca ampla no código/projeto se a referência ali não for
 suficiente. Isso evita reler o projeto inteiro a cada consulta e usa os tokens de forma mais eficiente.
 
 ## Base de Conhecimento (Knowledge Engine)
 
 Se você tiver documentação já pronta do projeto (Word, PDF, planilhas, imagens, atas de reunião), coloque tudo
-em `docs/raw/` antes de chamar `/inicia-orquestracao`. A Fase 0 (`00-knowledge-bootstrap`) lê e consolida todo esse material
+em `docs/raw/` antes de chamar `/inicia-orquestracao`. O `01-analyst-sdd` lê e consolida todo esse material
 em `knowledge/vault/` — uma base de conhecimento em Markdown, compatível com Obsidian (pastas por domínio,
 links `[[internos]]`, glossário e índice), além de um grafo de relacionamentos (`knowledge/graph/`), chunks
 prontos para busca semântica (`knowledge/embeddings/`) e um resumo por área (`knowledge/cache/`) para os
-demais agentes consultarem em vez de reler tudo. Se `docs/raw/` estiver vazia, essa fase é pulada e o pipeline
+demais agentes consultarem em vez de reler tudo. Se `docs/raw/` estiver vazia, essa consolidação é pulada e o pipeline
 segue normalmente a partir de `docs/SPEC.md`, como sempre funcionou.
 
 `knowledge/graph/` e `knowledge/embeddings/` são reconstruídos deterministicamente por
@@ -282,8 +289,8 @@ commita — memória e código no **mesmo** commit, nunca em commits separados.
 
 O caso que motivou isso é `knowledge/vault/14 - Planejamento/`: escopo adiado, próximo passo e pendência em
 aberto moram ali. Os relatórios do pipeline ficam em `output/`, que é por rodada e **fora** do Git — plano
-que morasse só lá morreria junto com a sessão. Os agentes `01-orchestrator-sdd`, `02-architect-sdd` e
-`04-compliance-validator` são donos dessa pasta e a atualizam antes de encerrar; quando um item é
+que morasse só lá morreria junto com a sessão. Os agentes `01-analyst-sdd`, `02-architect-sdd` e
+`04-reviewer-sdd` são donos dessa pasta e a atualizam antes de encerrar; quando um item é
 implementado, a nota sai (ou é marcada como concluída) no mesmo commit da implementação.
 
 ## Gate de segredos no commit
@@ -301,7 +308,7 @@ por variável de ambiente / `dotnet user-secrets`. Se o segredo já estiver em c
 com todas as letras que tirar do stage não resolve — a correção é **rotacionar a credencial**.
 
 É uma rede rápida baseada em padrões, não uma auditoria: quem faz a auditoria completa (cinco categorias de
-falha, com relatório em PDF) é o agente `08-security-scan-sdd` do `/inicia-orquestracao`. O `/commit` deste
+falha, com relatório em PDF) é o agente `06-security-scan-sdd` do `/inicia-orquestracao`. O `/commit` deste
 repositório-template tem o mesmo gate, em versão condensada.
 
 ## Relatório de tokens

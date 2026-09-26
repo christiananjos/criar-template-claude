@@ -125,7 +125,7 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 **Reescrito com a versão nova (é a "máquina" do pipeline, não conteúdo do usuário):**
 
 - `.claude/commands/` — `inicia-orquestracao.md`, `commit.md`, `raio-x-projeto.md`, `README.md`
-- `.claude/agents/` — os agentes `00` a `10` da stack detectada
+- `.claude/agents/` — os 6 agentes (`01` a `06`) da stack detectada — os arquivos da numeração antiga (`00` a `10`, anteriores à v5.0.0) são apagados
 - `.claude/rules/` — convenções por caminho de arquivo
 - `.claude/skills/` — a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou
   `vue-expert`, conforme o projeto) mais as de apoio (`cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert`, `hostinger-expert`, `dba-expert`,

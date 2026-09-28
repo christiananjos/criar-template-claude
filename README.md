@@ -7,8 +7,8 @@ Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.
 1. `/comecar` gera a estrutura do projeto (`.claude/` com `commands/`, `agents/`, `skills/`, `rules/`, `hooks/` e `scripts/`, mais `CLAUDE.md`, `.mcp.json`, `README.md`, `docs/raw/`, `docs/SPEC.md`, `knowledge/`, `output/`, `src/`)
 2. (Opcional) Você joga documentação bruta — Word, PDF, planilhas, imagens, atas de reunião — em `docs/raw/`
 3. Você descreve a aplicação em `docs/SPEC.md`
-4. Dentro do projeto, `/inicia-orquestracao` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em PDF), gera commits e monta o roteiro de testes de ponta a ponta (workflow de API no `.NET`, fluxos E2E no frontend) — parando automaticamente se algum gate de qualidade reprovar
-5. Resultado em `output/`, incluindo `token-report.md` com o custo em tokens de cada rodada; `knowledge/` persiste entre rodadas como base de conhecimento viva do projeto
+4. Dentro do projeto, `/inicia-orquestracao` dispara o pipeline: se `docs/raw/` tiver arquivos, primeiro consolida tudo numa Base de Conhecimento em `knowledge/` (compatível com Obsidian); depois valida a spec, define arquitetura, implementa a stack escolhida, gera testes, revisa qualidade, valida build, audita segurança (cinco categorias de falha, com relatório em HTML), gera commits e monta o roteiro de testes de ponta a ponta (workflow de API no `.NET`, fluxos E2E no frontend) — parando automaticamente se algum gate de qualidade reprovar
+5. Código em `src/` e memória em `knowledge/`, que persiste entre rodadas como base de conhecimento viva do projeto. Os agentes passam o trabalho de um para o outro por relatórios em `output/`, apagados quando a rodada termina (ficam lá se um gate reprovar); entre rodadas, só o `token-report.md`, com o custo em tokens de cada rodada, continua lá
 
 ## Instalação
 
@@ -48,7 +48,8 @@ estrutura da versão nova nesse projeto — atualizar o plugin sozinho não atua
 O que **nunca** é tocado: `docs/raw/` e `knowledge/` (a documentação bruta e o vault já injetados),
 além de `src/`, `docs/SPEC.md`, `CLAUDE.md`, `README.md` e `.mcp.json`; o
 `.claude/settings.json` sofre merge em vez de sobrescrita. Antes de reescrever, o comando salva um backup
-da `.claude/` anterior em `output/.claude-backup-<timestamp>/`.
+da `.claude/` anterior em `output/.claude-backup-<timestamp>/`. Fica só o backup mais recente: os das
+atualizações anteriores são apagados.
 
 O único arquivo que a atualização **remove** é o `COMECE-AQUI.md` de projetos gerados antes da v3.17.0 —
 ele foi absorvido pelo `README.md` e sobraria como guia duplicado e desatualizado. O antigo vai para
@@ -118,8 +119,8 @@ essa: "novo" ou "existente". Escolhendo "existente" e informando o caminho do pr
 
 - **Nada do código é tocado** — `src/` não recebe a estrutura de pastas do template, só o que o script sempre cria (`.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/`).
 - **Nenhum arquivo do usuário é sobrescrito** — `README.md`, `CLAUDE.md`, `.mcp.json` e `docs/SPEC.md` só são criados se ainda não existirem.
-- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/` ignorado; `!.claude/` (inclusive `settings.local.json`), `!CLAUDE.md`, `!.mcp.json` e `!knowledge/` versionados, menos `knowledge/embeddings/chunks/` e `fontes/`) são acrescentadas, sem duplicar em reexecuções. Uma linha `.claude/` deixada por versões antigas do template é removida.
-- **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` + ponytail somados ao que já estava configurado), nunca substituição.
+- **`.gitignore`** existente é mantido; só as regras específicas do pipeline (`output/*` ignorado menos `!output/token-report.md`; `!.claude/` (inclusive `settings.local.json`), `!CLAUDE.md`, `!.mcp.json` e `!knowledge/` versionados, menos `knowledge/embeddings/chunks/` e `fontes/`) são acrescentadas, sem duplicar em reexecuções. As linhas `.claude/` e `output/` deixadas por versões antigas do template são removidas.
+- **`.claude/settings.json`** existente sofre *merge* (hook de token-report + `permissions` somados ao que já estava configurado; a configuração do ponytail deixada por versões antigas é removida), nunca substituição.
 - **`02-architect-sdd` e os `03-*-specialist`** são instruídos a ler a estrutura/convenções já existentes em `src/` antes de propor arquitetura ou gerar código — estendendo o que já existe em vez de reimplementar do zero.
 
 Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o que falta implementar) e rodar `/inicia-orquestracao`.
@@ -127,10 +128,13 @@ Daí em diante o fluxo é o mesmo: editar `docs/SPEC.md` (aqui, descrevendo o qu
 ## Agentes
 
 **Toda stack recebe os mesmos 6 agentes**, na mesma ordem — só o specialist (`03`) muda de stack para stack, e
-o conteúdo do `05-test-engineer` se adapta (API no `.NET`, fluxos E2E no frontend). O commit final **não é um
-subagente**: depois do `06-security-scan-sdd`, o próprio `/inicia-orquestracao` roda o fluxo do `/commit` na
-conversa principal (sincroniza o vault, passa pelo gate de segredos, divide em commits semânticos e dá push na
-branch atual, nunca citando IA na mensagem).
+o conteúdo do `05-test-engineer` se adapta (API no `.NET`, fluxos E2E no frontend). O commit **não é um
+subagente**: depois de cada etapa aprovada, o próprio `/inicia-orquestracao` commita localmente na conversa
+principal, seguindo o fluxo do `/commit`: código e notas do vault vão juntos, passam pelo gate de segredos e a
+mensagem nunca cita IA. O push na branch atual acontece uma vez só, depois que o `06-security-scan-sdd`
+aprova. Assim cada agente vira um ponto de restauração no histórico, mas nada chega ao remoto sem ter passado
+pela revisão, pelos testes e pela auditoria. Se um gate reprovar, os commits das etapas anteriores ficam locais
+e o trabalho da etapa reprovada fica no working tree.
 
 Os arquivos em `.claude/agents/` saem numerados por ordem de execução e o `name:` no frontmatter leva o mesmo
 prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre idênticos. Ao reacoplar o pipeline
@@ -145,7 +149,7 @@ prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre id�
 | `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend direto em `src/` — só termina com o build passando | só a stack correspondente |
 | `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte no frontend) | sempre |
 | `05-test-engineer` | Escreve os testes no projeto e **roda de verdade** build + testes + cobertura, corrigindo até ficar verde (até 3 rodadas). No `.NET`: unit + integração e o workflow de testes da API em `docs/api/testes-api.md`. No frontend: unit + E2E (smoke, invalidação de sessão, acessibilidade) | sempre |
-| `06-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em PDF em `docs/security-audit/` com issues prontas para o GitHub | sempre |
+| `06-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em HTML simples em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 
 Todos usam Opus 5.5 (`claude-opus-5-5`, fixado na versão).
 
@@ -288,7 +292,7 @@ que mudou e atualiza as notas correspondentes do vault, (2) roda o rebuild do gr
 commita — memória e código no **mesmo** commit, nunca em commits separados.
 
 O caso que motivou isso é `knowledge/vault/14 - Planejamento/`: escopo adiado, próximo passo e pendência em
-aberto moram ali. Os relatórios do pipeline ficam em `output/`, que é por rodada e **fora** do Git — plano
+aberto moram ali. Os relatórios do pipeline ficam em `output/`, são por rodada e ficam **fora** do Git (só o `token-report.md` é versionado) — plano
 que morasse só lá morreria junto com a sessão. Os agentes `01-analyst-sdd`, `02-architect-sdd` e
 `04-reviewer-sdd` são donos dessa pasta e a atualizam antes de encerrar; quando um item é
 implementado, a nota sai (ou é marcada como concluída) no mesmo commit da implementação.
@@ -308,7 +312,7 @@ por variável de ambiente / `dotnet user-secrets`. Se o segredo já estiver em c
 com todas as letras que tirar do stage não resolve — a correção é **rotacionar a credencial**.
 
 É uma rede rápida baseada em padrões, não uma auditoria: quem faz a auditoria completa (cinco categorias de
-falha, com relatório em PDF) é o agente `06-security-scan-sdd` do `/inicia-orquestracao`. O `/commit` deste
+falha, com relatório em HTML) é o agente `06-security-scan-sdd` do `/inicia-orquestracao`. O `/commit` deste
 repositório-template tem o mesmo gate, em versão condensada.
 
 ## Relatório de tokens
@@ -317,11 +321,9 @@ Todo projeto gerado já sai com um hook `Stop` (`.claude/settings.json` + `.clau
 
 O custo é calculado pelo modelo que realmente respondeu cada mensagem, então o relatório continua correto seja qual for o modelo de cada agente, inclusive se você trocar. A conta considera leitura e escrita de cache (com o multiplicador de cada modelo), fast mode, inferência restrita aos EUA e buscas na web (cobradas à parte, US$ 10 por 1.000). Modelo que ainda não estiver na tabela de preços entra pelo preço do modelo mais recente da mesma família, e o relatório avisa que aquele valor é aproximado — a tabela fica em `PRICING`, no topo de `.claude/hooks/generate-token-report.cjs`.
 
-## Plugin ponytail (redução de tokens)
+## Plugin frontend-design
 
-Todo projeto gerado também já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado — o `.claude/settings.json` do projeto já vem com `extraKnownMarketplaces` e `enabledPlugins` apontando pra ele. Isso registra o marketplace e a intenção de habilitá-lo, mas **não instala o plugin sozinho**: a partir do Claude Code v2.1.195, um plugin de fonte externa (como este, hospedado no GitHub) só carrega depois de instalado pelo menos uma vez. Na primeira vez que abrir o projeto gerado, rode `claude plugin install ponytail@ponytail` (ou aceite quando o Claude Code avisar que ele não está instalado) — dali em diante, `enabledPlugins` mantém ele habilitado automaticamente nas próximas sessões. Para conferir se está ativo, rode `/plugin` e veja `ponytail@ponytail` habilitado. (Este repositório-template, por ser só o gerador de estrutura, não precisa do ponytail — a configuração é escrita apenas no projeto gerado.)
-
-Nas stacks de front (React, Angular, Vue) o `settings.json` também habilita o plugin oficial de design da Anthropic, `frontend-design`, do marketplace `claude-plugins-official` ([anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)). Instale uma vez com `claude plugin install frontend-design@claude-plugins-official`.
+Nas stacks de front (React, Angular, Vue) o `settings.json` habilita o plugin oficial de design da Anthropic, `frontend-design`, do marketplace `claude-plugins-official` ([anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)). Instale uma vez com `claude plugin install frontend-design@claude-plugins-official`.
 
 ## Estrutura de projeto oficial do Claude Code
 
@@ -332,8 +334,8 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança e direção de design no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
-- **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`), o hook `PostToolUse` `knowledge-sync.cjs` (toda escrita em `knowledge/vault/` reconstrói o grafo na hora; escrita em outro arquivo lembra o Claude de atualizar o vault no mesmo turno) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`).
-- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack, geração do relatório de auditoria em PDF num venv isolado), além do hook de tokens e do plugin ponytail.
+- **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`), o hook `PostToolUse` `knowledge-sync.cjs` (toda escrita em `knowledge/vault/` reconstrói o grafo na hora; escrita em outro arquivo lembra o Claude de atualizar o vault no mesmo turno) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`), além do `limpar-output.cjs`, que apaga os relatórios intermediários de `output/` no início de cada rodada e, se a rodada terminou, também no fim, sempre mantendo o `token-report.md`.
+- **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack), além do hook de tokens.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
 
 ## Estrutura do plugin

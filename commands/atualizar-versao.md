@@ -68,7 +68,12 @@ em relação ao plugin.
    ```bash
    BACKUP="output/.claude-backup-$(date +%Y%m%d-%H%M%S)" && mkdir -p "$BACKUP" && cp -r .claude/. "$BACKUP/"
    ```
-   `output/` já é ignorado pelo Git, então o backup não suja o repositório. Guarde o caminho para reportar.
+   Tudo em `output/` é ignorado pelo Git, menos o `token-report.md`, então o backup não suja o repositório. Guarde o caminho para reportar.
+   Depois, apague os backups de atualizações anteriores e mantenha só o que acabou de criar. Sem isso, cada
+   atualização deixa mais uma cópia inteira da `.claude/` acumulada em `output/`:
+   ```bash
+   for d in output/.claude-backup-*; do [ "$d" != "$BACKUP" ] && rm -rf "$d"; done
+   ```
 
 8. Reaplique o template com o script da **versão nova**, no modo `existente`:
    ```bash
@@ -114,13 +119,15 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 - `src/` e todo o código do projeto.
 - `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `.mcp.json` — mantidos se já existirem.
 - `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem, conferidas **uma a uma**
-  (`output/`, `.claude/`, `!knowledge/`). Isso importa em projeto antigo: até a v3.17.0 o script olhava só
+  (`!output/token-report.md`, `.claude/`, `!knowledge/`). As linhas `.claude/` e `output/` de versões
+  antigas são removidas: `.claude/` vai versionada, e de `output/` só o `token-report.md` vai. Isso importa em projeto antigo: até a v3.17.0 o script olhava só
   para o comentário `# Pipeline SDD (criar-template-claude)` e, achando-o, pulava o bloco inteiro — então
   regra nova nunca chegava em projeto já existente. A negação `!knowledge/` é o que garante que a memória
   vá versionada mesmo num repositório que já ignorava a pasta.
-- `.claude/settings.json` — sofre **merge** (hook de token-report, `permissions`, plugin ponytail),
+- `.claude/settings.json` — sofre **merge** (hook de token-report, `permissions`; a configuração do plugin ponytail de versões antigas é removida),
   preservando o que o usuário já tinha configurado.
-- `output/` — os artefatos de rodadas anteriores do pipeline continuam lá.
+- `output/` — o script não mexe nela. Os relatórios que tiverem sobrado são apagados na próxima rodada do
+  `/inicia-orquestracao`, que começa rodando `.claude/scripts/limpar-output.cjs` e mantém o `token-report.md`.
 
 **Reescrito com a versão nova (é a "máquina" do pipeline, não conteúdo do usuário):**
 
@@ -130,7 +137,8 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
 - `.claude/skills/` — a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou
   `vue-expert`, conforme o projeto) mais as de apoio (`cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert`, `hostinger-expert`, `dba-expert`,
   `dotnet-security-expert`/`frontend-security-expert`). Todas terminam em `-expert`.
-- `.claude/hooks/generate-token-report.cjs` e `.claude/scripts/knowledge-engine-build.cjs`
+- `.claude/hooks/generate-token-report.cjs`, `.claude/scripts/knowledge-engine-build.cjs` e
+  `.claude/scripts/limpar-output.cjs`
 
 **Removido (único arquivo que o script apaga):**
 

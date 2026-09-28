@@ -76,7 +76,7 @@ Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`.
 
 No modo `existente`, o script:
 - **Não sobrescreve** código em `src/`, nem `README.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline — entre elas a negação `!knowledge/`, para a memória do projeto ir versionada).
-- Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + `permissions` + plugin ponytail) em vez de sobrescrever, preservando o que já estava configurado.
+- Se `.claude/settings.json` já existir, faz **merge** (hook de token-report + `permissions`) em vez de sobrescrever, preservando o que já estava configurado.
 - Sempre (re)cria `.claude/commands/`, `.claude/agents/`, `.claude/rules/`, `knowledge/` (vazia) e o hook de tokens — isso é a "máquina" do pipeline, não código do usuário.
 - Os agentes de arquitetura e implementação (`02-architect-sdd`, `03-*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
 
@@ -108,7 +108,7 @@ NOME_DO_PROJETO/
 │   ├── rules/                   ← convenções por caminho de arquivo (Clean Architecture no dotnet,
 │   │                              componente/estado no frontend, convenções do Knowledge Vault)
 │   ├── settings.json           ← permissions (libera o que o pipeline precisa) + hook Stop de
-│   │                              relatório de tokens + plugin ponytail habilitado
+│   │                              relatório de tokens
 │   ├── hooks/generate-token-report.cjs
 │   └── scripts/knowledge-engine-build.cjs  ← reconstrói grafo/embeddings a partir de knowledge/vault/
 ├── docs/SPEC.md              ← template para o usuário preencher
@@ -134,10 +134,9 @@ automaticamente e o Analyst só valida `docs/SPEC.md`.
 
 Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.json` + `.claude/hooks/generate-token-report.cjs`): ao final de cada rodada completa do `/inicia-orquestracao`, ele gera/atualiza `output/token-report.md` com o total de tokens gastos e o detalhamento por agente, sem precisar de nenhuma ação manual.
 
-O mesmo `.claude/settings.json` já sai com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado (`extraKnownMarketplaces` + `enabledPlugins`), que ajuda a reduzir o consumo de tokens da sessão. Isso registra o marketplace e a intenção de habilitá-lo, mas não instala o plugin sozinho — a partir do Claude Code v2.1.195, um plugin de fonte externa só carrega depois de instalado pelo menos uma vez. Na primeira abertura do projeto, é preciso rodar `claude plugin install ponytail@ponytail` (ou aceitar quando o Claude Code avisar que ele não está instalado); dali em diante fica habilitado automaticamente.
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/inicia-orquestracao`. O `/inicia-orquestracao`, por sua vez, tem **uma única pausa manual**, logo após `01-analyst-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd`) reportar falha. O commit final roda na conversa principal, pelo fluxo do `/commit`, sem subagente. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/inicia-orquestracao`. O `/inicia-orquestracao`, por sua vez, tem **uma única pausa manual**, logo após `01-analyst-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd`) reportar falha. Cada etapa aprovada vira um commit local, feito na conversa principal pelo fluxo do `/commit` (sem subagente), e o push acontece uma vez só, no fim. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
 
 

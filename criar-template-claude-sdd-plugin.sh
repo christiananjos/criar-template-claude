@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v5.0.0
+# 🚀 Criar Template Claude SDD v5.1.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
 # stack por vez (sem misturar backend e frontend no mesmo projeto).
@@ -98,7 +98,7 @@ SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v5.0.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v5.1.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -443,6 +443,56 @@ try {
 KEBUILDEOF
 
 echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
+
+# ============================================================================
+# CRIAR .claude/scripts/limpar-output.cjs
+# output/ é só o canal de passagem entre os agentes de uma rodada — o que
+# importa guardar já foi para knowledge/. Este script apaga os relatórios
+# intermediários e deixa só output/token-report.md. Rodado pelo
+# /inicia-orquestracao no início de cada rodada e pelo hook de tokens no fim
+# de uma rodada concluída (marcador output/.rodada-concluida).
+# ============================================================================
+
+cat > ""$PROJECT_DIR/.claude/scripts/limpar-output.cjs"" << 'LIMPAROUTEOF'
+#!/usr/bin/env node
+// Apaga os relatórios intermediários de output/, mantendo token-report.md.
+// Não mexe em subpastas (backups do /atualizar-versao) nem nas cópias COMECE-AQUI.removido-*.
+// Nunca deve falhar o pipeline.
+
+const fs = require("fs");
+const path = require("path");
+
+function limparOutput(projectDir) {
+  const outputDir = path.join(projectDir, "output");
+  let entries = [];
+  try {
+    entries = fs.readdirSync(outputDir, { withFileTypes: true });
+  } catch {
+    return []; // sem output/, nada a limpar
+  }
+  const removidos = [];
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    if (e.name === "token-report.md" || e.name.startsWith("COMECE-AQUI.removido-")) continue;
+    try {
+      fs.unlinkSync(path.join(outputDir, e.name));
+      removidos.push(e.name);
+    } catch {
+      // arquivo preso/sem permissão — segue com os outros
+    }
+  }
+  return removidos;
+}
+
+module.exports = { limparOutput };
+
+if (require.main === module) {
+  const removidos = limparOutput(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+  console.log(removidos.length ? `output/ limpo: ${removidos.join(", ")}` : "output/ já estava limpo");
+}
+LIMPAROUTEOF
+
+echo -e "${GREEN}✅ .claude/scripts/limpar-output.cjs criado${NC}"
 
 # ============================================================================
 # CRIAR AGENTS — agentes fixos (sempre incluídos)
@@ -1377,7 +1427,7 @@ fi
 cat > ""$PROJECT_DIR/.claude/agents/06-security-scan-sdd.md"" << 'AGENTEOF'
 ---
 name: 06-security-scan-sdd
-description: Use this agent after 05-test-engineer has confirmed build and tests pass, to run a full security audit over the code (tenant/owner isolation, server-side authorization, IDOR, hardcoded secrets, XSS), fix what is mechanically safe, and produce a PDF audit report with ready-to-paste GitHub issues before the pipeline commits anything. Use PROACTIVELY as step 6, the last agent of the SDD pipeline, right before the final commit. Examples: <example>Context: Build and tests just passed. user: "Testes ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para auditar as cinco categorias de falha e gerar o relatório de segurança antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block the final commit if a Critical/High finding can't be safely auto-fixed.</commentary></example>
+description: Use this agent after 05-test-engineer has confirmed build and tests pass, to run a full security audit over the code (tenant/owner isolation, server-side authorization, IDOR, hardcoded secrets, XSS), fix what is mechanically safe, and write a simple HTML audit report with ready-to-paste GitHub issues before the pipeline commits anything. Use PROACTIVELY as step 6, the last agent of the SDD pipeline, right before the final commit. Examples: <example>Context: Build and tests just passed. user: "Testes ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para auditar as cinco categorias de falha e gerar o relatório de segurança antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block the final commit if a Critical/High finding can't be safely auto-fixed.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: claude-opus-5-5
 ---
@@ -1387,7 +1437,7 @@ Você é o **Security Scan-SDD**, responsável pela auditoria de segurança e pe
 ## Sua Missão
 
 Revisar o código atrás de **cinco falhas de segurança**, corrigir só o que for mecanicamente seguro, e entregar
-um relatório em PDF com as issues prontas para o GitHub — antes que o pipeline gere os commits.
+um relatório em HTML simples com as issues prontas para o GitHub — antes que o pipeline gere os commits.
 
 A auditoria é **de projeto inteiro, backend e frontend**: além de `src/`, inclui os arquivos de deploy e
 infraestrutura na raiz (`Dockerfile`, `docker-compose*`, `.github/workflows/`, `charts/`, `terraform/`, scripts
@@ -1473,18 +1523,20 @@ ela é de fato aplicada nos pontos encontrados.
   `05-test-engineer` registrou em `output/5-tests.md`) e confirme que nada quebrou.
 __FRONTEND_SECURITY_STEP__
 
-## Relatório em PDF
+## Relatório em HTML
 
-Gere `docs/security-audit/relatorio-auditoria-seguranca.pdf`, visualmente amigável, em pt-BR, com:
+Escreva `docs/security-audit/relatorio-auditoria-seguranca.html` direto com a ferramenta `Write`, em pt-BR:
+**um arquivo só, HTML simples com CSS inline no `<style>`, sem JavaScript, sem biblioteca externa e sem
+script gerador**. Abre em qualquer navegador (e, se alguém precisar de PDF, é só imprimir de lá). Não gaste
+esforço em visual: o valor está nos achados. Conteúdo:
 
-a) **Capa** — título "Relatório de Auditoria de Segurança — <nome do projeto>", data, escopo auditado e nota
-   metodológica (como cada categoria foi mapeada para a stack detectada).
-b) **Resumo executivo** — total de achados por severidade, gráfico de rosca por severidade e gráfico de barras
-   por categoria. Paleta: crítica `#B91C1C`, alta `#EA580C`, média `#D97706`, baixa `#2563EB`, ponto forte
-   `#059669`.
+a) **Cabeçalho** — título "Relatório de Auditoria de Segurança — <nome do projeto>", data, escopo auditado e
+   uma linha de nota metodológica (como cada categoria foi mapeada para a stack detectada).
+b) **Resumo** — total de achados por severidade numa tabela pequena. Se quiser destacar, use chips de cor
+   com CSS puro: crítica `#B91C1C`, alta `#EA580C`, média `#D97706`, baixa `#2563EB`, ponto forte `#059669`.
+   Nada de gráfico.
 c) **Pontos fortes** (o que está protegido, com evidência) e **pontos fracos** (os riscos centrais).
-d) **Tabela de achados detalhados por categoria**: Severidade | Arquivo:linha | Descrição, com chip de
-   severidade colorido.
+d) **Tabela de achados por categoria**: Severidade | Arquivo:linha | Descrição.
 e) **Recomendações priorizadas** (P1, P2, P3...).
 f) **Seção final "ISSUES PARA O GITHUB"** — para cada achado acionável, o texto **completo** de uma issue em
    Markdown, pronta para copiar e colar, dentro de um bloco delimitado (`--- ISSUE n ---` … `--- FIM ISSUE n ---`),
@@ -1492,21 +1544,11 @@ f) **Seção final "ISSUES PARA O GITHUB"** — para cada achado acionável, o t
    severidade); descrição do problema e por que é explorável; evidência (arquivo:linha com trecho de código);
    impacto; sugestão de correção; critérios de aceite como checklist verificável. Agrupe achados triviais
    relacionados numa issue única quando fizer sentido (ex.: vários defaults de segredo do mesmo tema), pra não
-   virar spam de issues.
+   virar spam de issues. Dentro do HTML, cada issue vai num `<pre>` (com `<`, `>` e `&` escapados), para
+   copiar sem perder a formatação.
 
-### Regras técnicas da geração
-
-- **Não instale nada globalmente.** Use ambiente isolado — venv Python em `docs/security-audit/.venv` com
-  `reportlab` + `matplotlib`, ou ferramenta equivalente já disponível na máquina (navegador headless,
-  `wkhtmltopdf` ou `pandoc` para HTML→PDF também valem).
-- **Deixe o script gerador em `docs/security-audit/`** (ex.: `gerar-relatorio.py` + os achados em
-  `dados-auditoria.json`), pra dar pra regerar o relatório depois sem repetir a auditoria.
-- **Verifique o PDF gerado**: número de páginas, renderização dos gráficos e legibilidade das tabelas —
-  rasterize as páginas se possível (`pdftoppm`, PyMuPDF) e corrija defeitos visuais antes de entregar.
-- Páginas A4, margens de ~2cm, cabeçalho e rodapé com o nome do relatório e o número da página.
-- **Se não for possível gerar o PDF** (sem Python, sem rede, ambiente restrito), **não bloqueie o pipeline**:
-  gere o mesmo conteúdo em `docs/security-audit/relatorio-auditoria-seguranca.md` e registre no relatório que o
-  PDF não pôde ser gerado e por quê.
+Não instale nada, não crie venv e não gere PDF: um relatório em HTML escrito numa passada só custa uma
+fração dos tokens de montar e conferir um PDF. Se o arquivo já existir de uma rodada anterior, sobrescreva.
 
 ## Formato de Saída
 
@@ -1538,16 +1580,15 @@ Salve em `output/6-security-scan.md`:
 - Build/testes após correção: ✅ OK / ❌ quebrou / N/A (nenhuma correção aplicada)
 __FRONTEND_SECURITY_SECTION__
 ## Arquivos Gerados
-- `docs/security-audit/relatorio-auditoria-seguranca.pdf`
-- `docs/security-audit/gerar-relatorio.py` (+ `dados-auditoria.json`)
+- `docs/security-audit/relatorio-auditoria-seguranca.html`
 - `knowledge/vault/13 - Segurança/Auditoria <AAAA-MM-DD>.md` (se `knowledge/` existir)
 
 ## Recomendação
 [Prosseguir para commits / Corrigir manualmente os itens bloqueantes antes de prosseguir]
 ```
 
-Ao final, **responda no chat** com: a lista de achados (arquivo por arquivo, linha por linha), o caminho do PDF
-e o caminho de todos os arquivos gerados.
+Ao final, **responda no chat** com: a lista de achados (arquivo por arquivo, linha por linha), o caminho do
+relatório HTML e o caminho de todos os arquivos gerados.
 
 ## Regras Importantes
 
@@ -1555,9 +1596,9 @@ e o caminho de todos os arquivos gerados.
 - Nunca audite dependências de terceiros (`node_modules/`, `bin/`, `obj/`, `dist/`, `vendor/`).
 - Nunca corrija Medium/Low; nunca corrija Critical/High que altere comportamento observável sem sinalizar.
 - Se houver qualquer achado Critical/High **não corrigido** (bloqueante) ao final, marque o status como
-  ❌ REPROVADO — isso interrompe o pipeline antes do commit final, seguindo a mesma regra de gate técnico que
+  ❌ REPROVADO — isso interrompe o pipeline antes do commit desta etapa e do push, seguindo a mesma regra de gate técnico que
   `04-reviewer-sdd` e `05-test-engineer` já usam.
-- Falha ao gerar o PDF não reprova a auditoria — o gate é o resultado dos achados, não a ferramenta de relatório.
+- Falha ao gravar o HTML não reprova a auditoria — o gate é o resultado dos achados, não o relatório.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
 
@@ -5390,7 +5431,8 @@ cat > ""$PROJECT_DIR/.claude/commands/inicia-orquestracao.md"" << 'ORCHEOF'
 
 ## 🎯 O que Acontece
 
-São **6 subagentes** + o commit final, feito aqui mesmo na conversa principal:
+São **6 subagentes**. Depois de cada um, o trabalho da etapa é commitado aqui mesmo, na conversa principal
+(commit local); o push acontece uma vez só, no fim:
 
 ```
 docs/raw/ (opcional) + docs/SPEC.md
@@ -5407,9 +5449,9 @@ __ORCH_SPECIALIST_LINE__
     ↓
 __ORCH_TEST_LINE__
     ↓
-🛡️ 06 Security Scan    → Auditoria de segurança (5 categorias) + relatório PDF
+🛡️ 06 Security Scan    → Auditoria de segurança (5 categorias) + relatório HTML
     ↓
-📝 Commit              → Commits semânticos + push (thread principal, fluxo do /commit)
+🚀 Push               → Sobe os commits de todas as etapas (só se todos os gates passaram)
     ↓
 ✅ Pronto!
 ```
@@ -5430,25 +5472,53 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
 
 ## ⚠️ Regras de Execução
 
+- **Antes do Analyst, limpe a rodada anterior**: rode `node .claude/scripts/limpar-output.cjs`. Ele apaga os
+  relatórios que sobraram em `output/` (inclusive de versões antigas do pipeline) e mantém o
+  `token-report.md` — assim nenhum agente lê por engano um relatório velho.
 - **Um agente por vez, na ordem acima.** Cada agente lê o relatório do anterior em `output/` — não repasse
   o conteúdo dos relatórios no prompt de invocação, só aponte o arquivo.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `04-reviewer-sdd`
   (❌ REPROVADO), `05-test-engineer` (❌ FAILED) ou `06-security-scan-sdd` (❌ REPROVADO) reportar falha,
   interrompa o pipeline e reporte ao usuário o que precisa ser corrigido. Não gaste as etapas seguintes nem
-  commite código que já foi reprovado.
-- **Commit final (sem subagente)**: depois que o `06-security-scan-sdd` aprovar, execute aqui mesmo, na
-  conversa principal, o fluxo de `.claude/commands/commit.md` — sincronização do vault, checagem do
-  `.gitignore`, gate de segredos e push na branch atual, sem pedir confirmação. Única diferença em relação
-  ao `/commit` avulso: como uma rodada inteira mistura camadas, **divida em commits coesos** (um por unidade
-  lógica), cada um com as notas de `knowledge/` que ele provocou. Exemplo:
+  commite o trabalho da etapa reprovada — ele fica no working tree pra ser corrigido.
+- **Commit a cada etapa (sem subagente, sem push)**: assim que um agente terminar **e** o gate dele passar,
+  commite aqui mesmo, na conversa principal, o que aquela etapa produziu — código, testes e as notas de
+  `knowledge/` que ela provocou, juntos. Siga os passos 3, 4, 5, 7, 9, 10 e 11 de `.claude/commands/commit.md`
+  (checagem do `.gitignore`, diff, estilo do histórico, mensagem sem citar IA, stage, **gate de segredos** e
+  commit), sem pedir confirmação, com uma diferença: **não faça push** — o `git push` fica só para o fim. O
+  vault já foi sincronizado pelo próprio agente, então os passos 1 e 2 não precisam rodar de novo.
+
+  | Etapa | O que vai no commit | Tipo típico |
+  |---|---|---|
+  | 01 Analyst (depois da sua aprovação) | `docs/SPEC.md`, `knowledge/` e o `output/token-report.md` da rodada anterior | `docs(spec):` |
+  | 02 Architect | `knowledge/` (arquitetura, ADRs, planejamento) | `docs(arquitetura):` |
+  | 03 Specialist | código em `src/` + notas do vault — **um commit por unidade lógica** | `feat(...)` |
+  | 04 Reviewer | correções que ele aplicou, se houver | `fix:` / `refactor:` |
+  | 05 Test Engineer | testes (e `docs/api/`, se gerou) | `test(...)` |
+  | 06 Security Scan | correções de segurança + relatório HTML em `docs/security-audit/` | `fix(security):` / `docs(security):` |
+
+  Exemplo de mensagens para a etapa do specialist:
 
 __STACK_COMMIT_EXAMPLES__
 
-  Se o gate de segredos travar, não commite nada e reporte — mesmo que a rodada fique sem o commit final.
+  Se uma etapa não mudou nada versionável, pule o commit dela — nunca crie commit vazio. Se o gate de
+  segredos travar, não commite aquela etapa, pare o pipeline e reporte.
+
+  Por que commitar por etapa e só dar push no fim: cada etapa vira um ponto de restauração no histórico
+  (dá pra ver e reverter o que cada agente fez), mas nada sobe para o remoto antes de passar pela revisão,
+  pelos testes e pela auditoria de segurança. Se um gate reprovar, os commits das etapas anteriores ficam
+  **locais** — avise o usuário disso no relatório.
+- **Push no fim**: depois do commit da etapa do `06-security-scan-sdd`, rode `git branch --show-current` e
+  `git push` nessa mesma branch (`git push -u origin <branch>` se não houver upstream). Não crie nem troque
+  de branch por conta própria. Se o push falhar, reporte o erro — não force.
+- **Marque a rodada como concluída**: só depois do push, crie o arquivo vazio
+  `output/.rodada-concluida`. Ao encerrar a resposta, o hook de tokens atualiza o `token-report.md` e, vendo o
+  marcador, apaga os relatórios intermediários. Rodada interrompida por gate reprovado **não** ganha marcador:
+  os relatórios ficam em `output/` pra explicar o que precisa ser corrigido.
 
 ## 📁 Resultados
 
-Após execução, em `output/`:
+Durante a rodada, `output/` é o canal de passagem entre os agentes:
 
 ```
 1-analyst.md                 (Base de Conhecimento + validação da spec)
@@ -5458,12 +5528,12 @@ TECHNICAL_DECISIONS.md       (Decisões)
 __ORCH_SPECIALIST_OUT__
 4-review.md                  (Conformidade + qualidade)
 5-tests.md                   (Build, testes e cobertura — executados de verdade)
-6-security-scan.md           (Auditoria de Segurança — 5 categorias + PDF)
-token-report.md              (Uso de tokens do pipeline)
+6-security-scan.md           (Auditoria de Segurança — 5 categorias)
 ```
 
-E, se `docs/raw/` foi usada, a pasta `knowledge/` persiste entre execuções como base de conhecimento viva do
-projeto (diferente de `output/`, que é por rodada).
+Ao fim de uma rodada concluída, sobra só `token-report.md` (uso de tokens do pipeline): tudo o que vale
+guardar desses relatórios já foi para `knowledge/`, que persiste entre execuções como base de conhecimento
+viva do projeto. O relatório HTML da auditoria fica em `docs/security-audit/`.
 
 ## ✅ Pré-requisitos
 
@@ -5529,9 +5599,9 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | `03-dotnet-specialist` | Implementa backend .NET |
 | `04-reviewer-sdd` | Revisa conformidade com a spec e qualidade do código, numa leitura só |
 | `05-test-engineer` | Escreve e roda os testes (unit + integração), mede cobertura e gera o workflow de testes da API |
-| `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
+| `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML |
 
-O commit final não é um subagente: o `/inicia-orquestracao` roda o fluxo do `/commit` na conversa principal.
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
 
 
 ## 🧩 Comandos avulsos
@@ -5599,9 +5669,9 @@ do pipeline .NET, o `05-test-engineer` escreve e roda os testes E2E dos fluxos p
 | `__SPECIALIST__` | Implementa o frontend |
 | `04-reviewer-sdd` | Revisa conformidade com a spec e qualidade do código, numa leitura só |
 | `05-test-engineer` | Escreve e roda os testes (unit + E2E com invalidação de sessão) e mede cobertura |
-| `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório PDF |
+| `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML |
 
-O commit final não é um subagente: o `/inicia-orquestracao` roda o fluxo do `/commit` na conversa principal.
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
 
 
 ## 🧩 Comandos avulsos
@@ -6263,8 +6333,9 @@ $CLAUDE_BUILD_STEPS
 - \`docs/raw/\` — documentação bruta opcional (Word, PDF, planilhas...); o \`01-analyst-sdd\` consolida em \`knowledge/\`
 - \`knowledge/\` — Base de Conhecimento (Obsidian-compatível). **Versionada no Git** — é a memória do projeto
 - \`knowledge/vault/14 - Planejamento/\` — o que está planejado e ainda NÃO foi implementado
-- \`output/\` — resultado de cada rodada do \`/inicia-orquestracao\`, incluindo \`token-report.md\`. **Fora do Git**
-  (é por rodada e descartável) — por isso nada que precise sobreviver à sessão pode ficar só aqui
+- \`output/\` — canal de passagem entre os agentes de cada rodada do \`/inicia-orquestracao\`. Só o
+  \`token-report.md\` vai para o Git; os relatórios intermediários ficam fora dele e são apagados no fim da
+  rodada — por isso nada que precise sobreviver à sessão pode ficar só aqui
 - \`src/\` — código do projeto
 - \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/inicia-orquestracao\` cuida disso)
 - \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
@@ -6303,8 +6374,8 @@ O grafo e os embeddings se reconstroem sozinhos: o hook \`.claude/hooks/knowledg
 contexto acumulado não se perde entre sessões e entre agentes.
 
 E o que **não** foi implementado importa tanto quanto o que foi: escopo adiado, próximo passo, pendência e
-decisão em aberto vão para \`knowledge/vault/14 - Planejamento/\`, uma nota por assunto. \`output/\` é
-descartável e fica fora do Git, então plano que more só lá morre com a sessão.
+decisão em aberto vão para \`knowledge/vault/14 - Planejamento/\`, uma nota por assunto. Os
+relatórios de \`output/\` são descartáveis e ficam fora do Git, então plano que more só lá morre com a sessão.
 $CLAUDE_FRONTEND_DESIGN
 
 ## O commit leva a memória junto
@@ -6319,7 +6390,8 @@ toda alteração neles (inclusive \`.claude/settings.local.json\` e \`.mcp.json\
 
 Rode \`/inicia-orquestracao\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
 resto roda automático até o fim, só parando de novo se um gate de qualidade (reviewer, testes, security scan)
-reportar falha. São 6 subagentes; o commit final roda na conversa principal, pelo fluxo do \`/commit\`.
+reportar falha. São 6 subagentes; cada etapa aprovada vira um commit local na conversa principal (fluxo do
+\`/commit\`) e o push acontece uma vez só, no fim.
 
 ## Trabalhando em paralelo
 
@@ -6395,7 +6467,7 @@ paths:
   ele diz isso explicitamente no relatório, para não restar dúvida se foi esquecido.
 - **O que está planejado e ainda não foi implementado mora em `14 - Planejamento/`.** Escopo adiado, próximo
   passo, pendência e decisão em aberto vão para lá, uma nota por assunto, linkando `[[...]]` para a
-  funcionalidade/API/regra correspondente. Isso existe porque `output/` é por rodada e fica fora do Git:
+  funcionalidade/API/regra correspondente. Isso existe porque os relatórios de `output/` são por rodada e ficam fora do Git:
   sem essa pasta, o plano morre com a sessão. Quando algo dali for implementado, remova a nota (ou marque
   como concluída) no mesmo commit da implementação.
 - **O vault é versionado junto com o código.** `knowledge/` vai no commit, não no `.gitignore` — só
@@ -6554,21 +6626,25 @@ else
 fi
 
 if [ "$STACK" = "dotnet" ]; then
-    OUTPUTS_DESC="a arquitetura, o relatório da implementação, a revisão, o resultado real de build e testes, a auditoria de segurança e os commits já aplicados com push (o workflow de testes da API fica em docs/api/)"
+    OUTPUTS_DESC="o código em src/ com build e testes passando de verdade, o relatório HTML da auditoria de segurança em docs/security-audit/, o workflow de testes da API em docs/api/ e os commits já aplicados com push"
 else
-    OUTPUTS_DESC="a arquitetura, o relatório da implementação, a revisão, o resultado real de build e testes (unit + E2E), a auditoria de segurança e os commits já aplicados com push"
+    OUTPUTS_DESC="o código em src/ com build e testes (unit + E2E) passando de verdade, o relatório HTML da auditoria de segurança em docs/security-audit/ e os commits já aplicados com push"
 fi
 
 if [ "$STACK" = "dotnet" ]; then
     FRONTEND_PLUGIN_STEP=""
 else
     FRONTEND_PLUGIN_STEP="
-Stack de front: o plugin oficial de design da Anthropic, \`frontend-design\` (marketplace
-\`claude-plugins-official\`), também já vem habilitado. Instale uma vez:
+## 🎨 Passo 0 — Instale o plugin frontend-design (uma vez só)
+
+O plugin oficial de design da Anthropic, \`frontend-design\` (marketplace \`claude-plugins-official\`), já vem
+habilitado em \`.claude/settings.json\`, mas configurar **não instala**. Rode uma vez:
 
 \`\`\`
 claude plugin install frontend-design@claude-plugins-official
 \`\`\`
+
+---
 "
 fi
 
@@ -6585,19 +6661,6 @@ Este é o único documento de entrada do projeto: o passo a passo para começar 
 
 ---
 
-## 🧵 Passo 0 — Instale o plugin ponytail (uma vez só)
-
-Este projeto já vem com o plugin [ponytail](https://github.com/DietrichGebert/ponytail) pré-configurado em
-\`.claude/settings.json\` (\`extraKnownMarketplaces\` + \`enabledPlugins\`) — ele reduz o consumo de tokens
-durante as sessões. Mas configurar **não instala**: a partir do Claude Code v2.1.195, um plugin de fonte
-externa só carrega depois de instalado pelo menos uma vez. Rode agora:
-
-\`\`\`
-claude plugin install ponytail@ponytail
-\`\`\`
-
-(ou aceite quando o Claude Code avisar que ele não está instalado). Dali em diante fica habilitado
-automaticamente. Para conferir, rode \`/plugin\` e veja se \`ponytail@ponytail\` aparece habilitado.
 $FRONTEND_PLUGIN_STEP
 
 ## 📄 Passo 1 — (Opcional) Jogue sua documentação bruta em \`docs/raw/\`
@@ -6623,9 +6686,10 @@ parando de novo se um gate de qualidade (reviewer, testes, security scan) falhar
 
 ## ✅ Passo 4 — Depois de executar
 
-Você terá em \`output/\` $OUTPUTS_DESC. E terá \`knowledge/\` — a Base de Conhecimento que **persiste entre
-execuções** (diferente de \`output/\`, que é por rodada) e que os agentes continuam consultando conforme o
-projeto evolui.
+Você terá $OUTPUTS_DESC. Arquitetura, decisões, regras, casos de teste e achados de segurança ficam em
+\`knowledge/\` — a Base de Conhecimento que **persiste entre execuções** e que os agentes continuam
+consultando conforme o projeto evolui. Em \`output/\` sobra só o \`token-report.md\`, com o custo em tokens
+de cada rodada.
 
 ## 💾 Passo 5 — Commite
 
@@ -6654,8 +6718,8 @@ seu-projeto/
 │   ├── agents/         (subagentes especializados, invocados pelo /inicia-orquestracao)
 │   ├── rules/           (convenções aplicadas só quando Claude mexe nos arquivos certos)
 │   ├── hooks/            (relatório de tokens + rebuild do grafo a cada edição do vault)
-│   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine)
-│   └── settings.json       (permissões + hook de tokens + plugin ponytail habilitado)
+│   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine + limpeza de output/)
+│   └── settings.json       (permissões + hook de tokens)
 │
 ├── docs/
 │   ├── SPEC.md       (sua especificação)
@@ -6670,16 +6734,18 @@ seu-projeto/
 │   ├── cache/           (contexto resumido por agente)
 │   └── templates/       (modelos Feature/API/ADR/Bug/TestCase)
 │
-├── output/           ⛔ ignorado pelo Git — resultados por rodada + token-report.md
+├── output/           ✅ só token-report.md vai pro Git (relatórios da rodada ficam de fora)
 │
 $SRC_TREE
 \`\`\`
 
-## 🧠 Por que \`knowledge/\` vai pro Git e \`output/\` não
+## 🧠 O que vai pro Git: \`knowledge/\` inteira, \`output/\` só com o relatório de tokens
 
-\`output/\` é o resultado de **uma** rodada do \`/inicia-orquestracao\`: relatório de cada agente, spec técnica,
-matriz de rastreabilidade. É descartável e é sobrescrito na rodada seguinte — por isso fica fora do
-controle de versão.
+\`output/\` é o canal de passagem entre os agentes de **uma** rodada do \`/inicia-orquestracao\`: relatório de
+cada agente, spec técnica, matriz de rastreabilidade. Quando a rodada termina, esses relatórios são apagados
+(o que vale guardar já foi para o vault) e sobra só o \`token-report.md\`; se um gate reprovar, eles ficam lá
+pra explicar o motivo. Por isso o \`.gitignore\` versiona só o \`token-report.md\`. Como ele é atualizado pelo
+hook quando a rodada já terminou, entra no primeiro commit da rodada seguinte (ou no próximo \`/commit\`).
 
 \`knowledge/\` é o contrário: é a memória acumulada do projeto, e **vai versionada junto com o código**
 (menos \`knowledge/embeddings/chunks/\`, que é derivado e se regenera com
@@ -6729,7 +6795,7 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 
 ---
 
-**Projeto criado com Claude SDD v5.0.0**
+**Projeto criado com Claude SDD v5.1.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -7321,6 +7387,17 @@ function main() {
   } catch {
     // se não salvar o checkpoint, a próxima rodada recalcula um período maior — não é grave
   }
+
+  // Rodada concluída (o /inicia-orquestracao grava o marcador depois do push final): os relatórios
+  // intermediários já cumpriram o papel e o que importa está em knowledge/ — sobra só o token-report.md.
+  // Rodada que parou num gate reprovado não tem marcador, então os relatórios ficam para explicar o motivo.
+  if (fs.existsSync(path.join(outputDir, ".rodada-concluida"))) {
+    try {
+      require(path.join(projectDir, ".claude", "scripts", "limpar-output.cjs")).limparOutput(projectDir);
+    } catch {
+      // sem o script (projeto antigo) — os relatórios ficam e a próxima rodada limpa
+    }
+  }
 }
 
 try {
@@ -7347,13 +7424,20 @@ if (!hasTokenHook) {
   stopGroups.push({ hooks: [{ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/generate-token-report.cjs\"", timeout: 15 }] });
 }
 settings.hooks.Stop = stopGroups;
-settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
-settings.extraKnownMarketplaces.ponytail = { source: { source: "github", repo: "DietrichGebert/ponytail" } };
-settings.enabledPlugins = settings.enabledPlugins || {};
-settings.enabledPlugins["ponytail@ponytail"] = true;
+// O plugin ponytail vinha pré-configurado até a v5.0.0 e saiu do template: ele injeta uma regra de
+// "escreva o mínimo" em todo subagente, o que conflita com specialist/testes/auditoria que precisam
+// cobrir a spec inteira, e o ganho de tokens nunca foi medido neste pipeline. Remove o que o template gravou.
+if (settings.extraKnownMarketplaces) {
+  delete settings.extraKnownMarketplaces.ponytail;
+  if (Object.keys(settings.extraKnownMarketplaces).length === 0) delete settings.extraKnownMarketplaces;
+}
+if (settings.enabledPlugins) {
+  delete settings.enabledPlugins["ponytail@ponytail"];
+  if (Object.keys(settings.enabledPlugins).length === 0) delete settings.enabledPlugins;
+}
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
 ' ""$PROJECT_DIR/.claude/settings.json""
-    echo -e "${GREEN}✅ .claude/settings.json já existia — mesclado hook de tokens + plugin ponytail sem remover nada que já estava configurado${NC}"
+    echo -e "${GREEN}✅ .claude/settings.json já existia — mesclado hook de tokens sem remover nada que já estava configurado (plugin ponytail, se existia, foi removido)${NC}"
 else
 cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
 {
@@ -7369,22 +7453,11 @@ cat > ""$PROJECT_DIR/.claude/settings.json"" << 'SETTINGSEOF'
         ]
       }
     ]
-  },
-  "extraKnownMarketplaces": {
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ponytail@ponytail": true
   }
 }
 SETTINGSEOF
 
-echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens + plugin ponytail habilitado)${NC}"
+echo -e "${GREEN}✅ .claude/settings.json criado (hook de relatório de tokens)${NC}"
 fi
 
 # ============================================================================
@@ -7413,11 +7486,8 @@ const generic = [
   "Edit(tests/**)",
   "Edit(e2e/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
-  // auditoria de segurança (06): relatório em PDF gerado em venv isolado + leitura do histórico do Git
-  "Bash(python*)",
-  "Bash(python3*)",
-  "Bash(pip install*)",
-  "Bash(pdftoppm*)",
+  "Bash(node .claude/scripts/limpar-output.cjs)",
+  // auditoria de segurança (06): leitura do histórico do Git atrás de segredos
   "Bash(git log*)",
 ];
 // Remove regras "Write(...)" de rodadas antigas deste script (não batem com nada no sistema de
@@ -7510,10 +7580,20 @@ if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/.gitignore" ]; then
     GI_APPEND=""
     GI_REPORT=""
 
-    if ! grep -qxF "output/" "$GI" 2>/dev/null; then
-        GI_APPEND="${GI_APPEND}output/
+    # output/ passou a ir versionada (só o token-report.md; o resto é temporário).
+    # Versões antigas do template ignoravam a pasta inteira — remove essa linha.
+    if grep -qxF "output/" "$GI" 2>/dev/null; then
+        sed -i '/^output\/$/d' "$GI"
+        GI_REPORT="${GI_REPORT}-output/ "
+    fi
+    if ! grep -qxF '!output/token-report.md' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
+# output/ vai versionada só com o token-report.md; relatórios intermediários,
+# backups do /atualizar-versao e o marcador de rodada concluída são temporários.
+output/*
+!output/token-report.md
 "
-        GI_REPORT="${GI_REPORT}output/ "
+        GI_REPORT="${GI_REPORT}!output/token-report.md "
     fi
 
     # .claude/ e CLAUDE.md são a configuração do Claude no projeto e VÃO
@@ -7588,8 +7668,11 @@ obj/
 node_modules/
 dist/
 
-# Output do Pipeline
-output/
+# Output do Pipeline — output/ VAI versionada, mas só com o que fica entre as
+# rodadas: o token-report.md. Os relatórios intermediários de cada agente, os
+# backups do /atualizar-versao e o marcador de rodada concluída são temporários.
+output/*
+!output/token-report.md
 
 # Knowledge Engine — knowledge/ é a MEMÓRIA do projeto e VAI versionada (vault,
 # grafo, cache, index.json, templates): é dela que sai, na próxima sessão, o que

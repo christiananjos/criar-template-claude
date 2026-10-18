@@ -51,17 +51,20 @@ em relação ao plugin.
    parte 1 e explique que a pasta atual não é um projeto SDD (para acoplar o pipeline a ela, o comando é
    `/comecar`, escolhendo "projeto existente").
 
-6. Descubra a stack do projeto pelo nome do arquivo do specialist em `.claude/agents/`:
+6. Descubra a(s) stack(s) do projeto pelo nome dos arquivos do specialist em `.claude/agents/`:
 
    | Arquivo encontrado | Stack |
    |---|---|
-   | `03-dotnet-specialist.md` | `dotnet` |
-   | `03-react-specialist.md` | `react` |
-   | `03-angular-specialist.md` | `angular` |
-   | `03-vue-specialist.md` | `vue` |
+   | `03-dotnet-specialist.md` | `dotnet` (backend) |
+   | `03-react-specialist.md` | `react` (frontend) |
+   | `03-angular-specialist.md` | `angular` (frontend) |
+   | `03-vue-specialist.md` | `vue` (frontend) |
 
-   Se nenhum aparecer (ou aparecer mais de um), **pergunte a stack ao usuário** antes de seguir — passar a
-   stack errada reescreveria os agentes com os da stack errada.
+   - **Um specialist só** → projeto de uma frente: `STACKS_DETECTADAS` é essa stack.
+   - **Um `03-dotnet-specialist.md` mais um specialist de frontend** (e, em geral, as pastas `backend/` e
+     `frontend/` na raiz) → **monorepo**: `STACKS_DETECTADAS` são as duas, backend primeiro (ex.: `dotnet react`).
+   - Qualquer outra combinação (nenhum, dois frontends, ...) → **pergunte as stacks ao usuário** antes de seguir —
+     passar a stack errada reescreveria os agentes com os da stack errada.
 
 7. Faça um backup da `.claude/` atual antes de reescrever, para o usuário não perder customizações que
    tenha feito à mão nos agentes/comandos:
@@ -77,10 +80,25 @@ em relação ao plugin.
 
 8. Reaplique o template com o script da **versão nova**, no modo `existente`:
    ```bash
-   bash "CAMINHO_DO_INSTALLPATH/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACK_DETECTADA existente
+   bash "CAMINHO_DO_INSTALLPATH/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACKS_DETECTADAS existente
    ```
 
-9. **Confirme que a memória do projeto vai mesmo versionada** — este passo não é opcional, é o que pega o
+9. **Troque IDs de modelo por apelidos de família** — o template nunca fixa versão de modelo, então o que sobrou
+   de versões antigas (ou de customização manual) precisa ser trocado. Varra `.claude/` (e o `CLAUDE.md`) atrás de
+   `model:` e de IDs com versão:
+   ```bash
+   grep -rnE "^model:|claude-(opus|sonnet|haiku|fable)-[0-9]" .claude CLAUDE.md --include="*.md" --include="*.json" -r
+   ```
+   Ignore `.claude/hooks/generate-token-report.cjs` (a tabela `PRICING` lá é por ID de propósito) e a cópia de
+   backup do passo 7. Para cada ocorrência em frontmatter de agente:
+   - `model: claude-opus-...` → `model: opus`; `claude-sonnet-...` → `sonnet`; `claude-haiku-...` → `haiku`.
+   - Mantenha a escolha de família do arquivo (o script do passo 8 já regravou os agentes do template com
+     `sonnet` no `01-analyst-sdd` e `opus` nos demais; só ajuste o que for agente ou skill **do usuário**).
+   Se um ID exato for inevitável (código que chama a API da Anthropic, configuração que não aceita apelido), não
+   escreva de memória: consulte a skill `claude-api` ou a lista atual de modelos. Liste no relatório final cada
+   arquivo alterado e o que foi trocado (ou "nenhum ID versionado encontrado").
+
+10. **Confirme que a memória do projeto vai mesmo versionada** — este passo não é opcional, é o que pega o
    caso em que o projeto foi gerado por uma versão antiga e alguma regra continua engolindo `knowledge/`:
    ```bash
    git check-ignore -v knowledge/vault knowledge/index.json
@@ -104,7 +122,7 @@ em relação ao plugin.
    memória para versionar: ela passa a existir na primeira rodada do `/inicia-orquestracao` (ou assim que algum
    agente gravar no vault), e aí sim o `/commit` a leva junto.
 
-10. Reporte o resultado (ver "O que reportar" abaixo).
+11. Reporte o resultado (ver "O que reportar" abaixo).
 
 ## O que é reescrito e o que é preservado
 
@@ -116,7 +134,7 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
   usuário continua exatamente onde está.
 - `knowledge/` — o vault inteiro (`vault/`, `graph/`, `embeddings/`, `source/`, `index.json`, templates).
   O script só garante que a pasta exista; **nunca grava nada dentro dela**.
-- `src/` e todo o código do projeto.
+- `src/` (ou `backend/` e `frontend/`, no monorepo) e todo o código do projeto.
 - `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `.mcp.json` — mantidos se já existirem.
 - `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem, conferidas **uma a uma**
   (`!output/token-report.md`, `.claude/`, `!knowledge/`). As linhas `.claude/` e `output/` de versões
@@ -154,11 +172,12 @@ as duas versões da `.claude/` e remover o que sobrou à mão.
 ## O que reportar
 
 - A versão do plugin: de X para Y, ou "já estava em Y".
-- Se a parte 2 rodou: a stack detectada, a confirmação de que `docs/raw/` e `knowledge/` não foram
+- Se a parte 2 rodou: a(s) stack(s) detectada(s) (e se é monorepo), a confirmação de que `docs/raw/` e `knowledge/` não foram
   alterados, e o caminho do backup da `.claude/` anterior.
 - Se o projeto ainda tinha `COMECE-AQUI.md`: que ele foi removido (conteúdo já está no `README.md`) e onde
   ficou a cópia em `output/`, caso o usuário tivesse editado alguma coisa ali.
-- O resultado do passo 9: `knowledge/` está versionada, ou (se estava sendo ignorada) qual regra de qual
+- O resultado do passo 9: cada arquivo em que um ID de modelo versionado foi trocado por apelido (`opus`/`sonnet`/`haiku`), ou "nenhum ID versionado encontrado".
+- O resultado do passo 10: `knowledge/` está versionada, ou (se estava sendo ignorada) qual regra de qual
   `.gitignore` foi corrigida — ou que o vault ainda está vazio e por isso não há nada a versionar ainda.
 - Que o `/commit` do projeto passou a sincronizar o vault antes de commitar, levando memória e código no
   mesmo commit.

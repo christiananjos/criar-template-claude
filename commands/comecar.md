@@ -1,5 +1,5 @@
 ---
-description: Monta a estrutura SDD (.NET, Angular, React ou Vue — uma stack por vez) seguindo as convenções oficiais do Claude Code (.claude/commands/ + .claude/agents/ prontos), num projeto novo ou já existente
+description: Monta a estrutura SDD (.NET, Angular, React ou Vue — uma frente só, ou um monorepo backend + frontend) seguindo as convenções oficiais do Claude Code (.claude/commands/ + .claude/agents/ prontos), num projeto novo ou já existente
 argument-hint: [nome-do-projeto]
 ---
 
@@ -32,19 +32,26 @@ Guarde a resposta como `MODO`: `novo` ou `existente`.
 - Se `MODO = novo`: se o usuário já informou o nome no argumento do comando, use-o direto e não pergunte de novo; caso contrário, pergunte "Qual o nome do projeto?"
 - Se `MODO = existente`: **não pergunte** — use o nome da pasta existente (`basename` do caminho da Pergunta 2) como identificador.
 
-### Pergunta 4 — Stack
+### Pergunta 4 — Frente(s) e stack
 
-Pergunte qual stack o usuário quer, como **uma única escolha**. Este template cria/acopla **UMA stack por projeto** — nunca backend e frontend juntos no mesmo projeto. Cada opção ativa só os agentes relevantes a ela (sem misturar contexto/agentes à toa e sem gastar token com o que não vai ser usado):
+Primeiro pergunte quais frentes o projeto tem, como uma única escolha:
 
-> "Qual stack você quer usar?
-> 1. .NET (backend, Clean Architecture)
-> 2. Angular
-> 3. React
-> 4. Vue"
+> "Quais frentes o projeto tem?
+> 1. Só backend
+> 2. Só frontend
+> 3. Backend + frontend (monorepo: um único `.claude/` e `knowledge/` na raiz, código em `backend/` e `frontend/`)"
 
-Se `MODO = existente`, deixe claro que essa é a stack do código já existente na pasta (não uma nova stack a ser criada do zero).
+Depois pergunte a stack de cada frente escolhida, uma de cada vez (cada opção ativa só os agentes relevantes — sem
+gastar token com o que não vai ser usado):
 
-Mapeie a resposta para o parâmetro do script:
+- Backend: `.NET` (Clean Architecture) — é a única stack de backend hoje.
+- Frontend: `Angular`, `React` ou `Vue`.
+
+Se `MODO = existente`, deixe claro que essas são as stacks do código já existente na(s) pasta(s) — no monorepo
+existente, o código do back precisa estar em `backend/` e o do front em `frontend/` (se estiver em outro lugar,
+avise o usuário e não prossiga).
+
+Mapeie as respostas para os parâmetros do script:
 
 | Resposta do usuário | Parâmetro |
 |---|---|
@@ -53,9 +60,9 @@ Mapeie a resposta para o parâmetro do script:
 | React | `react` |
 | Vue | `vue` |
 
-Se o usuário pedir depois para integrar esse frontend com um backend (ou vice-versa), explique que, por enquanto,
-cada projeto gerado por este template é uma stack isolada — a comunicação entre um frontend e um backend
-criados como projetos separados é algo que o usuário decide e implementa por fora do template.
+Monte `STACKS_ESCOLHIDAS`: uma palavra (só backend ou só frontend) ou duas separadas por espaço, backend primeiro
+(ex.: `dotnet react`). Duas stacks = monorepo; uma = projeto de uma frente só, com `src/` na raiz, exatamente como
+antes.
 
 ## A Partir Daqui — Tudo Automático
 
@@ -63,16 +70,16 @@ Depois das respostas, **não faça mais nenhuma pergunta**. Rode o script passan
 
 **Se `MODO = novo`** (cria `./NOME_DO_PROJETO` a partir do caminho informado):
 ```bash
-mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO STACK_ESCOLHIDA novo
+mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO STACKS_ESCOLHIDAS novo
 ```
 Se o caminho informado for o diretório atual (`.`), pule o `mkdir`/`cd` e rode o script direto.
 
 **Se `MODO = existente`** (entra na pasta já existente e acopla o pipeline nela, sem criar subpasta nova):
 ```bash
-cd "CAMINHO_DO_PROJETO_EXISTENTE" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACK_ESCOLHIDA existente
+cd "CAMINHO_DO_PROJETO_EXISTENTE" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" STACKS_ESCOLHIDAS existente
 ```
 
-Onde `STACK_ESCOLHIDA` é um de: `dotnet`, `angular`, `react`, `vue`.
+Onde `STACKS_ESCOLHIDAS` é uma stack (`dotnet`, `angular`, `react` ou `vue`) ou duas — um backend e um frontend, por exemplo `dotnet react`, o que gera o monorepo.
 
 No modo `existente`, o script:
 - **Não sobrescreve** código em `src/`, nem `README.md`, `CLAUDE.md`, `.mcp.json`, `docs/SPEC.md` ou `.gitignore` que já existam (só cria o que estiver faltando; se `.gitignore` já existir, só acrescenta as regras do próprio pipeline — entre elas a negação `!knowledge/`, para a memória do projeto ir versionada).
@@ -81,12 +88,12 @@ No modo `existente`, o script:
 - Os agentes de arquitetura e implementação (`02-architect-sdd`, `03-*-specialist`) são instruídos a **ler a estrutura de código já existente antes de propor ou gerar qualquer coisa**, seguindo as convenções já em uso em vez de reinventar do zero.
 
 E então:
-1. Confirme o resultado, mencionando a stack (ex: "React 18 + TypeScript (somente frontend)" ou ".NET 10 (Clean Architecture, somente backend)") e o modo usado (novo projeto vs. pipeline acoplado a um projeto existente).
+1. Confirme o resultado, mencionando a(s) stack(s) (ex: "React 18 + TypeScript (somente frontend)", ".NET 10 (Clean Architecture, somente backend)" ou ".NET 10 (backend/) + React 18 + TypeScript (frontend/) — monorepo") e o modo usado (novo projeto vs. pipeline acoplado a um projeto existente).
 2. Explique os próximos passos, sem esperar resposta:
    - (Se `novo`) Entrar na pasta do projeto criado
    - (Opcional) Colocar documentação bruta (Word, PDF, planilhas, imagens...) em `docs/raw/`
-   - Editar `docs/SPEC.md` com a especificação (no modo `existente`, descrevendo o que falta implementar/mudar)
-   - Rodar `/inicia-orquestracao` dentro do projeto para disparar os agentes automaticamente
+   - Editar `docs/SPEC.md` (no monorepo, `docs/backend/SPEC.md` e/ou `docs/frontend/SPEC.md`) com a especificação (no modo `existente`, descrevendo o que falta implementar/mudar)
+   - Rodar `/inicia-orquestracao` (no monorepo, `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend`) dentro do projeto, aberto pela raiz para disparar os agentes automaticamente
 
 ## Resultado Esperado
 
@@ -120,6 +127,27 @@ NOME_DO_PROJETO/
 └── src/                      ← dotnet: Domain, Application, Infrastructure, API, Tests
                                   frontend: pasta única, organizada pelo specialist da stack
 ```
+
+### Estrutura do monorepo (quando `STACKS_ESCOLHIDAS` tem duas stacks)
+
+```
+NOME_DO_PROJETO/
+├── CLAUDE.md            memória única: as duas frentes, os comandos de build de cada uma e as regras do monorepo
+├── README.md            visão geral (tabela de pastas); o "como rodar" fica no README de cada pasta
+├── .mcp.json  .gitignore    um só (o .gitignore tem as regras das duas stacks)
+├── .claude/             agentes, comandos, rules, skills, hooks, scripts, settings — UM, compartilhado
+│                          (agentes: 01, 02, 04, 05, 06 únicos e 03 em dois: o especialista de cada stack)
+├── knowledge/           UM vault para as duas frentes
+├── docs/backend/SPEC.md, docs/frontend/SPEC.md    uma spec por frente; docs/raw/ é compartilhada
+├── output/              um só (só o token-report.md é versionado)
+├── backend/             só o código do back, com CLAUDE.md curto (aviso de monorepo) e README.md
+└── frontend/            só o código do front, com CLAUDE.md curto (aviso de monorepo) e README.md
+```
+
+Nesse caso o pipeline roda **por frente**: `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend` (sem
+argumento, ele pergunta). Mudança que cruza as duas frentes são duas rodadas, backend primeiro; para rodar em
+paralelo, uma worktree por frente (`claude --worktree nome-da-frente`). No modo `existente`, o script não sobrescreve
+nada que já esteja em `backend/` e `frontend/`.
 
 O conteúdo de `.claude/commands/inicia-orquestracao.md`, `.claude/commands/README.md`, `CLAUDE.md` e `docs/SPEC.md`
 já vem ajustado automaticamente para refletir a stack escolhida — não é preciso editar nada manualmente

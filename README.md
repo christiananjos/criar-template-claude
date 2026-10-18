@@ -1,6 +1,6 @@
 # Criar Template Claude — Pipeline SDD
 
-Plugin para Claude Code que monta a estrutura de projeto de **uma stack só** (.NET, Angular, React ou Vue — nunca backend e frontend misturados no mesmo projeto), seguindo as convenções oficiais de projeto do Claude Code, com um pipeline de agentes que especifica, implementa, testa e revisa código automaticamente — tudo dentro do Claude Code, sem serviços externos.
+Plugin para Claude Code que monta a estrutura de projeto — de **uma stack só** (.NET, Angular, React ou Vue) ou de um **monorepo backend + frontend** (.NET + um frontend, com um único `.claude/` e um único `knowledge/` na raiz) —, seguindo as convenções oficiais de projeto do Claude Code, com um pipeline de agentes que especifica, implementa, testa e revisa código automaticamente — tudo dentro do Claude Code, sem serviços externos.
 
 ## Como funciona
 
@@ -104,10 +104,42 @@ nano docs/SPEC.md
 ```
 
 O plugin pergunta uma coisa de cada vez: projeto novo ou existente, caminho, nome do projeto (só no modo novo — no
-existente usa o nome da pasta) e a stack, como uma única escolha (`.NET`, `Angular`, `React` ou `Vue`) — cada
-projeto sai com **uma stack só**, sem backend e frontend misturados. Isso muda o que é gerado — o `inicia-orquestracao.md`, `.claude/commands/README.md`, `CLAUDE.md`, `docs/SPEC.md`, os agentes e
-a pasta `src/` já saem ajustados para a stack escolhida. Se um frontend precisar consumir uma API, ela é
-externa (outro projeto/time) — o template não gera backend e frontend juntos.
+existente usa o nome da pasta) e a(s) frente(s): **só backend**, **só frontend** ou **os dois** (e, para cada frente, a
+stack: `.NET` no backend; `Angular`, `React` ou `Vue` no frontend). Com uma frente só, o projeto sai como sempre:
+`src/` na raiz, ajustado para a stack. Com as duas, sai um **monorepo** (veja abaixo).
+
+### Monorepo (backend + frontend)
+
+```
+<projeto>/
+├── CLAUDE.md          memória única: as duas frentes, os comandos de build de cada uma e as regras do monorepo
+├── README.md          visão geral (tabela de pastas); o "como rodar" fica no README de cada pasta
+├── .mcp.json  .gitignore   um só (o .gitignore tem as regras das duas stacks)
+├── .claude/           agentes, comandos, rules, skills, hooks, scripts, settings — UM, compartilhado
+├── knowledge/         UM vault para as duas frentes
+├── docs/{backend,frontend}/SPEC.md   uma spec por frente; docs/raw/ é compartilhada
+├── output/            um só (só o token-report.md é versionado)
+├── backend/           só o código do back (+ CLAUDE.md curto e README.md)
+└── frontend/          só o código do front (+ CLAUDE.md curto e README.md)
+```
+
+- **`/inicia-orquestracao <backend|frontend>`**: cada rodada trabalha uma frente (sem argumento, o orquestrador
+  pergunta). A spec da rodada é `docs/<frente>/SPEC.md`. Mudança que cruza as duas = duas rodadas, backend primeiro;
+  para rodar em paralelo, uma worktree por frente.
+- Os agentes `01`, `02`, `04`, `05` e `06` são um só e reconhecem a frente; o `03` são dois (o especialista de cada
+  stack). O `02` e o `05` têm uma seção por frente; os checklists de frontend do `04` e do `06` só valem na frente
+  `frontend`. Os relatórios em `output/` têm os mesmos nomes de sempre.
+- **Memória única:** toda leitura e gravação de vault, ADR e `14 - Planejamento/` vai para `<raiz>/knowledge/`, mesmo
+  trabalhando só em uma frente. ADR do backend: `ADR-NNN`; do frontend: `ADR-FE-NNN`.
+- O `backend/CLAUDE.md` e o `frontend/CLAUDE.md` são uma rede de segurança: se alguém abrir o Claude Code só dentro
+  de uma das pastas, o arquivo avisa para abrir pela raiz e proíbe criar `knowledge/`, `docs/` ou `.claude/` ali.
+- Build e testes rodam dentro da pasta da frente (`cd backend && ...`); as permissões do `settings.json` já cobrem
+  `backend/src`, `backend/tests`, `frontend/src` e `frontend/e2e`.
+- As skills `cicd-pipeline-expert` e as demais trazem o que é específico de cada stack lado a lado, e a de CI/CD ganha
+  a orientação de monorepo: um workflow por deploy com `paths:` por pasta e `working-directory`/`context` na subpasta.
+
+Pelo script: `bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet react` (uma stack: `... meu-projeto react`;
+modo existente: acrescente `existente` no fim).
 
 O `/inicia-orquestracao` leva ~12-25 minutos e tem **uma única pausa manual**: assim que `01-analyst-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
 
@@ -151,7 +183,28 @@ prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre id�
 | `05-test-engineer` | Escreve os testes no projeto e **roda de verdade** build + testes + cobertura, corrigindo até ficar verde (até 3 rodadas). No `.NET`: unit + integração e o workflow de testes da API em `docs/api/testes-api.md`. No frontend: unit + E2E (smoke, invalidação de sessão, acessibilidade) | sempre |
 | `06-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em HTML simples em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 
-Todos usam Opus 5.5 (`claude-opus-5-5`, fixado na versão).
+No monorepo, `src/` vira `backend/src/` e `frontend/src/`, e `docs/SPEC.md` vira `docs/<frente>/SPEC.md`.
+
+### Modelos: sempre os mais atuais, sem reeditar o template
+
+Os agentes usam **apelido de família** no `model:` do frontmatter (`opus`, `sonnet`, `haiku`), que sempre resolve
+para o modelo mais recente daquela família — nunca um ID com versão. O padrão equilibra custo e qualidade:
+
+| Agente | Modelo | Por quê |
+|---|---|---|
+| `01-analyst-sdd` | `sonnet` | Extrai e organiza `docs/raw/` no vault; não escreve código nem decide |
+| `02`, `03`, `04`, `05`, `06` | `opus` | Arquitetura, código, revisão, testes e segurança: onde a qualidade pesa |
+
+Além disso, o `/inicia-orquestracao` avalia a spec da rodada: se for **trivial** (ajuste de texto/cor, campo novo num
+CRUD já existente, mudança em poucos arquivos, sem regra de negócio, integração ou segurança), ele chama o `03` e o `05`
+com `sonnet`; qualquer sinal de complexidade mantém `opus`, e na dúvida também. O `02`, o `04` e o `06` nunca são
+rebaixados.
+
+Quando um ID exato for inevitável (código de aplicação que chama a API da Anthropic), não o escreva de memória:
+consulte a skill `claude-api` ou a lista de modelos atual. O hook de relatório de tokens
+(`.claude/hooks/generate-token-report.cjs`) calcula o custo de um modelo que ainda não está na tabela de preços com o
+preço do mais recente da mesma família (`opus`/`sonnet`/`haiku`) e avisa para conferir a tabela. O `/atualizar-versao`
+varre `.claude/` atrás de `model:` e de IDs versionados, troca pelos apelidos e lista o que trocou.
 
 ### Por que 6 e não 11 (v5.0.0)
 

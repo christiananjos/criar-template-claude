@@ -1,26 +1,31 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v5.1.0
+# 🚀 Criar Template Claude SDD v6.0.0
 # ============================================================================
-# Cria estrutura completa de projeto com Pipeline SDD integrado, para UMA
-# stack por vez (sem misturar backend e frontend no mesmo projeto).
+# Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
 # Uso:
-#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]
+#   bash criar-template-claude-sdd-plugin.sh <nome-projeto> <stack> [<stack>] [novo|existente]
 #
-# O terceiro argumento é opcional (default: novo):
-#   novo      → projeto do zero, cria tudo (comportamento original)
+# <stack> é uma de: dotnet, angular, react, vue.
+#   - UMA stack  → projeto de uma frente só, com src/ na raiz (comportamento original).
+#   - DUAS stacks (um backend `dotnet` + um frontend `angular|react|vue`, em qualquer ordem)
+#     → MONOREPO: um único .claude/, knowledge/, docs/ e output/ na raiz, e o código em
+#       backend/ e frontend/. Cada rodada do /inicia-orquestracao trabalha UMA frente.
+#
+# O último argumento é opcional (default: novo):
+#   novo      → projeto do zero, cria tudo
 #   existente → acopla o pipeline a um projeto que já existe: só adiciona o que falta
 #               (.claude/commands/, .claude/agents/, knowledge/) sem sobrescrever código,
 #               README.md, docs/SPEC.md, .gitignore ou settings.json já existentes
 #
 # Exemplos:
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet             # novo, só backend .NET
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto react              # novo, só frontend React
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto angular            # novo, só frontend Angular
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto vue                # novo, só frontend Vue
-#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet existente   # acopla num projeto .NET já existente
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet                  # novo, só backend .NET
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto react                   # novo, só frontend React
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet react            # novo, monorepo .NET + React
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet existente        # acopla num projeto .NET já existente
+#   bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet angular existente # acopla num monorepo já existente
 # ============================================================================
 
 set -e
@@ -35,40 +40,66 @@ NC='\033[0m'
 # VALIDAR ARGUMENTOS
 # ============================================================================
 
+USO="Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <stack> [<stack>] [novo|existente]"
+
 if [ -z "$1" ]; then
     echo -e "${RED}Erro: Nome do projeto obrigatório${NC}"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]"
+    echo "$USO"
     exit 1
 fi
 
 PROJECT_NAME="$1"
-STACK="$2"
-MODE="${3:-novo}"
+shift
 
-if [ -z "$STACK" ]; then
+MODE="novo"
+BACK_STACK=""
+FRONT_STACK=""
+STACK_COUNT=0
+
+for arg in "$@"; do
+    case "$arg" in
+        novo|existente) MODE="$arg" ;;
+        dotnet)
+            if [ -n "$BACK_STACK" ]; then
+                echo -e "${RED}Erro: \"dotnet\" informado duas vezes${NC}"; exit 1
+            fi
+            BACK_STACK="dotnet"; STACK_COUNT=$((STACK_COUNT + 1)) ;;
+        react|angular|vue)
+            if [ -n "$FRONT_STACK" ]; then
+                echo -e "${RED}Erro: só um frontend por projeto (recebi \"$FRONT_STACK\" e \"$arg\")${NC}"; exit 1
+            fi
+            FRONT_STACK="$arg"; STACK_COUNT=$((STACK_COUNT + 1)) ;;
+        *)
+            echo -e "${RED}Erro: argumento \"$arg\" inválido${NC}"
+            echo "Stacks: dotnet, angular, react, vue. Modos: novo, existente"
+            exit 1 ;;
+    esac
+done
+
+if [ "$STACK_COUNT" -eq 0 ]; then
     echo -e "${RED}Erro: informe a stack${NC}"
-    echo "Opções válidas: dotnet, angular, react, vue (uma única stack por projeto)"
-    echo "Uso: bash criar-template-claude-sdd-plugin.sh <nome-projeto> <dotnet|angular|react|vue> [novo|existente]"
+    echo "Opções válidas: dotnet, angular, react, vue (uma stack, ou dotnet + um frontend para monorepo)"
+    echo "$USO"
     exit 1
 fi
 
-case "$STACK" in
-    dotnet|react|angular|vue) ;;
-    *)
-        echo -e "${RED}Erro: stack \"$STACK\" inválida${NC}"
-        echo "Opções válidas: dotnet, angular, react, vue"
-        exit 1
-        ;;
-esac
+HAS_BACK=0; [ -n "$BACK_STACK" ] && HAS_BACK=1
+HAS_FRONT=0; [ -n "$FRONT_STACK" ] && HAS_FRONT=1
+MONO=0; [ "$HAS_BACK" = 1 ] && [ "$HAS_FRONT" = 1 ] && MONO=1
 
-case "$MODE" in
-    novo|existente) ;;
-    *)
-        echo -e "${RED}Erro: modo \"$MODE\" inválido${NC}"
-        echo "Opções válidas: novo, existente"
-        exit 1
-        ;;
-esac
+# ALL_STACKS: as stacks do projeto, backend primeiro. Os trechos que dependem da stack rodam uma vez
+# por item desta lista (com STACK apontando para o item) e, no monorepo, os resultados são combinados.
+ALL_STACKS="$BACK_STACK $FRONT_STACK"
+ALL_STACKS="${ALL_STACKS# }"; ALL_STACKS="${ALL_STACKS% }"
+
+# Pasta do código de cada frente: src/ na raiz (uma stack só) ou backend/ e frontend/ (monorepo).
+BACK_DIR="backend"
+FRONT_DIR="frontend"
+if [ "$MONO" = 1 ]; then
+    STACK="mono"
+else
+    STACK="$ALL_STACKS"
+fi
 
 if [ "$MODE" = "existente" ]; then
     PROJECT_DIR="."
@@ -79,26 +110,81 @@ else
     PROJECT_DIR="./$PROJECT_NAME"
 fi
 
-case "$STACK" in
-    dotnet)  STACK_LABEL=".NET 10 (Clean Architecture, somente backend)"; SPECIALIST_AGENT="dotnet-specialist" ;;
-    react)   STACK_LABEL="React 18 + TypeScript (somente frontend)"; SPECIALIST_AGENT="react-specialist" ;;
-    angular) STACK_LABEL="Angular (somente frontend)"; SPECIALIST_AGENT="angular-specialist" ;;
-    vue)     STACK_LABEL="Vue 3 (somente frontend)"; SPECIALIST_AGENT="vue-specialist" ;;
-esac
+# Informações de uma stack (rótulo, comandos de build/teste e permissões de Bash) — só preenche
+# variáveis STACK_*, sem mexer nas globais do projeto. $1 = dotnet|react|angular|vue.
+stack_info() {
+    case "$1" in
+        dotnet)
+            STACK_LABEL_ONE=".NET 10 (Clean Architecture, somente backend)"
+            STACK_BUILD_STEPS="dotnet build
+dotnet test"
+            STACK_BUILD_INLINE='`dotnet build`, `dotnet test`'
+            STACK_PERM_JSON='["Bash(dotnet build)","Bash(dotnet build *)","Bash(dotnet test)","Bash(dotnet test *)","Bash(dotnet sln *)","Bash(dotnet new xunit *)"]'
+            ;;
+        angular)
+            STACK_LABEL_ONE="Angular (somente frontend)"
+            STACK_BUILD_STEPS="npm install
+ng serve
+ng test"
+            STACK_BUILD_INLINE='`npm install`, `ng serve`, `ng test`'
+            STACK_PERM_JSON='["Bash(npm install)","Bash(ng serve)","Bash(ng serve *)","Bash(ng test)","Bash(ng test *)","Bash(ng build)","Bash(ng build *)","Bash(npm run build)","Bash(npm run lint)","Bash(npx playwright *)"]'
+            ;;
+        react|vue)
+            if [ "$1" = "react" ]; then STACK_LABEL_ONE="React 18 + TypeScript (somente frontend)"; else STACK_LABEL_ONE="Vue 3 (somente frontend)"; fi
+            STACK_BUILD_STEPS="npm install
+npm run dev
+npm test"
+            STACK_BUILD_INLINE='`npm install`, `npm run dev`, `npm test`'
+            STACK_PERM_JSON='["Bash(npm install)","Bash(npm run dev)","Bash(npm run build)","Bash(npm test)","Bash(npm test *)","Bash(npm run lint)","Bash(npx vitest *)","Bash(npx playwright *)"]'
+            ;;
+    esac
+}
 
-# Nome registrado no frontmatter (usado para invocação) — sempre com o prefixo 03-, já que o
-# specialist é sempre o passo 3 do pipeline, igual ao nome do arquivo .claude/agents/03-*.md
-SPECIALIST_AGENT_NAME="03-$SPECIALIST_AGENT"
+# Specialist, relatório e pasta de uma stack. Chamada a cada volta dos laços
+# "for STACK in $ALL_STACKS"; ao sair do laço, init_stack_globals restaura as globais do projeto.
+set_stack_vars() {
+    stack_info "$1"
+    SPECIALIST_AGENT="$1-specialist"
+    # Nome registrado no frontmatter (usado para invocação) — sempre com o prefixo 03-, já que o
+    # specialist é sempre o passo 3 do pipeline, igual ao nome do arquivo .claude/agents/03-*.md
+    SPECIALIST_AGENT_NAME="03-$SPECIALIST_AGENT"
+    SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
+    SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
+    # Pasta do código desta stack
+    if [ "$MONO" = 1 ]; then
+        if [ "$1" = "dotnet" ]; then STACK_DIR="$BACK_DIR"; else STACK_DIR="$FRONT_DIR"; fi
+    else
+        STACK_DIR=""
+    fi
+}
 
-SPECIALIST_OUTPUT_FILE="3-$SPECIALIST_AGENT.md"
-SPECIALIST_OUTPUT="output/$SPECIALIST_OUTPUT_FILE"
+# Globais do projeto: no monorepo, os textos compartilhados falam do specialist "da frente da rodada".
+init_stack_globals() {
+    if [ "$MONO" = 1 ]; then
+        stack_info "$BACK_STACK";  BACK_LABEL="${STACK_LABEL_ONE%% (*}"
+        stack_info "$FRONT_STACK"; FRONT_LABEL="${STACK_LABEL_ONE%% (*}"
+        STACK_LABEL="$BACK_LABEL (backend/) + $FRONT_LABEL (frontend/) — monorepo"
+        BACK_SPECIALIST="03-dotnet-specialist"
+        FRONT_SPECIALIST="03-$FRONT_STACK-specialist"
+        SPECIALIST_AGENT_NAME="$BACK_SPECIALIST (frente backend) ou $FRONT_SPECIALIST (frente frontend)"
+        SPECIALIST_OUTPUT="output/3-dotnet-specialist.md (backend) ou output/3-$FRONT_STACK-specialist.md (frontend)"
+        SPECIALIST_OUTPUT_FILE="3-<specialist>.md"
+        STACK_DIR=""
+        STACK="mono"
+    else
+        set_stack_vars "$ALL_STACKS"
+        STACK_LABEL="$STACK_LABEL_ONE"
+        STACK="$ALL_STACKS"
+    fi
+}
+init_stack_globals
 
 # ============================================================================
 # CRIAR ESTRUTURA
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v5.1.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.0.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -150,22 +236,146 @@ mkdir -p "$PROJECT_DIR/.claude/hooks"
 mkdir -p "$PROJECT_DIR/.claude/scripts"
 mkdir -p "$PROJECT_DIR/knowledge"
 
+# ----------------------------------------------------------------------------
+# Auxiliares do monorepo
+# ----------------------------------------------------------------------------
+
+# Reescreve os caminhos relativos ao código de UMA frente (src/, tests/, e2e/ e docs/SPEC.md) para
+# apontar para a pasta dela. Com <pasta> = backend/frontend o caminho fica concreto; com "<frente>"
+# o texto vale para "a frente da rodada" (agentes compartilhados). Idempotente: o "/" antes de src/
+# impede reescrever um caminho já prefixado.
+mono_paths_sed() {
+    local file="$1" dir="$2"
+    [ -f "$file" ] || return 0
+    sed -i -E "s#(^|[^A-Za-z0-9_./<>-])(src|tests|e2e)/#\1${dir}/\2/#g; s#docs/SPEC\.md#docs/${dir}/SPEC.md#g" "$file"
+}
+
+# No monorepo a API que o frontend consome é a do backend/ — corrige as frases que, no projeto de uma
+# stack só, dizem "não há backend neste repositório".
+mono_frontend_text_fix() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    sed -i \
+        -e 's#este projeto não tem backend próprio — se precisar consumir uma API, ela é externa/de outro projeto e deve estar descrita em#a API que ela consome é a do `backend/` deste monorepo (ou externa, se a spec disser) e deve estar descrita em#' \
+        -e 's#Este projeto é \*\*somente frontend\*\* — não há backend \.NET neste repositório; se a spec descrever endpoints de uma API externa, consuma-os, mas não os implemente\.#Esta é a frente **frontend** de um monorepo: o backend vive em `backend/` e é implementado em outra rodada (`/inicia-orquestracao backend`). Consuma os endpoints que a especificação técnica descreve, mas não os implemente aqui.#' \
+        "$file"
+}
+
+# Insere o conteúdo de $2 logo depois do frontmatter (o segundo "---") do arquivo $1.
+insert_after_frontmatter() {
+    local file="$1" block="$2" tmp
+    tmp=$(mktemp)
+    awk -v blockfile="$block" '
+        { print }
+        $0 == "---" { n++; if (n == 2) { print ""; while ((getline line < blockfile) > 0) print line; close(blockfile) } }
+    ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+# Corpo de um agente (tudo depois do frontmatter) — usado para combinar as variantes por stack.
+agent_body() {
+    awk '$0 == "---" { n++; next } n >= 2 { print }' "$1"
+}
+
 if [ "$MODE" = "existente" ]; then
     echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/)${NC}"
-    echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
+    if [ "$MONO" = 1 ]; then
+        mkdir -p "$PROJECT_DIR/$BACK_DIR" "$PROJECT_DIR/$FRONT_DIR"
+        echo -e "${YELLOW}   backend/ e frontend/ não foram tocados — o código já existente foi preservado${NC}"
+    else
+        echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
+    fi
 else
-    if [ "$STACK" = "dotnet" ]; then
+    if [ "$MONO" = 1 ]; then
+        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Domain"
+        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Application"
+        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Infrastructure"
+        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/API"
+        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Tests"
+        mkdir -p "$PROJECT_DIR/$FRONT_DIR/src"
+        echo -e "${GREEN}✅ Pastas criadas (.claude/, docs/, docs/raw/, output/, knowledge/, backend/src/, frontend/src/)${NC}"
+    elif [ "$STACK" = "dotnet" ]; then
         mkdir -p "$PROJECT_DIR/src/Domain"
         mkdir -p "$PROJECT_DIR/src/Application"
         mkdir -p "$PROJECT_DIR/src/Infrastructure"
         mkdir -p "$PROJECT_DIR/src/API"
         mkdir -p "$PROJECT_DIR/src/Tests"
+        echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/, src/)${NC}"
     else
         mkdir -p "$PROJECT_DIR/src"
+        echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/, src/)${NC}"
     fi
-    echo -e "${GREEN}✅ Pastas criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/, src/)${NC}"
 fi
 
+# ----------------------------------------------------------------------------
+# Monorepo: mini CLAUDE.md e README.md dentro de backend/ e frontend/
+# O CLAUDE.md é uma rede de segurança: se alguém abrir o Claude Code só dentro da pasta da frente, ele
+# carrega este arquivo (e o da raiz, que fica no caminho para cima) e avisa para abrir pela raiz.
+# ----------------------------------------------------------------------------
+
+write_front_claude_md() {
+    local frente="$1" stack="$2" target="$PROJECT_DIR/$1/CLAUDE.md" titulo
+    if [ -f "$target" ]; then
+        echo -e "${YELLOW}⏭️  $frente/CLAUDE.md já existe — mantido sem alterações${NC}"
+        return 0
+    fi
+    mkdir -p "$PROJECT_DIR/$frente"
+    case "$frente" in backend) titulo="Backend" ;; *) titulo="Frontend" ;; esac
+    stack_info "$stack"
+    cat > "$target" << MINICLAUDEEOF
+# $titulo — atenção ao abrir esta pasta
+
+Este projeto é um **monorepo**. O \`knowledge/\`, o \`.claude/\` (agentes, comandos, skills, rules), o \`docs/\` e o
+\`output/\` ficam na **raiz do repositório** (\`..\`), compartilhados com a outra frente.
+
+- **Abra o projeto pela raiz**, não por \`$frente/\`. Abrindo só esta pasta, os agentes, comandos e skills do pipeline
+  podem não carregar.
+- Se esta sessão foi aberta aqui, **avise o usuário** antes de gravar qualquer coisa de memória, e resolva os
+  caminhos a partir da raiz (\`git rev-parse --show-toplevel\`). **Nunca crie** \`knowledge/\`, \`docs/\` ou \`.claude/\`
+  dentro de \`$frente/\`.
+- Regras completas: \`../CLAUDE.md\`.
+- Build e testes: rode de dentro desta pasta ($STACK_BUILD_INLINE).
+MINICLAUDEEOF
+    echo -e "${GREEN}✅ $frente/CLAUDE.md criado (aviso de monorepo)${NC}"
+}
+
+write_front_readme() {
+    local frente="$1" stack="$2" target="$PROJECT_DIR/$1/README.md"
+    if [ -f "$target" ]; then
+        echo -e "${YELLOW}⏭️  $frente/README.md já existe — mantido sem alterações${NC}"
+        return 0
+    fi
+    mkdir -p "$PROJECT_DIR/$frente"
+    stack_info "$stack"
+    {
+        echo "# ${frente^} — $STACK_LABEL_ONE"
+        echo ""
+        echo "Parte do monorepo (veja o \`README.md\` da raiz). O código desta frente fica em \`$frente/src/\`;"
+        echo "memória (\`knowledge/\`), agentes (\`.claude/\`), especificação (\`docs/$frente/SPEC.md\`) e relatórios"
+        echo "(\`output/\`) ficam na raiz."
+        echo ""
+        echo "## Como rodar"
+        echo ""
+        echo "Todos os comandos rodam **de dentro desta pasta**:"
+        echo ""
+        echo "\`\`\`bash"
+        echo "cd $frente"
+        echo "$STACK_BUILD_STEPS"
+        echo "\`\`\`"
+        echo ""
+        echo "## Pipeline"
+        echo ""
+        echo "Para gerar ou alterar código aqui, rode na raiz do projeto: \`/inicia-orquestracao $frente\`."
+    } > "$target"
+    echo -e "${GREEN}✅ $frente/README.md criado${NC}"
+}
+
+if [ "$MONO" = 1 ]; then
+    mkdir -p "$PROJECT_DIR/docs/backend" "$PROJECT_DIR/docs/frontend"
+    write_front_claude_md "$BACK_DIR" "$BACK_STACK"
+    write_front_readme "$BACK_DIR" "$BACK_STACK"
+    write_front_claude_md "$FRONT_DIR" "$FRONT_STACK"
+    write_front_readme "$FRONT_DIR" "$FRONT_STACK"
+fi
 # ============================================================================
 # CRIAR docs/raw/README.md — instruções para o usuário sobre a pasta de entrada
 # ============================================================================
@@ -503,7 +713,7 @@ cat > ""$PROJECT_DIR/.claude/agents/01-analyst-sdd.md"" << 'AGENTEOF'
 name: 01-analyst-sdd
 description: Use this agent FIRST in every SDD pipeline run (/inicia-orquestracao), before any architecture or code is generated. It (A) consolidates the raw documentation in `docs/raw/` into the Knowledge Base in `knowledge/` — only when that folder has files — and (B) always validates the specification in `docs/SPEC.md`, producing the report the user approves in the pipeline's single manual pause. Examples: <example>Context: User put a Word spec and a meeting transcript in docs/raw/ and called the pipeline. user: "/inicia-orquestracao" assistant: "Vou usar o agente 01-analyst-sdd para consolidar docs/raw/ em knowledge/ e validar a especificação antes da arquitetura." <commentary>Understanding the input (raw docs + spec) is one job; it always runs first so every downstream agent shares the same source of truth.</commentary></example> <example>Context: docs/raw/ is empty, only docs/SPEC.md was filled. user: "/inicia-orquestracao" assistant: "Vou usar o 01-analyst-sdd — como docs/raw/ está vazia, ele pula a consolidação e só valida docs/SPEC.md." <commentary>Part A is conditional; Part B always runs.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: sonnet
 ---
 
 Você é o **Analyst-SDD**, o primeiro agente do pipeline Spec-Driven Development (SDD). Seu trabalho é
@@ -832,13 +1042,16 @@ Status: ✅ CONCLUÍDA / ⚠️ CONCLUÍDA COM PENDÊNCIAS / ❌ FALHOU / ⏭️
 - Não implemente código nesta etapa
 AGENTEOF
 
+AGENTS_TMP=$(mktemp -d)
+for STACK in $ALL_STACKS; do
+set_stack_vars "$STACK"
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
 ---
 name: 02-architect-sdd
 description: Use this agent after 01-analyst-sdd has validated the specification and the user approved it, to translate it into a detailed technical architecture using Clean Architecture principles. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: 01-analyst-sdd validated the spec and the user approved it. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow the approved spec validation.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
@@ -906,7 +1119,7 @@ else
 name: 02-architect-sdd
 description: Use this agent after 01-analyst-sdd has validated the specification and the user approved it, to translate it into a detailed frontend technical architecture (componentes, estado, roteamento, camada de API). Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: 01-analyst-sdd validated the spec and the user approved it. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd para gerar a especificação técnica e a arquitetura baseada na spec validada." <commentary>Architecture must be defined before any code is written, and must directly follow the approved spec validation.</commentary></example>
 tools: Read, Write, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD.
@@ -982,14 +1195,51 @@ Decisões arquiteturais relevantes (formato ADR curto):
 AGENTEOF
 fi
 sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md""
+if [ "$MONO" = 1 ]; then
+    mono_paths_sed "$PROJECT_DIR/.claude/agents/02-architect-sdd.md" "$STACK_DIR"
+    [ "$STACK" != "dotnet" ] && mono_frontend_text_fix "$PROJECT_DIR/.claude/agents/02-architect-sdd.md"
+    mv "$PROJECT_DIR/.claude/agents/02-architect-sdd.md" "$AGENTS_TMP/02.$STACK.md"
+fi
+done
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$MONO" = 1 ]; then
+    {
+        cat << 'AGENTEOF'
+---
+name: 02-architect-sdd
+description: Use this agent after 01-analyst-sdd has validated the specification and the user approved it, to translate it into a detailed technical architecture for the round's front (backend or frontend) of the monorepo. Use PROACTIVELY as step 2 of the SDD pipeline. Examples: <example>Context: 01-analyst-sdd validated the spec of the backend front and the user approved it. user: "A especificação foi validada, pode continuar o pipeline" assistant: "Vou usar o agente architect-sdd, na seção da frente backend, para gerar a especificação técnica." <commentary>Architecture must be defined before any code is written; the agent applies only the section of the round's front.</commentary></example>
+tools: Read, Write, Grep, Glob
+model: opus
+---
+
+Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD, num **monorepo** com duas frentes
+(`backend` e `frontend`). Cada rodada trabalha **uma frente**: descubra qual é pelo prompt de invocação
+(`backend` ou `frontend`) e siga **só a seção dela** abaixo — ignore a outra.
+
+Os três documentos de saída têm os mesmos nomes de sempre (`output/TECHNICAL_SPECIFICATION.md`,
+`output/TRACEABILITY_MATRIX.md`, `output/TECHNICAL_DECISIONS.md`); não duplique por frente. Cada decisão
+relevante vira um ADR no vault compartilhado (`knowledge/vault/10 - ADR/`): no backend com a numeração
+`ADR-NNN`; no frontend com `ADR-FE-NNN`, desde o primeiro, para não haver numeração repetida.
+
+AGENTEOF
+        echo "# Frente backend"
+        echo ""
+        agent_body "$AGENTS_TMP/02.$BACK_STACK.md"
+        echo ""
+        echo "# Frente frontend"
+        echo ""
+        agent_body "$AGENTS_TMP/02.$FRONT_STACK.md"
+    } > "$PROJECT_DIR/.claude/agents/02-architect-sdd.md"
+fi
+init_stack_globals
+
+if [ "$BACK_STACK" = "dotnet" ]; then
 cat > ""$PROJECT_DIR/.claude/agents/03-dotnet-specialist.md"" << 'AGENTEOF'
 ---
 name: 03-dotnet-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the .NET 10 backend code (Domain, Application, Infrastructure layers) following Clean Architecture. Use PROACTIVELY as step 3 of the SDD pipeline whenever backend code needs to be generated from a technical spec. Examples: <example>Context: architecture docs are ready in output/. user: "A arquitetura está pronta, implementa o backend" assistant: "Vou usar o agente dotnet-specialist para implementar o código .NET seguindo a TECHNICAL_SPECIFICATION.md." <commentary>Backend implementation should only start after architecture is finalized by architect-sdd.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **.NET Specialist**, especialista em .NET 10 + Entity Framework Core + Clean Architecture.
@@ -1061,7 +1311,7 @@ cat > ""$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md"" << 'AGENTEOF'
 name: 04-reviewer-sdd
 description: Use this agent after __SPECIALIST__ has implemented the code, to review it in a single pass from two angles — compliance with the specification/traceability matrix and code quality (SOLID, clean code, patterns, performance). Use PROACTIVELY as step 4 of the SDD pipeline, before tests are written. Examples: <example>Context: Code was just implemented. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente 04-reviewer-sdd para verificar se o código atende 100% a especificação e revisar a qualidade numa leitura só." <commentary>Compliance and quality are checked in the same read of the code, before investing time in tests for potentially incorrect code.</commentary></example>
 tools: Read, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Reviewer-SDD**, o revisor do pipeline SDD.
@@ -1148,7 +1398,7 @@ __FRONTEND_DESIGN_RULE__
 AGENTEOF
 sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g; s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md""
 
-if [ "$STACK" != "dotnet" ]; then
+if [ "$HAS_FRONT" = 1 ]; then
     CRITERIA_FILE=$(mktemp)
     cat > "$CRITERIA_FILE" << 'CRITERIAEOF'
 - **Direção de Arte** (`.claude/rules/frontend-design-direction.md`) — sinais de layout genérico de IA: mesmo
@@ -1172,6 +1422,13 @@ SECTIONEOF
 - Ressalvas de Direção de Arte não bloqueiam o pipeline (é qualidade/gosto, não bug) — reporte com ⚠️ mesmo se o restante estiver ✅ APROVADO.
 RULEFEOF
 
+    if [ "$MONO" = 1 ]; then
+        # Monorepo: o checklist de frontend só vale quando a frente da rodada é a frontend.
+        sed -i 's/^- \*\*Direção de Arte\*\*/- (somente quando a frente da rodada for `frontend`) **Direção de Arte**/' "$CRITERIA_FILE"
+        sed -i 's/^## Ressalvas de Direção de Arte (não-bloqueante)/## Ressalvas de Direção de Arte (não-bloqueante) — só na frente `frontend`; na `backend`, omita esta seção/' "$SECTION_FILE"
+        sed -i 's/^- Ressalvas de Direção de Arte não bloqueiam/- (Frente `frontend`) Ressalvas de Direção de Arte não bloqueiam/' "$RULE_FILE"
+    fi
+
     sed -i "/__FRONTEND_DESIGN_CRITERIA__/{
         r $CRITERIA_FILE
         d
@@ -1189,13 +1446,15 @@ else
     sed -i "/__FRONTEND_DESIGN_CRITERIA__/d;/__FRONTEND_DESIGN_RULE__/d;s/__FRONTEND_DESIGN_SECTION__//" ""$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md""
 fi
 
+for STACK in $ALL_STACKS; do
+set_stack_vars "$STACK"
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/05-test-engineer.md"" << 'AGENTEOF'
 ---
 name: 05-test-engineer
 description: Use this agent after 04-reviewer-sdd has approved the code, to write the backend automated tests into the project, actually run build + tests + coverage, fix until green, and produce the API testing workflow (cURL per endpoint). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes, rodar build e testes de verdade e gerar o workflow de testes da API." <commentary>Tests are written and executed in the same step, so the pipeline knows for real whether the code builds and passes — no simulated build validation.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Test Engineer**, especialista em testes automatizados de backend .NET.
@@ -1314,7 +1573,7 @@ else
 name: 05-test-engineer
 description: Use this agent after 04-reviewer-sdd has approved the code, to write the frontend automated tests (unit + end-to-end, including the session-invalidation check required by the project's frontend security rules) into the project, actually run build + tests, and fix until green. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes unitários e E2E e rodar tudo de verdade." <commentary>Unit and E2E tests are written and executed in one step, so the pipeline knows for real whether the app builds and the flows work.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Test Engineer**, especialista em testes automatizados de frontend.
@@ -1423,13 +1682,49 @@ Salve em `output/5-tests.md`:
 AGENTEOF
     sed -i "s#__SPECIALIST_OUTPUT__#$SPECIALIST_OUTPUT#g" ""$PROJECT_DIR/.claude/agents/05-test-engineer.md""
 fi
+if [ "$MONO" = 1 ]; then
+    mono_paths_sed "$PROJECT_DIR/.claude/agents/05-test-engineer.md" "$STACK_DIR"
+    mv "$PROJECT_DIR/.claude/agents/05-test-engineer.md" "$AGENTS_TMP/05.$STACK.md"
+fi
+done
+
+if [ "$MONO" = 1 ]; then
+    {
+        cat << 'AGENTEOF'
+---
+name: 05-test-engineer
+description: Use this agent after 04-reviewer-sdd has approved the code, to write the automated tests of the round's front (backend or frontend) of the monorepo, actually run build + tests + coverage, fix until green, and produce the test report (plus the API testing workflow on the backend front). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review of the backend front passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o 05-test-engineer, na seção da frente backend, para escrever e rodar os testes de verdade." <commentary>Tests come after the review gate; the agent applies only the section of the round's front.</commentary></example>
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: opus
+---
+
+Você é o **Test Engineer** do pipeline SDD, num **monorepo** com duas frentes (`backend` e `frontend`). Cada
+rodada trabalha **uma frente**: descubra qual é pelo prompt de invocação e siga **só a seção dela** abaixo
+(**Frente backend** ou **Frente frontend**) — ignore a outra. O relatório continua sendo um só,
+`output/5-tests.md`.
+
+Os comandos de build e teste rodam **dentro da pasta da frente** (`cd backend && dotnet build`,
+`cd frontend && npm test`), nunca na raiz.
+
+AGENTEOF
+        echo "# Frente backend"
+        echo ""
+        agent_body "$AGENTS_TMP/05.$BACK_STACK.md"
+        echo ""
+        echo "# Frente frontend"
+        echo ""
+        agent_body "$AGENTS_TMP/05.$FRONT_STACK.md"
+    } > "$PROJECT_DIR/.claude/agents/05-test-engineer.md"
+fi
+rm -rf "$AGENTS_TMP"
+init_stack_globals
 
 cat > ""$PROJECT_DIR/.claude/agents/06-security-scan-sdd.md"" << 'AGENTEOF'
 ---
 name: 06-security-scan-sdd
 description: Use this agent after 05-test-engineer has confirmed build and tests pass, to run a full security audit over the code (tenant/owner isolation, server-side authorization, IDOR, hardcoded secrets, XSS), fix what is mechanically safe, and write a simple HTML audit report with ready-to-paste GitHub issues before the pipeline commits anything. Use PROACTIVELY as step 6, the last agent of the SDD pipeline, right before the final commit. Examples: <example>Context: Build and tests just passed. user: "Testes ok, pode seguir" assistant: "Vou usar o agente security-scan-sdd para auditar as cinco categorias de falha e gerar o relatório de segurança antes de seguir para os commits." <commentary>A security gate must run on code that actually builds, and must block the final commit if a Critical/High finding can't be safely auto-fixed.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Security Scan-SDD**, responsável pela auditoria de segurança e pelo gate de segurança do pipeline.
@@ -1602,7 +1897,7 @@ relatório HTML e o caminho de todos os arquivos gerados.
 __FRONTEND_SECURITY_RULE__
 AGENTEOF
 
-if [ "$STACK" != "dotnet" ]; then
+if [ "$HAS_FRONT" = 1 ]; then
     STEP_FILE=$(mktemp)
     cat > "$STEP_FILE" << 'STEPEOF'
 
@@ -1637,6 +1932,13 @@ SECTIONEOF
 - Se qualquer item do Checklist de Segurança Frontend estiver ❌, marque o status geral como ❌ REPROVADO — mesma regra de gate dos achados Critical/High da auditoria.
 RULEFEOF
 
+    if [ "$MONO" = 1 ]; then
+        # Monorepo: o checklist de frontend só vale quando a frente da rodada é a frontend.
+        sed -i 's/^## Checklist Determinístico de Frontend/## Checklist Determinístico de Frontend (somente quando a frente da rodada for `frontend`)/' "$STEP_FILE"
+        sed -i 's/^## Checklist de Segurança Frontend/## Checklist de Segurança Frontend (só na frente `frontend`; na `backend`, omita esta seção)/' "$SECTION_FILE"
+        sed -i 's/^- Se qualquer item do Checklist de Segurança Frontend/- (Frente `frontend`) Se qualquer item do Checklist de Segurança Frontend/' "$RULE_FILE"
+    fi
+
     sed -i "/__FRONTEND_SECURITY_STEP__/{
         r $STEP_FILE
         d
@@ -1668,7 +1970,7 @@ echo -e "${GREEN}✅ Agentes fixos criados em .claude/agents/${NC}"
 # .NET; frontend-security-expert só em react/angular/vue.
 # ============================================================================
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$BACK_STACK" = "dotnet" ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/dba-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/dba-expert/SKILL.md"" << 'DBAEXPERTSKILLEOF'
 ---
@@ -3670,7 +3972,7 @@ Ao ser acionada, adote a postura de um especialista em hospedagem web experiente
 
 Antes de vasculhar o projeto inteiro, verifique primeiro se `knowledge/` existe. Leia `knowledge/index.json` e use `knowledge/vault/06 - Arquitetura/` e `knowledge/vault/10 - ADR/` como referência — decisões e contexto já registrados são mais rápidos de consultar do que reler o projeto inteiro a cada pergunta. Só faça uma exploração ampla do código quando `knowledge/` não existir ou não tiver referência suficiente.
 HOSTINGEREXPERTSKILLEOF
-if [ "$STACK" = "dotnet" ]; then
+if [ "$BACK_STACK" = "dotnet" ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-security-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/dotnet-security-expert/SKILL.md"" << 'DOTNETSECSKILLEOF'
 ---
@@ -3990,7 +4292,7 @@ Use este checklist antes de considerar uma arquitetura AWS pronta pra produção
 - [ ] Lifecycle rules configuradas no S3 pra dados que não precisam ficar em Standard indefinidamente.
 AWSEXPERTCHECKLISTMDEOF
 # ---- Skill de segurança específica de frontend (equivalente à dotnet-security-expert) ----
-if [ "$STACK" != "dotnet" ]; then
+if [ "$HAS_FRONT" = 1 ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/frontend-security-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/frontend-security-expert/SKILL.md"" << 'FESECSKILLEOF'
 ---
@@ -4105,6 +4407,7 @@ fi
 # Só a skill da stack escolhida é criada.
 # ============================================================================
 
+for STACK in $ALL_STACKS; do
 case "$STACK" in
 dotnet)
     mkdir -p "$PROJECT_DIR/.claude/skills/dotnet-expert/references"
@@ -4554,6 +4857,8 @@ VUEEXPERTSKILLEOF
 VUEEXPERTCHECKLISTEOF
     ;;
 esac
+done
+init_stack_globals
 
 # ============================================================================
 # AJUSTE DAS SKILLS COMUNS À STACK — troca cada marcador __STACK_*__ pelo bloco
@@ -4570,7 +4875,9 @@ inject_stack_block() {
     }" "$target"
 }
 
-SKILL_TMP=$(mktemp -d)
+SKILL_ROOT=$(mktemp -d)
+for STACK in $ALL_STACKS; do
+SKILL_TMP="$SKILL_ROOT/$STACK"; mkdir -p "$SKILL_TMP"
 
 if [ "$STACK" = "dotnet" ]; then
     cat > "$SKILL_TMP/cicd_build" << 'BLOCKEOF'
@@ -5084,6 +5391,20 @@ BLOCKEOF
         sed -i "s#__FE_TEST_CI__#$FE_TEST_CI#g; s#__FE_DIST__#$FE_DIST#g" "$SKILL_TMP/$fe_block"
     done
 fi
+done
+
+# Junta os blocos das stacks (backend primeiro) num diretório só; com uma stack só, é uma cópia.
+SKILL_TMP="$SKILL_ROOT/merged"
+mkdir -p "$SKILL_TMP"
+for s in $ALL_STACKS; do
+    for part in "$SKILL_ROOT/$s"/*; do
+        [ -f "$part" ] || continue
+        name=$(basename "$part")
+        if [ -s "$SKILL_TMP/$name" ]; then echo "" >> "$SKILL_TMP/$name"; fi
+        cat "$part" >> "$SKILL_TMP/$name"
+    done
+done
+init_stack_globals
 
 CICD_SKILL="$PROJECT_DIR/.claude/skills/cicd-pipeline-expert"
 inject_stack_block "$CICD_SKILL/SKILL.md" "__STACK_CICD_BUILD_STEPS__" "$SKILL_TMP/cicd_build"
@@ -5098,13 +5419,26 @@ inject_stack_block "$PROJECT_DIR/.claude/skills/aws-expert/SKILL.md" "__STACK_AW
 inject_stack_block "$PROJECT_DIR/.claude/skills/tech-leader-expert/SKILL.md" "__STACK_TECHLEADER_CONTEXT__" "$SKILL_TMP/techleader"
 COMMIT_EXAMPLES_FILE=$(mktemp)
 cp "$SKILL_TMP/commit_examples" "$COMMIT_EXAMPLES_FILE"
-rm -rf "$SKILL_TMP"
+rm -rf "$SKILL_ROOT"
 
-if [ "$STACK" = "dotnet" ]; then
-    echo -e "${GREEN}✅ .claude/skills/ criado (dotnet-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert + dba-expert e dotnet-security-expert)${NC}"
-else
-    echo -e "${GREEN}✅ .claude/skills/ criado (${STACK}-expert, cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert + frontend-security-expert)${NC}"
+if [ "$MONO" = 1 ]; then
+    cat >> "$CICD_SKILL/SKILL.md" << 'MONOCICDEOF'
+
+## Monorepo (backend/ + frontend/)
+
+Este projeto é um monorepo: o código fica em `backend/` e `frontend/`. Ao gerar pipelines:
+
+- Um workflow por deploy (back e front separados), cada um com `on.push.paths` / `on.pull_request.paths`
+  restrito à sua pasta (`backend/**` ou `frontend/**`) mais o próprio arquivo do workflow, para uma mudança só
+  no front não disparar o deploy do back.
+- Os steps de build, teste e publish rodam com `working-directory: backend` (ou `frontend`); em Docker, o
+  `context` aponta para a subpasta (`context: ./backend`), nunca para a raiz.
+- No Azure DevOps, o equivalente é `trigger.paths.include` e `workingDirectory`.
+- Cache de dependências usa o lockfile da subpasta (`frontend/package-lock.json`, `backend/**/*.csproj`).
+MONOCICDEOF
 fi
+
+echo -e "${GREEN}✅ .claude/skills/ criado (skills de ${ALL_STACKS// /, } + cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert, mais as de segurança/dados da stack)${NC}"
 
 
 # ============================================================================
@@ -5113,13 +5447,13 @@ fi
 # externa (outro projeto/time) — o specialist só a consome, não a implementa.
 # ============================================================================
 
-if [ "$STACK" = "react" ]; then
+if [ "$FRONT_STACK" = "react" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-react-specialist.md"" << 'AGENTEOF'
 ---
 name: 03-react-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the React 18 + TypeScript frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente react-specialist para implementar a interface React baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **React Specialist**, especialista em React 18 + TypeScript + Next.js.
@@ -5180,13 +5514,13 @@ AGENTEOF
     echo -e "${GREEN}✅ Agente react-specialist adicionado (React 18)${NC}"
 fi
 
-if [ "$STACK" = "angular" ]; then
+if [ "$FRONT_STACK" = "angular" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-angular-specialist.md"" << 'AGENTEOF'
 ---
 name: 03-angular-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Angular frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente angular-specialist para implementar a interface Angular baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Angular Specialist**, especialista em Angular (versão mais recente estável) + TypeScript.
@@ -5247,13 +5581,13 @@ AGENTEOF
     echo -e "${GREEN}✅ Agente angular-specialist adicionado (Angular)${NC}"
 fi
 
-if [ "$STACK" = "vue" ]; then
+if [ "$FRONT_STACK" = "vue" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/03-vue-specialist.md"" << 'AGENTEOF'
 ---
 name: 03-vue-specialist
 description: Use this agent after architect-sdd has produced the TECHNICAL_SPECIFICATION.md, to implement the Vue frontend application. Use PROACTIVELY as step 3 of the SDD pipeline. Examples: <example>Context: Architecture is ready. user: "A arquitetura está pronta, implementa o frontend" assistant: "Vou usar o agente vue-specialist para implementar a interface Vue baseada na especificação técnica." <commentary>Frontend implementation runs right after architecture is finalized.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: claude-opus-5-5
+model: opus
 ---
 
 Você é o **Vue Specialist**, especialista em Vue 3 (Composition API) + TypeScript.
@@ -5313,9 +5647,49 @@ AGENTEOF
     echo -e "${GREEN}✅ Agente vue-specialist adicionado (Vue 3)${NC}"
 fi
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$HAS_FRONT" = 0 ]; then
     echo -e "${GREEN}✅ Nenhum agente de frontend adicionado (somente backend)${NC}"
 fi
+# ============================================================================
+# MONOREPO — ajustes finais nos agentes: caminhos por frente + aviso de monorepo no topo de cada um.
+# 02 e 05 já saíram combinados (seção por frente) e com os caminhos concretos.
+# ============================================================================
+
+if [ "$MONO" = 1 ]; then
+    mono_paths_sed "$PROJECT_DIR/.claude/agents/03-dotnet-specialist.md" "$BACK_DIR"
+    mono_paths_sed "$PROJECT_DIR/.claude/agents/$FRONT_SPECIALIST.md" "$FRONT_DIR"
+    mono_frontend_text_fix "$PROJECT_DIR/.claude/agents/$FRONT_SPECIALIST.md"
+    for shared_agent in 01-analyst-sdd 04-reviewer-sdd 06-security-scan-sdd; do
+        mono_paths_sed "$PROJECT_DIR/.claude/agents/$shared_agent.md" "<frente>"
+    done
+
+    MONO_NOTE_FILE=$(mktemp)
+    for agent_file in "$PROJECT_DIR"/.claude/agents/*.md; do
+        agent_name=$(basename "$agent_file" .md)
+        case "$agent_name" in
+            03-dotnet-specialist)  FRENTE_LINE="- **Sua frente é sempre \`backend\`** (código em \`backend/src/\`, spec em \`docs/backend/SPEC.md\`)." ;;
+            03-*-specialist)       FRENTE_LINE="- **Sua frente é sempre \`frontend\`** (código em \`frontend/src/\`, spec em \`docs/frontend/SPEC.md\`)." ;;
+            *)                     FRENTE_LINE="- **Frente da rodada:** vem no prompt de invocação (\`backend\` ou \`frontend\`). Onde este arquivo diz \`<frente>\`, leia essa pasta; a spec da rodada é \`docs/<frente>/SPEC.md\`." ;;
+        esac
+        cat > "$MONO_NOTE_FILE" << MONONOTEEOF
+> ## Monorepo (backend/ + frontend/)
+>
+> Este projeto é um **monorepo**: o código fica em \`backend/\` e \`frontend/\`; o \`.claude/\`, o \`knowledge/\`, o
+> \`docs/\` e o \`output/\` são **únicos e ficam na raiz**, compartilhados pelas duas frentes.
+>
+> $FRENTE_LINE
+> - **Memória única:** toda leitura e gravação de memória (vault, ADR, \`14 - Planejamento/\`) vai para
+>   \`<raiz>/knowledge/\`, mesmo trabalhando só em uma frente. Nota de uma frente só leva a tag \`backend\` ou
+>   \`frontend\`; o \`Index.md\` lista as notas das duas.
+> - **ADR:** os do backend seguem \`ADR-NNN\`; os do frontend usam \`ADR-FE-NNN\`, desde o primeiro.
+> - **Build e testes** rodam dentro da pasta da frente (\`cd backend && ...\`, \`cd frontend && ...\`), nunca na raiz.
+> - Nunca crie \`knowledge/\`, \`docs/\` ou \`.claude/\` dentro de \`backend/\` ou \`frontend/\`.
+MONONOTEEOF
+        insert_after_frontmatter "$agent_file" "$MONO_NOTE_FILE"
+    done
+    rm -f "$MONO_NOTE_FILE"
+fi
+
 # ============================================================================
 # SINCRONIZAÇÃO DO KNOWLEDGE ENGINE — regra comum a todos os agentes, em todas
 # as stacks. O vault é a memória do projeto e é de onde todo agente lê primeiro
@@ -5379,8 +5753,14 @@ done
 # ============================================================================
 # CRIAR .claude/commands/inicia-orquestracao.md — conteúdo específico por stack
 # ============================================================================
-
-if [ "$STACK" = "dotnet" ]; then
+if [ "$MONO" = 1 ]; then
+    ORCH_STACK_NOTE=" Este projeto é um **monorepo** (backend + frontend): cada rodada trabalha **uma frente**, passada como argumento — \`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`."
+    ORCH_SPEC_TIP=" A spec de cada rodada é \`docs/backend/SPEC.md\` ou \`docs/frontend/SPEC.md\`, conforme a frente."
+    ORCH_TIME="~12-25 minutos (varia com a frente)"
+    ORCH_SPECIALIST_LINE="🧩 03 Specialist da frente → $BACK_SPECIALIST (backend) ou $FRONT_SPECIALIST (frontend): implementa o código em <frente>/src/ (só termina com o build passando, rodado dentro da pasta da frente)"
+    ORCH_TEST_LINE="🧪 05 Test Engineer   → Escreve e RODA os testes da frente (backend: unit + integração + docs/api/testes-api.md; frontend: unit + E2E com invalidação de sessão) e mede cobertura"
+    ORCH_SPECIALIST_OUT="3-<specialist>.md        (Relatório da implementação da frente)"
+elif [ "$STACK" = "dotnet" ]; then
     ORCH_STACK_NOTE=""
     ORCH_SPEC_TIP=""
     ORCH_TIME="~15-25 minutos"
@@ -5405,6 +5785,8 @@ cat > ""$PROJECT_DIR/.claude/commands/inicia-orquestracao.md"" << 'ORCHEOF'
 # /inicia-orquestracao - Executar Pipeline SDD
 
 > Execute os agentes automaticamente para gerar código baseado em sua especificação.__ORCH_STACK_NOTE__
+
+__ORCH_FRENTE_SECTION__
 
 ## 📋 Como Usar
 
@@ -5477,6 +5859,13 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   `token-report.md` — assim nenhum agente lê por engano um relatório velho.
 - **Um agente por vez, na ordem acima.** Cada agente lê o relatório do anterior em `output/` — não repasse
   o conteúdo dos relatórios no prompt de invocação, só aponte o arquivo.
+- **Modelo por tarefa (economia sem perder qualidade)**: cada agente tem seu modelo padrão no frontmatter,
+  sempre por apelido de família (`opus` ou `sonnet`), que resolve sozinho para a versão mais recente — nunca
+  escreva um ID com versão. Antes de chamar o `03-*` e o `05-test-engineer`, avalie a spec da rodada: se for
+  **trivial** (ajuste de texto ou cor, campo novo num CRUD já existente, mudança confinada a poucos arquivos,
+  sem regra de negócio nova, integração, autenticação/autorização nem migração de dados), invoque-os com
+  `model: "sonnet"`. Qualquer sinal de complexidade mantém `opus`. Na dúvida, `opus`. Nunca rebaixe o `02`,
+  o `04` nem o `06`. Diga no relatório final qual modelo usou em cada etapa e por quê.
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `04-reviewer-sdd`
   (❌ REPROVADO), `05-test-engineer` (❌ FAILED) ou `06-security-scan-sdd` (❌ REPROVADO) reportar falha,
   interrompa o pipeline e reporte ao usuário o que precisa ser corrigido. Não gaste as etapas seguintes nem
@@ -5550,6 +5939,37 @@ ORCHEOF
 ORCH_FILE="$PROJECT_DIR/.claude/commands/inicia-orquestracao.md"
 sed -i "s#__ORCH_STACK_NOTE__#$ORCH_STACK_NOTE#; s#__ORCH_SPEC_TIP__#$ORCH_SPEC_TIP#; s#__ORCH_TIME__#$ORCH_TIME#; s#__ORCH_SPECIALIST_LINE__#$ORCH_SPECIALIST_LINE#; s#__ORCH_TEST_LINE__#$ORCH_TEST_LINE#; s#__ORCH_SPECIALIST_OUT__#$ORCH_SPECIALIST_OUT#" "$ORCH_FILE"
 inject_stack_block "$ORCH_FILE" "__STACK_COMMIT_EXAMPLES__" "$COMMIT_EXAMPLES_FILE"
+ORCH_FRENTE_SRC=$(mktemp)
+cat > "$ORCH_FRENTE_SRC" << 'ORCHFRENTEEOF'
+## 🧭 Frente da rodada (monorepo)
+
+Argumento recebido: `$ARGUMENTS`
+
+- A rodada trabalha **uma frente**: `backend` ou `frontend`. Se o argumento estiver vazio ou for outra coisa,
+  **pergunte ao usuário qual frente** antes de qualquer outra ação — não escolha sozinho.
+- Chame de `<frente>` o valor escolhido. A spec da rodada é `docs/<frente>/SPEC.md`, o código vive em
+  `<frente>/`, e o specialist é o `03-*` da stack dessa frente. Diga a frente no prompt de invocação de **todo**
+  agente.
+- Os relatórios de `output/` mantêm os mesmos nomes (não duplique por frente), e o vault é um só:
+  `knowledge/` na raiz, para as duas frentes.
+- Build e testes rodam **dentro da pasta da frente** (`cd backend && ...`, `cd frontend && ...`), nunca na raiz.
+- Mudança que cruza as duas frentes = **duas rodadas**, backend primeiro. Para rodar as duas ao mesmo tempo,
+  use uma worktree por frente (`claude --worktree nome-da-frente`).
+
+ORCHFRENTEEOF
+ORCH_FRENTE_FILE=$(mktemp)
+if [ "$MONO" = 1 ]; then
+    cp "$ORCH_FRENTE_SRC" "$ORCH_FRENTE_FILE"
+else
+    : > "$ORCH_FRENTE_FILE"
+fi
+inject_stack_block "$ORCH_FILE" "__ORCH_FRENTE_SECTION__" "$ORCH_FRENTE_FILE"
+rm -f "$ORCH_FRENTE_FILE"
+if [ "$MONO" = 1 ]; then
+    mono_paths_sed "$ORCH_FILE" "<frente>"
+    sed -i 's#^\( *\)/inicia-orquestracao$#\1/inicia-orquestracao <backend|frontend>#' "$ORCH_FILE"
+fi
+rm -f "$ORCH_FRENTE_SRC"
 rm -f "$COMMIT_EXAMPLES_FILE"
 echo -e "${GREEN}✅ .claude/commands/inicia-orquestracao.md criado${NC}"
 
@@ -5557,7 +5977,69 @@ echo -e "${GREEN}✅ .claude/commands/inicia-orquestracao.md criado${NC}"
 # CRIAR .claude/commands/README.md — conteúdo específico por stack
 # ============================================================================
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$MONO" = 1 ]; then
+    cat > ""$PROJECT_DIR/.claude/commands/README.md"" << 'CMDREADMEEOF'
+# 📌 Comandos do Pipeline SDD
+
+Projeto: **__STACK_LABEL__**
+
+## 🎯 Fluxo Recomendado
+
+1. **(Opcional) Jogue sua documentação bruta em `docs/raw/`** — compartilhada pelas duas frentes.
+   Word, PDF, planilhas, imagens — o que tiver. Veja `docs/raw/README.md`.
+
+2. **Edite a especificação da frente** que vai trabalhar
+   ```
+   nano docs/backend/SPEC.md      # ou docs/frontend/SPEC.md
+   ```
+
+3. **Execute o orchestrador, dizendo a frente**
+   ```
+   /inicia-orquestracao backend
+   /inicia-orquestracao frontend
+   ```
+   Sem argumento, o orquestrador pergunta qual frente. Mudança que cruza as duas = duas rodadas (backend
+   primeiro). Para rodar as duas ao mesmo tempo, uma worktree por frente: `claude --worktree nome-da-frente`.
+
+4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
+   `01-analyst-sdd`, que consolida `docs/raw/` (se tiver arquivos) e valida a spec da frente
+
+## 📚 Estrutura
+
+- **`.claude/`** — um só, na raiz, compartilhado pelas duas frentes
+- **`knowledge/`** — um só vault para as duas frentes (notas de uma frente só levam a tag `backend` ou `frontend`)
+- **`docs/backend/`, `docs/frontend/`** — uma `SPEC.md` por frente; **`docs/raw/`** é compartilhada
+- **`backend/`, `frontend/`** — só o código de cada frente (e um README/CLAUDE.md curto)
+
+## 🤖 Os Agentes (em `.claude/agents/`)
+
+| Agente | Responsabilidade |
+|--------|-------------------|
+| `01-analyst-sdd` | Consolida `docs/raw/` numa Base de Conhecimento em `knowledge/` (se tiver arquivos) e valida a especificação da frente |
+| `02-architect-sdd` | Gera a arquitetura técnica (seção própria para backend e para frontend) |
+| `__BACK_SPECIALIST__` | Implementa o backend (frente `backend`) |
+| `__FRONT_SPECIALIST__` | Implementa o frontend (frente `frontend`) |
+| `04-reviewer-sdd` | Revisa conformidade com a spec e qualidade do código; o checklist de frontend só entra na frente `frontend` |
+| `05-test-engineer` | Escreve e roda os testes da frente (seções "Frente backend" e "Frente frontend") e mede cobertura |
+| `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML; o checklist de frontend só entra na frente `frontend` |
+
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
+
+## 🧩 Comandos avulsos
+
+- `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
+- `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
+
+## ⏱️ Tempo
+
+- Pipeline completo de uma frente (`/inicia-orquestracao <frente>`): 12-25 minutos
+
+---
+
+**Comece aqui:** `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend`
+CMDREADMEEOF
+    sed -i "s#__STACK_LABEL__#$STACK_LABEL#g; s#__BACK_SPECIALIST__#$BACK_SPECIALIST#g; s#__FRONT_SPECIALIST__#$FRONT_SPECIALIST#g" ""$PROJECT_DIR/.claude/commands/README.md""
+elif [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/commands/README.md"" << 'CMDREADMEEOF'
 # 📌 Comandos do Pipeline SDD
 
@@ -5863,8 +6345,9 @@ echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
 # tema, alimentando o 01-analyst-sdd) é o mesmo nas duas.
 # ============================================================================
 
-if [ "$STACK" = "dotnet" ]; then
-cat > ""$PROJECT_DIR/.claude/commands/raio-x-projeto.md"" << 'RAIOXEOF'
+if [ "$MONO" = 1 ]; then RAIOX_BACK="raio-x-backend.md"; RAIOX_FRONT="raio-x-frontend.md"; else RAIOX_BACK="raio-x-projeto.md"; RAIOX_FRONT="raio-x-projeto.md"; fi
+if [ "$HAS_BACK" = 1 ]; then
+cat > ""$PROJECT_DIR/.claude/commands/$RAIOX_BACK"" << 'RAIOXEOF'
 ---
 description: Faz uma varredura técnica completa (raio-x) de um projeto existente — arquitetura, banco de dados, interfaces, services e infraestrutura — e grava a documentação em docs/raw/, separada por tema, pronta para ser consumida por um subagente. Ideal para projetos legados sem documentação prévia.
 ---
@@ -5947,8 +6430,9 @@ Este comando não apresenta o relatório só no chat — ele grava a documentaç
 - Sempre cite caminhos de arquivo reais (ex: `src/Domain/Entities/Pedido.cs`) como evidência das afirmações, não descrições vagas.
 - Se o projeto for grande demais pra cobrir tudo numa passada, avise isso no `resumo.md` e priorize as áreas que o usuário pediu (ou, na ausência de pedido específico, priorize arquitetura → banco de dados → services, nessa ordem).
 RAIOXEOF
-else
-cat > ""$PROJECT_DIR/.claude/commands/raio-x-projeto.md"" << 'RAIOXEOF'
+fi
+if [ "$HAS_FRONT" = 1 ]; then
+cat > ""$PROJECT_DIR/.claude/commands/$RAIOX_FRONT"" << 'RAIOXEOF'
 ---
 description: Faz uma varredura técnica completa (raio-x) de um projeto frontend existente — stack e build, arquitetura e roteamento, gerência de estado, camada de API, componentes/UX e infraestrutura — e grava a documentação em docs/raw/, separada por tema, pronta para ser consumida por um subagente. Ideal para projetos legados sem documentação prévia.
 ---
@@ -6042,17 +6526,26 @@ Este comando não apresenta o relatório só no chat — ele grava a documentaç
 - Se o projeto for grande demais pra cobrir tudo numa passada, avise isso no `resumo.md` e priorize as áreas que o usuário pediu (ou, na ausência de pedido específico, priorize arquitetura → estado → camada de API, nessa ordem).
 RAIOXEOF
 fi
+if [ "$MONO" = 1 ]; then
+    rm -f "$PROJECT_DIR/.claude/commands/raio-x-projeto.md"
+    mono_paths_sed "$PROJECT_DIR/.claude/commands/raio-x-backend.md" "$BACK_DIR"
+    mono_paths_sed "$PROJECT_DIR/.claude/commands/raio-x-frontend.md" "$FRONT_DIR"
+else
+    rm -f "$PROJECT_DIR/.claude/commands/raio-x-backend.md" "$PROJECT_DIR/.claude/commands/raio-x-frontend.md"
+fi
 echo -e "${GREEN}✅ .claude/commands/raio-x-projeto.md criado${NC}"
 
 # ============================================================================
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha
 # ============================================================================
-
-if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/docs/SPEC.md" ]; then
-    echo -e "${YELLOW}⏭️  docs/SPEC.md já existe — mantido sem alterações${NC}"
+for STACK in $ALL_STACKS; do
+set_stack_vars "$STACK"
+if [ "$MONO" = 1 ]; then SPEC_REL="docs/$STACK_DIR/SPEC.md"; else SPEC_REL="docs/SPEC.md"; fi
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/$SPEC_REL" ]; then
+    echo -e "${YELLOW}⏭️  $SPEC_REL já existe — mantido sem alterações${NC}"
 else
 if [ "$STACK" = "dotnet" ]; then
-    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
+    cat > ""$PROJECT_DIR/$SPEC_REL"" << 'SPECEOF'
 # Sua Aplicação - Especificação
 
 ## 📋 Visão Geral
@@ -6160,7 +6653,7 @@ Edite este arquivo e chame:
 SPECEOF
 
 else
-    cat > ""$PROJECT_DIR/docs/SPEC.md"" << 'SPECEOF'
+    cat > ""$PROJECT_DIR/$SPEC_REL"" << 'SPECEOF'
 # Sua Aplicação - Especificação
 
 ## 📋 Visão Geral
@@ -6266,36 +6759,47 @@ Edite este arquivo e chame:
 /inicia-orquestracao
 ```
 SPECEOF
-    sed -i "s/__STACK_LABEL__/$STACK_LABEL/g" ""$PROJECT_DIR/docs/SPEC.md""
+    sed -i "s#__STACK_LABEL__#$STACK_LABEL_ONE#g" ""$PROJECT_DIR/$SPEC_REL""
 fi
-echo -e "${GREEN}✅ docs/SPEC.md criado${NC}"
+if [ "$MONO" = 1 ] && [ "$STACK" != "dotnet" ]; then
+    sed -i \
+        -e 's#Este projeto é \*\*somente frontend\*\* — não tem backend próprio\.#Esta é a frente **frontend** do monorepo — a API consumida é a do `backend/` (descrita em `docs/backend/SPEC.md`).#' \
+        -e 's#(API externa, se houver)#(API do backend/ ou externa)#' \
+        "$PROJECT_DIR/$SPEC_REL"
 fi
+echo -e "${GREEN}✅ $SPEC_REL criado${NC}"
+fi
+done
+init_stack_globals
 
 # ============================================================================
 # COMANDOS DE BUILD/TEST POR STACK — usados no CLAUDE.md e nas permissões
 # ============================================================================
 
-case "$STACK" in
-    dotnet)
-        CLAUDE_BUILD_STEPS="dotnet build
-dotnet test"
-        PERM_BASH_JSON='["Bash(dotnet build)","Bash(dotnet build *)","Bash(dotnet test)","Bash(dotnet test *)","Bash(dotnet sln *)","Bash(dotnet new xunit *)"]'
-        ;;
-    angular)
-        CLAUDE_BUILD_STEPS="npm install
-ng serve
-ng test"
-        PERM_BASH_JSON='["Bash(npm install)","Bash(ng serve)","Bash(ng serve *)","Bash(ng test)","Bash(ng test *)","Bash(ng build)","Bash(ng build *)","Bash(npm run build)","Bash(npm run lint)","Bash(npx playwright *)"]'
-        ;;
-    *)
-        CLAUDE_BUILD_STEPS="npm install
-npm run dev
-npm test"
-        PERM_BASH_JSON='["Bash(npm install)","Bash(npm run dev)","Bash(npm run build)","Bash(npm test)","Bash(npm test *)","Bash(npm run lint)","Bash(npx vitest *)","Bash(npx playwright *)"]'
-        ;;
-esac
+if [ "$MONO" = 1 ]; then
+    CLAUDE_BUILD_STEPS="# Backend (rode sempre de dentro de backend/)"
+    stack_info "$BACK_STACK"
+    BACK_PERM="$STACK_PERM_JSON"
+    while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+cd $BACK_DIR && $line"; done <<< "$STACK_BUILD_STEPS"
+    CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
 
-if [ "$STACK" = "dotnet" ]; then
+# Frontend (rode sempre de dentro de frontend/)"
+    stack_info "$FRONT_STACK"
+    FRONT_PERM="$STACK_PERM_JSON"
+    while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+cd $FRONT_DIR && $line"; done <<< "$STACK_BUILD_STEPS"
+    PERM_BASH_JSON="${BACK_PERM%]},${FRONT_PERM#[}"
+    PERM_EDIT_JSON='["Edit(backend/src/**)","Edit(backend/tests/**)","Edit(frontend/src/**)","Edit(frontend/e2e/**)"]'
+    init_stack_globals
+else
+    stack_info "$STACK"
+    CLAUDE_BUILD_STEPS="$STACK_BUILD_STEPS"
+    PERM_BASH_JSON="$STACK_PERM_JSON"
+    PERM_EDIT_JSON='["Edit(src/**)","Edit(tests/**)","Edit(e2e/**)"]'
+fi
+
+if [ "$HAS_FRONT" = 0 ]; then
     CLAUDE_FRONTEND_DESIGN=""
 else
     CLAUDE_FRONTEND_DESIGN="
@@ -6311,6 +6815,41 @@ fi
 # CRIAR CLAUDE.md — memória do projeto (lida pelo Claude a cada sessão)
 # ============================================================================
 
+if [ "$MONO" = 1 ]; then
+    CLAUDE_SPEC_LINE="\`docs/backend/SPEC.md\` e \`docs/frontend/SPEC.md\` — uma especificação por frente, que você escreve/edita"
+    CLAUDE_SRC_LINE="\`backend/\` e \`frontend/\` — o código de cada frente (cada uma com \`README.md\` e um \`CLAUDE.md\` curto)"
+    CLAUDE_FLUXO_EXTRA=" No monorepo cada rodada trabalha **uma frente**: \`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\` (sem argumento, ele pergunta)."
+    CLAUDE_MONO_BLOCK="
+## Monorepo: backend + frontend
+
+Este projeto é um **monorepo** com duas frentes — \`backend/\` ($BACK_LABEL) e \`frontend/\` ($FRONT_LABEL). O
+\`.claude/\`, o \`knowledge/\`, o \`docs/\` e o \`output/\` são **únicos e ficam na raiz**, compartilhados pelas duas.
+
+1. **Há um único \`knowledge/\`, na raiz, para as duas frentes.** Mesmo trabalhando só em \`frontend/\` ou
+   \`backend/\`, toda leitura e gravação de memória (vault, ADR, \`14 - Planejamento/\`) vai para
+   \`<raiz>/knowledge/\`. O mesmo vale para \`docs/\`, \`output/\` e \`.claude/\`. Nota do vault de uma frente só leva a
+   tag \`backend\` ou \`frontend\`; o \`Index.md\` lista as notas das duas.
+2. **Numeração de ADR:** como o vault é compartilhado, os ADRs do backend seguem \`ADR-NNN\` e os do frontend usam
+   \`ADR-FE-NNN\`, desde o primeiro, para não haver numeração repetida.
+3. **Comandos de build rodam dentro da pasta da frente:** \`cd backend && ...\` e \`cd frontend && ...\`, nunca na raiz.
+4. **Workflows de deploy** (\`.github/workflows/\`) têm \`paths:\` por pasta (\`backend/**\`, \`frontend/**\`) e
+   \`working-directory\`/\`context\` apontando para a subpasta.
+5. **\`.gitignore\` único**, com as regras das duas stacks; \`knowledge/\` e \`.claude/\` nunca são ignorados (só os chunks
+   derivados).
+6. **Agentes usam apelidos de modelo** (\`opus\`, \`sonnet\`, \`haiku\`), nunca um ID com versão. Quando um ID exato for
+   inevitável (código que chama a API da Anthropic), consulte a documentação atual — skill \`claude-api\` — em vez de
+   escrever de memória.
+
+**Abra o projeto pela raiz.** Abrindo só \`backend/\` ou \`frontend/\`, os agentes, comandos e skills do pipeline podem
+não carregar; o \`CLAUDE.md\` dessas pastas existe só como aviso. Cada frente tem sua spec em
+\`docs/<frente>/SPEC.md\`. Mudança que cruza as duas frentes são duas rodadas (backend primeiro).
+"
+else
+    CLAUDE_SPEC_LINE="\`docs/SPEC.md\` — a especificação que você escreve/edita"
+    CLAUDE_SRC_LINE="\`src/\` — código do projeto"
+    CLAUDE_FLUXO_EXTRA=""
+    CLAUDE_MONO_BLOCK=""
+fi
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
     echo -e "${YELLOW}⏭️  CLAUDE.md já existe — mantido sem alterações${NC}"
 else
@@ -6320,7 +6859,7 @@ cat > "$PROJECT_DIR/CLAUDE.md" << CLAUDEMDEOF
 Este projeto usa o **Pipeline SDD** (Spec-Driven Development): agentes especializados em
 \`.claude/agents/\` implementam, testam e revisam código a partir de \`docs/SPEC.md\`, disparados pelo
 comando \`/inicia-orquestracao\` (\`.claude/commands/inicia-orquestracao.md\`).
-
+$CLAUDE_MONO_BLOCK
 ## Comandos de build/teste
 
 \`\`\`bash
@@ -6329,14 +6868,14 @@ $CLAUDE_BUILD_STEPS
 
 ## Onde as coisas vivem
 
-- \`docs/SPEC.md\` — a especificação que você escreve/edita
+- $CLAUDE_SPEC_LINE
 - \`docs/raw/\` — documentação bruta opcional (Word, PDF, planilhas...); o \`01-analyst-sdd\` consolida em \`knowledge/\`
 - \`knowledge/\` — Base de Conhecimento (Obsidian-compatível). **Versionada no Git** — é a memória do projeto
 - \`knowledge/vault/14 - Planejamento/\` — o que está planejado e ainda NÃO foi implementado
 - \`output/\` — canal de passagem entre os agentes de cada rodada do \`/inicia-orquestracao\`. Só o
   \`token-report.md\` vai para o Git; os relatórios intermediários ficam fora dele e são apagados no fim da
   rodada — por isso nada que precise sobreviver à sessão pode ficar só aqui
-- \`src/\` — código do projeto
+- $CLAUDE_SRC_LINE
 - \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/inicia-orquestracao\` cuida disso)
 - \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
   duplicar uma convenção aqui)
@@ -6391,7 +6930,7 @@ toda alteração neles (inclusive \`.claude/settings.local.json\` e \`.mcp.json\
 Rode \`/inicia-orquestracao\` dentro do projeto. Ele tem uma única pausa manual, logo após a validação da spec — o
 resto roda automático até o fim, só parando de novo se um gate de qualidade (reviewer, testes, security scan)
 reportar falha. São 6 subagentes; cada etapa aprovada vira um commit local na conversa principal (fluxo do
-\`/commit\`) e o push acontece uma vez só, no fim.
+\`/commit\`) e o push acontece uma vez só, no fim.$CLAUDE_FLUXO_EXTRA
 
 ## Trabalhando em paralelo
 
@@ -6403,6 +6942,9 @@ arquivos, rode cada uma em uma worktree: \`claude --worktree nome-da-frente\`.
 <!-- Adicione aqui o que o Claude deveria saber sempre e que não está em .claude/rules/ nem nos agentes:
 comandos que você roda com frequência, decisões de arquitetura, coisas que o Claude já errou uma vez. -->
 CLAUDEMDEOF
+if [ "$MONO" = 1 ]; then
+    sed -i 's#a partir de `docs/SPEC.md`, disparados#a partir da spec de cada frente (`docs/<frente>/SPEC.md`), disparados#' "$PROJECT_DIR/CLAUDE.md"
+fi
 echo -e "${GREEN}✅ CLAUDE.md criado${NC}"
 fi
 
@@ -6476,7 +7018,17 @@ paths:
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/knowledge-vault.md criado${NC}"
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$MONO" = 1 ]; then
+    cat >> "$PROJECT_DIR/.claude/rules/knowledge-vault.md" << 'RULEEOF'
+- **Monorepo: o vault é um só, na raiz, para as duas frentes.** Mesmo trabalhando só em `backend/` ou em
+  `frontend/`, tudo vai para `<raiz>/knowledge/`. Nota de uma frente só leva a tag `backend` ou `frontend` no
+  frontmatter (`tags: [backend]`); nota que vale para as duas leva as duas. O `Index.md` lista as notas das duas.
+- **Monorepo: numeração de ADR.** Os ADRs do backend seguem `ADR-NNN`; os do frontend usam `ADR-FE-NNN`, desde o
+  primeiro, para não haver numeração repetida num vault compartilhado.
+RULEEOF
+fi
+
+if [ "$BACK_STACK" = "dotnet" ]; then
 cat > "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" << 'RULEEOF'
 ---
 paths:
@@ -6493,8 +7045,11 @@ paths:
 - Código pronto para produção, sem placeholders ou `TODO`.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/dotnet-clean-architecture.md criado${NC}"
-else
-        case "$STACK" in
+if [ "$MONO" = 1 ]; then mono_paths_sed "$PROJECT_DIR/.claude/rules/dotnet-clean-architecture.md" "$BACK_DIR"; fi
+fi
+if [ "$HAS_FRONT" = 1 ]; then
+        FRONT_RULE_LABEL="$STACK_LABEL"; [ "$MONO" = 1 ] && FRONT_RULE_LABEL="$FRONT_LABEL"
+        case "$FRONT_STACK" in
             react)   FRONTEND_RULE_PATHS='  - "src/**/*.ts"
   - "src/**/*.tsx"' ;;
             angular) FRONTEND_RULE_PATHS='  - "src/**/*.ts"' ;;
@@ -6507,7 +7062,7 @@ paths:
 $FRONTEND_RULE_PATHS
 ---
 
-# Convenções de Frontend — $STACK_LABEL
+# Convenções de Frontend — $FRONT_RULE_LABEL
 
 - Separe claramente componentes de apresentação (UI) de lógica de estado/negócio (hooks, services ou
   composables, conforme a stack).
@@ -6526,7 +7081,7 @@ paths:
 $FRONTEND_RULE_PATHS
 ---
 
-# Segurança de Frontend — $STACK_LABEL
+# Segurança de Frontend — $FRONT_RULE_LABEL
 
 Baseado nos 3 pontos de checagem manual (DevTools) que todo app publicado deveria passar antes de ir pra
 produção. O objetivo aqui é a IA já implementar certo, em vez do usuário ter que descobrir isso depois
@@ -6568,7 +7123,7 @@ paths:
 $FRONTEND_RULE_PATHS
 ---
 
-# Direção de Arte — $STACK_LABEL
+# Direção de Arte — $FRONT_RULE_LABEL
 
 Objetivo: sair de layout genérico de IA (cards iguais, hero previsível, fontes óbvias, grid sem hierarquia)
 para algo com direção de arte real. Siga isto ao criar ou revisar qualquer tela.
@@ -6607,6 +7162,11 @@ antes de salvar, não apenas relate:
 - O scroll conta uma história ou é só uma lista de seções empilhadas?
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-design-direction.md criado${NC}"
+if [ "$MONO" = 1 ]; then
+    for fe_rule in frontend-components frontend-security frontend-design-direction; do
+        mono_paths_sed "$PROJECT_DIR/.claude/rules/$fe_rule.md" "$FRONT_DIR"
+    done
+fi
 fi
 
 # ============================================================================
@@ -6614,7 +7174,50 @@ fi
 # (COMECE-AQUI.md foi absorvido por ele na v3.17.0)
 # ============================================================================
 
-if [ "$STACK" = "dotnet" ]; then
+README_SPEC_TREE="├── docs/
+│   ├── SPEC.md       (sua especificação)
+│   └── raw/           (opcional: sua documentação bruta — Word, PDF, planilhas...)"
+README_SPEC_PATH="docs/SPEC.md"
+README_MONO_TABLE=""
+README_RUN_LINE="/inicia-orquestracao"
+if [ "$MONO" = 1 ]; then
+    README_SPEC_TREE="├── docs/
+│   ├── backend/SPEC.md   (especificação do backend)
+│   ├── frontend/SPEC.md  (especificação do frontend)
+│   └── raw/              (opcional: documentação bruta compartilhada — Word, PDF, planilhas...)"
+    README_SPEC_PATH="docs/backend/SPEC.md\` (ou \`docs/frontend/SPEC.md"
+    README_RUN_LINE="/inicia-orquestracao backend
+/inicia-orquestracao frontend"
+    README_MONO_TABLE="
+## 🗂️ Monorepo: o que mora onde
+
+| Pasta | O que é |
+|---|---|
+| \`backend/\` | Código do backend ($BACK_LABEL). Como rodar: \`backend/README.md\` |
+| \`frontend/\` | Código do frontend ($FRONT_LABEL). Como rodar: \`frontend/README.md\` |
+| \`.claude/\` | Agentes, comandos, rules, skills e hooks — **um só**, compartilhado pelas duas frentes |
+| \`knowledge/\` | **Um único** vault para as duas frentes (nota de uma frente só leva a tag \`backend\` ou \`frontend\`) |
+| \`docs/backend/\`, \`docs/frontend/\` | Uma \`SPEC.md\` por frente; \`docs/raw/\` é compartilhada |
+| \`output/\` | Relatórios da rodada — só o \`token-report.md\` vai para o Git |
+| \`.github/workflows/\` | Um workflow por deploy, com \`paths:\` por pasta (\`backend/**\`, \`frontend/**\`) |
+
+**Abra o projeto pela raiz.** Cada rodada do \`/inicia-orquestracao\` trabalha uma frente
+(\`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`); mudança que cruza as duas são duas
+rodadas, backend primeiro. Para rodar as duas ao mesmo tempo, uma worktree por frente.
+"
+fi
+
+if [ "$MONO" = 1 ]; then
+    SRC_TREE="├── backend/          (código do backend — $BACK_LABEL)
+│   ├── CLAUDE.md     (aviso de monorepo)
+│   ├── README.md     (como rodar o backend)
+│   └── src/
+└── frontend/         (código do frontend — $FRONT_LABEL)
+    ├── CLAUDE.md     (aviso de monorepo)
+    ├── README.md     (como rodar o frontend)
+    └── src/"
+    OUTPUTS_DESC="o código da frente em backend/src/ ou frontend/src/ com build e testes passando de verdade, o relatório HTML da auditoria de segurança em docs/security-audit/, os testes e (no backend) o workflow de testes da API em docs/api/ e os commits já aplicados com push"
+elif [ "$STACK" = "dotnet" ]; then
     SRC_TREE="└── src/              (.NET Clean Architecture)
     ├── Domain/
     ├── Application/
@@ -6625,13 +7228,15 @@ else
     SRC_TREE="└── src/              (código do frontend, implementado pelo agente $SPECIALIST_AGENT_NAME)"
 fi
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$MONO" = 1 ]; then
+    :  # OUTPUTS_DESC do monorepo já definido acima
+elif [ "$STACK" = "dotnet" ]; then
     OUTPUTS_DESC="o código em src/ com build e testes passando de verdade, o relatório HTML da auditoria de segurança em docs/security-audit/, o workflow de testes da API em docs/api/ e os commits já aplicados com push"
 else
     OUTPUTS_DESC="o código em src/ com build e testes (unit + E2E) passando de verdade, o relatório HTML da auditoria de segurança em docs/security-audit/ e os commits já aplicados com push"
 fi
 
-if [ "$STACK" = "dotnet" ]; then
+if [ "$HAS_FRONT" = 0 ]; then
     FRONTEND_PLUGIN_STEP=""
 else
     FRONTEND_PLUGIN_STEP="
@@ -6658,7 +7263,7 @@ Projeto criado com **Pipeline SDD** — Stack: $STACK_LABEL
 
 Este é o único documento de entrada do projeto: o passo a passo para começar está aqui embaixo, e
 \`CLAUDE.md\` (ao lado) é a memória que o Claude lê sozinho em toda sessão — você raramente precisa abrir.
-
+$README_MONO_TABLE
 ---
 
 $FRONTEND_PLUGIN_STEP
@@ -6672,13 +7277,13 @@ de \`docs/SPEC.md\` pronto pra você revisar. Os originais nunca são alterados.
 
 ## ✍️ Passo 2 — Edite a especificação
 
-Abra \`docs/SPEC.md\` e descreva sua aplicação: requisitos funcionais, regras de negócio, modelo de dados,
+Abra \`$README_SPEC_PATH\` e descreva sua aplicação: requisitos funcionais, regras de negócio, modelo de dados,
 endpoints.
 
 ## 🚀 Passo 3 — Rode o orchestrador
 
 \`\`\`
-/inicia-orquestracao
+$README_RUN_LINE
 \`\`\`
 
 Ele tem uma única pausa manual, logo após validar a spec — o resto roda automático (~15-25 min), só
@@ -6721,9 +7326,7 @@ seu-projeto/
 │   ├── scripts/           (reconstrução do grafo/embeddings do Knowledge Engine + limpeza de output/)
 │   └── settings.json       (permissões + hook de tokens)
 │
-├── docs/
-│   ├── SPEC.md       (sua especificação)
-│   └── raw/           (opcional: sua documentação bruta — Word, PDF, planilhas...)
+$README_SPEC_TREE
 │
 ├── knowledge/         ✅ VERSIONADA — a memória do projeto
 │   ├── source/        (documentos originais preservados; texto/ = texto integral pesquisável)
@@ -6790,12 +7393,12 @@ Atualiza o plugin \`sdd\` e reaplica a estrutura do template neste projeto, pres
 **Comece agora:**
 
 \`\`\`
-/inicia-orquestracao
+$README_RUN_LINE
 \`\`\`
 
 ---
 
-**Projeto criado com Claude SDD v5.1.0**
+**Projeto criado com Claude SDD v6.0.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -6896,15 +7499,14 @@ const PRICING = {
   "claude-3-5-haiku": { in: 0.8, out: 4 },
 };
 
-// Modelo que ainda não está na tabela (ex.: lançado depois de 2026-09-10) é calculado com o preço
-// do modelo mais recente da mesma família — e o relatório avisa que aquele valor é aproximado.
-const FAMILY_FALLBACK = [
-  { family: /fable|mythos/, ref: "claude-fable-5-1" },
-  { family: /opus/, ref: "claude-opus-5-5" },
-  { family: /sonnet/, ref: "claude-sonnet-5" },
-  { family: /haiku/, ref: "claude-haiku-4-5" },
-];
-const DEFAULT_REF = "claude-opus-5-5"; // último recurso: nem a família do modelo foi reconhecida
+// Modelo que ainda não está na tabela (lançado depois dela) é calculado com o preço do modelo mais
+// recente da mesma família — o primeiro da PRICING que casa com a família (a tabela fica do mais novo
+// para o mais antigo) — e o relatório avisa para conferir a tabela. Nenhum ID é escrito aqui.
+const FAMILY_FALLBACK = [/fable|mythos/, /opus/, /sonnet/, /haiku/].map((family) => ({
+  family,
+  ref: Object.keys(PRICING).find((k) => family.test(k)),
+}));
+const DEFAULT_REF = FAMILY_FALLBACK.find((f) => f.family.test("opus")).ref; // nem a família foi reconhecida
 
 const WEB_SEARCH_USD_PER_REQUEST = 10 / 1000; // web search: US$ 10 por 1.000 buscas, além dos tokens
 const US_ONLY_INFERENCE_MULTIPLIER = 1.1; // inference_geo "us" (modelos 4.6+): 1.1x em todos os tokens
@@ -7471,6 +8073,7 @@ node -e '
 const fs = require("fs");
 const target = process.argv[1];
 const stackBash = JSON.parse(process.argv[2]);
+const editRules = JSON.parse(process.argv[3]);
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(target, "utf-8")); } catch { settings = {}; }
 settings.permissions = settings.permissions || {};
@@ -7482,9 +8085,6 @@ const generic = [
   "Edit(output/**)",
   "Edit(docs/**)",
   "Edit(knowledge/**)",
-  "Edit(src/**)",
-  "Edit(tests/**)",
-  "Edit(e2e/**)",
   "Bash(node .claude/scripts/knowledge-engine-build.cjs)",
   "Bash(node .claude/scripts/limpar-output.cjs)",
   // auditoria de segurança (06): leitura do histórico do Git atrás de segredos
@@ -7495,11 +8095,11 @@ const generic = [
 // próprio Claude Code ao carregar um settings.json com regra Write()). Idempotente: não mexe em
 // nenhuma outra regra que o usuário tenha adicionado por fora deste script.
 settings.permissions.allow = settings.permissions.allow.filter((r) => !/^Write\(/.test(r));
-for (const rule of [...generic, ...stackBash]) {
+for (const rule of [...generic, ...editRules, ...stackBash]) {
   if (!settings.permissions.allow.includes(rule)) settings.permissions.allow.push(rule);
 }
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
-' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON"
+' ""$PROJECT_DIR/.claude/settings.json"" "$PERM_BASH_JSON" "$PERM_EDIT_JSON"
 
 echo -e "${GREEN}✅ .claude/settings.json — permissões liberadas para leitura e para as ações que o pipeline precisa (escrita em output/, docs/, knowledge/, src/, build/test da stack)${NC}"
 
@@ -7543,7 +8143,7 @@ KSYNCEOF
 
 node -e '
 const fs = require("fs");
-const [target, stack] = process.argv.slice(1);
+const [target, hasFront] = process.argv.slice(1);
 const settings = JSON.parse(fs.readFileSync(target, "utf-8"));
 settings.hooks = settings.hooks || {};
 const post = Array.isArray(settings.hooks.PostToolUse) ? settings.hooks.PostToolUse : [];
@@ -7551,17 +8151,17 @@ if (!post.some((g) => Array.isArray(g.hooks) && g.hooks.some((h) => String(h.com
   post.push({ matcher: "Edit|Write|MultiEdit", hooks: [{ type: "command", command: "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/knowledge-sync.cjs\"", timeout: 60 }] });
 }
 settings.hooks.PostToolUse = post;
-if (stack !== "dotnet") {
+if (hasFront === "1") {
   settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
   settings.extraKnownMarketplaces["claude-plugins-official"] = { source: { source: "github", repo: "anthropics/claude-plugins-official" } };
   settings.enabledPlugins = settings.enabledPlugins || {};
   settings.enabledPlugins["frontend-design@claude-plugins-official"] = true;
 }
 fs.writeFileSync(target, JSON.stringify(settings, null, 2) + "\n", "utf-8");
-' ""$PROJECT_DIR/.claude/settings.json"" "$STACK"
+' ""$PROJECT_DIR/.claude/settings.json"" "$HAS_FRONT"
 
 echo -e "${GREEN}✅ .claude/hooks/knowledge-sync.cjs criado — vault atualizado reconstrói o grafo na hora${NC}"
-if [ "$STACK" != "dotnet" ]; then
+if [ "$HAS_FRONT" = 1 ]; then
     echo -e "${GREEN}✅ Plugin oficial frontend-design@claude-plugins-official habilitado em .claude/settings.json${NC}"
 fi
 
@@ -7734,10 +8334,10 @@ echo -e "${YELLOW}Próximos passos:${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
     echo "  1️⃣  (Opcional) Editar/completar a especificação com o que falta implementar"
-    echo "     nano docs/SPEC.md"
+    if [ "$MONO" = 1 ]; then echo "     nano docs/backend/SPEC.md   (ou docs/frontend/SPEC.md)"; else echo "     nano docs/SPEC.md"; fi
     echo ""
     echo "  2️⃣  Executar orchestrador (no Claude Code)"
-    echo "     /inicia-orquestracao"
+    if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
     echo ""
     echo -e "${YELLOW}Nada do seu código existente foi tocado ou sobrescrito${NC} — só foram acrescentadas as"
     echo "pastas e arquivos do pipeline (.claude/commands/, .claude/agents/, knowledge/). Os agentes de arquitetura"
@@ -7750,10 +8350,10 @@ else
     echo "     cp suas-especificacoes.docx docs/raw/"
     echo ""
     echo "  3️⃣  Editar especificação"
-    echo "     nano docs/SPEC.md"
+    if [ "$MONO" = 1 ]; then echo "     nano docs/backend/SPEC.md   (ou docs/frontend/SPEC.md)"; else echo "     nano docs/SPEC.md"; fi
     echo ""
     echo "  4️⃣  Executar orchestrador (no Claude Code)"
-    echo "     /inicia-orquestracao"
+    if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
 fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"

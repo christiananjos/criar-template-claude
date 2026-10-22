@@ -233,6 +233,7 @@ qualquer momento, fora de uma rodada do `/inicia-orquestracao`:
 |---|---|---|
 | `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `01-analyst-sdd` na próxima rodada do `/inicia-orquestracao`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
+| `/video-lancamento` | frontend | Opcional, fora do pipeline: com o sistema entregue, gera um vídeo curto de lançamento via plugin `brag` (confere Node 22+ e FFmpeg e orienta a instalação do plugin). |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
 `.csproj`, `DbContext`/EF Core e violação de camada; a de frontend procura `package.json`, mapa de rotas,
@@ -385,7 +386,7 @@ Nas stacks de front o template gera a rule `.claude/rules/frontend-ux-laws.md` c
 
 ## Plugin brag (opcional)
 
-O README de cada projeto de front traz o Passo 6, opcional: o plugin [`latent-spaces/brag`](https://github.com/latent-spaces/brag) (usa o HyperFrames) gera um vídeo de lançamento do sistema entregue. Não vem habilitado no `settings.json` por ser de terceiros; requer Node.js 22+ e FFmpeg. Instalação: `/plugin marketplace add latent-spaces/brag` e `/plugin install brag@brag`.
+Nas stacks de front, todo projeto sai com o comando avulso `/video-lancamento`, que envolve o plugin [`latent-spaces/brag`](https://github.com/latent-spaces/brag) (usa o HyperFrames) para gerar um vídeo de lançamento do sistema entregue. Fica fora do pipeline: nenhum agente o chama e o `/inicia-orquestracao` não depende dele. O plugin é de terceiros e não vem habilitado no `settings.json`; o comando confere Node.js 22+ e FFmpeg e orienta a instalação (`/plugin marketplace add latent-spaces/brag` e `/plugin install brag@brag`).
 
 ## Estrutura de projeto oficial do Claude Code
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v6.1.0
+# 🚀 Criar Template Claude SDD v6.1.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -184,7 +184,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.1.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.1.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6053,6 +6053,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
+- `/video-lancamento` — opcional, com o frontend já entregue: gera um vídeo curto de lançamento com o plugin `brag` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6184,6 +6185,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
+- `/video-lancamento` — opcional, com o sistema já entregue: gera um vídeo curto de lançamento com o plugin `brag` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6360,6 +6362,46 @@ mensagem, e nenhum commit sai sem eles.
     confirmação do push (ou o erro, se o push falhar — não tente forçar).
 COMMITEOF
 echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
+
+# ============================================================================
+# CRIAR .claude/commands/video-lancamento.md — só nas stacks de front. Comando
+# avulso e opcional: NÃO faz parte do pipeline nem é chamado por nenhum agente.
+# Envolve o plugin brag (latent-spaces/brag, de terceiros, usa HyperFrames).
+# ============================================================================
+
+if [ "$HAS_FRONT" = 1 ]; then
+cat > ""$PROJECT_DIR/.claude/commands/video-lancamento.md"" << 'VIDEOEOF'
+---
+description: Opcional — gera um vídeo curto de lançamento do sistema entregue com o plugin brag (latent-spaces/brag, usa HyperFrames). Fora do pipeline; só roda quando você chamar.
+allowed-tools: Bash(node --version), Bash(ffmpeg -version), Skill
+---
+
+# Vídeo de lançamento (opcional)
+
+Comando avulso: nenhum agente do pipeline chama isto, e o `/inicia-orquestracao` não depende dele. Use só se
+quiser um vídeo de divulgação do sistema entregue.
+
+## O que fazer
+
+1. Confira os requisitos rodando `node --version` (precisa ser 22 ou superior) e `ffmpeg -version`. Se algum
+   faltar ou estiver abaixo do necessário, diga exatamente o que instalar e pare — não tente instalar sozinho.
+
+2. Confira se a skill `brag` está disponível. Se não estiver, o plugin ainda não foi instalado: peça ao usuário
+   para rodar, uma vez, os dois comandos abaixo (são comandos do Claude Code, o usuário digita) e depois chamar
+   `/video-lancamento` de novo. É um plugin de terceiros — avise isso ao pedir a instalação.
+
+   ```
+   /plugin marketplace add latent-spaces/brag
+   /plugin install brag@brag
+   ```
+
+3. Com tudo pronto, invoque a skill `brag` (via Skill) sobre este projeto. Use `docs/SPEC.md` e o frontend (em
+   `src/`, ou `frontend/` no monorepo) como fonte do que o sistema faz; não invente funcionalidades que não existem no código.
+
+4. Reporte onde o vídeo foi gerado e como abri-lo. Se o render falhar, mostre o erro exato.
+VIDEOEOF
+echo -e "${GREEN}✅ .claude/commands/video-lancamento.md criado${NC}"
+fi
 
 # ============================================================================
 # CRIAR .claude/commands/raio-x-projeto.md — existe em todas as stacks, com o
@@ -7337,24 +7379,6 @@ claude plugin install frontend-design@claude-plugins-official
 "
 fi
 
-if [ "$HAS_FRONT" = 0 ]; then
-    BRAG_STEP=""
-else
-    BRAG_STEP="
-## 🎬 Passo 6 — (Opcional) Gere um vídeo de lançamento com o brag
-
-Sistema entregue e commitado? O plugin \`brag\` (repositório \`latent-spaces/brag\`, usa o HyperFrames) gera um
-vídeo curto de lançamento do projeto. Não vem habilitado: é de terceiros e só serve no fim. Requer Node.js 22+ e
-FFmpeg instalados. Instale uma vez e rode no projeto:
-
-\`\`\`
-/plugin marketplace add latent-spaces/brag
-/plugin install brag@brag
-/brag
-\`\`\`
-"
-fi
-
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
     echo -e "${YELLOW}⏭️  README.md já existe — mantido sem alterações${NC}"
 else
@@ -7406,7 +7430,7 @@ de cada rodada.
 
 O \`/commit\` sincroniza o \`knowledge/\` com o que mudou no código **antes** de montar a mensagem, e leva o
 vault no mesmo commit. É isso que faz a próxima sessão saber o que já foi feito e o que ficou planejado.
-$BRAG_STEP
+
 ---
 
 ## 📁 Estrutura
@@ -7500,7 +7524,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v6.1.0**
+**Projeto criado com Claude SDD v6.1.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

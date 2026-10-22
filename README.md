@@ -179,7 +179,7 @@ prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre id�
 | `02-architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
 | `03-dotnet-specialist` | Implementa o backend .NET 10 direto em `src/` — só termina com `dotnet build` passando | só stack `dotnet` |
 | `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend direto em `src/` — só termina com o build passando | só a stack correspondente |
-| `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte no frontend) | sempre |
+| `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte e as 7 leis de UX no frontend) | sempre |
 | `05-test-engineer` | Escreve os testes no projeto e **roda de verdade** build + testes + cobertura, corrigindo até ficar verde (até 3 rodadas). No `.NET`: unit + integração e o workflow de testes da API em `docs/api/testes-api.md`. No frontend: unit + E2E (smoke, invalidação de sessão, acessibilidade) | sempre |
 | `06-security-scan-sdd` | Audita cinco falhas de segurança (isolamento de inquilino, permissão só no navegador, IDOR, chaves expostas, XSS) **lendo o código, sem depender de scanner externo instalado**, corrige achados Critical/High que não alterem comportamento observável e gera relatório em HTML simples em `docs/security-audit/` com issues prontas para o GitHub | sempre |
 
@@ -378,6 +378,15 @@ O custo é calculado pelo modelo que realmente respondeu cada mensagem, então o
 
 Nas stacks de front (React, Angular, Vue) o `settings.json` habilita o plugin oficial de design da Anthropic, `frontend-design`, do marketplace `claude-plugins-official` ([anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)). Instale uma vez com `claude plugin install frontend-design@claude-plugins-official`.
 
+
+## 7 leis de UX
+
+Nas stacks de front o template gera a rule `.claude/rules/frontend-ux-laws.md` com as 7 leis de UX (Fitts, Hick, Zeigarnik, Jakob, gradiente de meta, Von Restorff e Miller; base: [lawsofux.com](https://lawsofux.com)). Regra central: tela boa faz o cliente pensar menos. O Architect inclui "Decisões de UX" na especificação técnica, o Specialist implementa e faz a Revisão Crítica de UX, e o Reviewer reporta "Ressalvas de UX" sem bloquear o pipeline. Em conflito com a Direção de Arte, a criatividade vale para a apresentação e o padrão de interação segue a convenção.
+
+## Plugin brag (opcional)
+
+O README de cada projeto de front traz o Passo 6, opcional: o plugin [`latent-spaces/brag`](https://github.com/latent-spaces/brag) (usa o HyperFrames) gera um vídeo de lançamento do sistema entregue. Não vem habilitado no `settings.json` por ser de terceiros; requer Node.js 22+ e FFmpeg. Instalação: `/plugin marketplace add latent-spaces/brag` e `/plugin install brag@brag`.
+
 ## Estrutura de projeto oficial do Claude Code
 
 Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela documentação oficial do Claude Code, não só com os arquivos específicos do pipeline SDD:
@@ -386,7 +395,7 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`.claude/skills/`** — skills de especialistas extras: a skill da própria stack (`dotnet-expert`, `react-expert`, `angular-expert` ou `vue-expert`), mais `cicd-pipeline-expert`, `tech-leader-expert`, `qa-expert`, `aws-expert`, `architect-expert`, `github-expert`, `azure-expert` e `hostinger-expert` em toda stack; mais `dba-expert` e `dotnet-security-expert` no `.NET`, ou `frontend-security-expert` no frontend. Ver seção "Skills" acima — e "Agente (specialist) x Skill (expert)" para a diferença entre as duas coisas.
 - **`CLAUDE.md`** — memória do projeto, lida em toda sessão (comandos de build/test da stack, onde as coisas vivem, como rodar o pipeline).
 - **`.mcp.json`** — servidores MCP do projeto: `context7` (documentação atualizada de bibliotecas, pronto pra uso) e um exemplo de `github` (só falta preencher o token).
-- **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança e direção de design no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
+- **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança, direção de design e as 7 leis de UX no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
 - **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`), o hook `PostToolUse` `knowledge-sync.cjs` (toda escrita em `knowledge/vault/` reconstrói o grafo na hora; escrita em outro arquivo lembra o Claude de atualizar o vault no mesmo turno) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`), além do `limpar-output.cjs`, que apaga os relatórios intermediários de `output/` no início de cada rodada e, se a rodada terminou, também no fim, sempre mantendo o `token-report.md`.
 - **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack), além do hook de tokens.
 - **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.

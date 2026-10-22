@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v6.0.0
+# 🚀 Criar Template Claude SDD v6.1.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -184,7 +184,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.0.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.1.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1169,6 +1169,11 @@ Com base em `docs/SPEC.md` e no relatório `output/1-analyst.md`, gere três doc
   azul genérico + cinza), biblioteca de motion escolhida para scroll/transições (GSAP, Framer Motion, ou nenhuma
   se o produto não pedir) e uma composição diferente planejada por seção da tela (não repetir a mesma grade de
   cards em tudo) — siga `.claude/rules/frontend-design-direction.md`
+- **Decisões de UX** (sempre incluir, junto com a direção de arte): para cada tela/fluxo, a ação principal (e
+  onde ela fica), como as opções e os campos são agrupados (uma decisão por vez, sem despejar mais de 7 opções
+  no mesmo nível), quais fluxos têm várias etapas (e portanto indicador de progresso "N de M") e quais padrões
+  de interação conhecidos serão usados como são (busca, carrinho, login, filtros) — siga
+  `.claude/rules/frontend-ux-laws.md`
 
 ### 2. TRACEABILITY_MATRIX.md
 Tabela mapeando cada requisito ao componente que vai implementá-lo:
@@ -1189,6 +1194,7 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Siga `.claude/rules/frontend-components.md` para separação componente/estado — não repita essas convenções aqui
 - Siga `.claude/rules/frontend-security.md` para os requisitos de segurança de autenticação — não repita essas convenções aqui
 - Siga `.claude/rules/frontend-design-direction.md` para a direção de arte — não repita essas convenções aqui
+- Siga `.claude/rules/frontend-ux-laws.md` para as decisões de UX — não repita essas convenções aqui
 - Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
 - Salve os três arquivos em `output/` com os nomes exatos acima
@@ -1404,6 +1410,10 @@ if [ "$HAS_FRONT" = 1 ]; then
 - **Direção de Arte** (`.claude/rules/frontend-design-direction.md`) — sinais de layout genérico de IA: mesmo
   card/seção repetido sem variação, só 1 família de fonte usada em todo o app, paleta limitada ao azul/cinza
   default do Tailwind sem customização, copy genérica ("Bem-vindo ao nosso site", "Lorem ipsum", "Get Started")
+- **UX** (`.claude/rules/frontend-ux-laws.md`) — as 7 leis de UX: ação principal sem destaque ou pequena
+  demais (Fitts), tela com opções demais no mesmo nível (Hick/Miller), fluxo de várias etapas sem indicador de
+  progresso (Zeigarnik/gradiente de meta), padrão conhecido reinventado (Jakob), destaque espalhado por tudo
+  (Von Restorff)
 CRITERIAEOF
     SECTION_FILE=$(mktemp)
     cat > "$SECTION_FILE" << 'SECTIONEOF'
@@ -1416,17 +1426,28 @@ CRITERIAEOF
 | Paleta default (azul/cinza Tailwind sem customização) | ✅ / ❌ | |
 | Copy genérica ("Bem-vindo ao nosso site" etc.) | ✅ / ❌ | |
 
+## Ressalvas de UX (não-bloqueante)
+| Lei de UX | Violada? | Onde |
+|-----------|----------|------|
+| Fitts — ação principal pequena ou sem destaque | ✅ / ❌ | |
+| Hick/Miller — opções demais no mesmo nível, sem agrupar | ✅ / ❌ | |
+| Zeigarnik/gradiente de meta — fluxo de várias etapas sem "N de M" ou barra de progresso | ✅ / ❌ | |
+| Jakob — padrão conhecido (busca, carrinho, login) reinventado | ✅ / ❌ | |
+| Von Restorff — destaque em tudo, nada se sobressai | ✅ / ❌ | |
+
 SECTIONEOF
     RULE_FILE=$(mktemp)
     cat > "$RULE_FILE" << 'RULEFEOF'
-- Ressalvas de Direção de Arte não bloqueiam o pipeline (é qualidade/gosto, não bug) — reporte com ⚠️ mesmo se o restante estiver ✅ APROVADO.
+- Ressalvas de Direção de Arte e de UX não bloqueiam o pipeline (é qualidade/gosto, não bug) — reporte com ⚠️ mesmo se o restante estiver ✅ APROVADO.
 RULEFEOF
 
     if [ "$MONO" = 1 ]; then
         # Monorepo: o checklist de frontend só vale quando a frente da rodada é a frontend.
         sed -i 's/^- \*\*Direção de Arte\*\*/- (somente quando a frente da rodada for `frontend`) **Direção de Arte**/' "$CRITERIA_FILE"
+        sed -i 's/^- \*\*UX\*\*/- (somente quando a frente da rodada for `frontend`) **UX**/' "$CRITERIA_FILE"
         sed -i 's/^## Ressalvas de Direção de Arte (não-bloqueante)/## Ressalvas de Direção de Arte (não-bloqueante) — só na frente `frontend`; na `backend`, omita esta seção/' "$SECTION_FILE"
-        sed -i 's/^- Ressalvas de Direção de Arte não bloqueiam/- (Frente `frontend`) Ressalvas de Direção de Arte não bloqueiam/' "$RULE_FILE"
+        sed -i 's/^## Ressalvas de UX (não-bloqueante)/## Ressalvas de UX (não-bloqueante) — só na frente `frontend`; na `backend`, omita esta seção/' "$SECTION_FILE"
+        sed -i 's/^- Ressalvas de Direção de Arte e de UX não bloqueiam/- (Frente `frontend`) Ressalvas de Direção de Arte e de UX não bloqueiam/' "$RULE_FILE"
     fi
 
     sed -i "/__FRONTEND_DESIGN_CRITERIA__/{
@@ -5503,6 +5524,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
+- Siga `.claude/rules/frontend-ux-laws.md` — implemente as Decisões de UX da especificação técnica (ação principal em destaque, poucas opções por tela, indicador de progresso em fluxos de várias etapas, padrões de interação conhecidos); responda também às perguntas de UX da Revisão Crítica da rule antes de salvar
 - Escreva o código direto em `src/` — não copie o código para o relatório
 - **Só encerre com o build passando**: rode o build da stack (`npm run build`, que inclui a checagem de tipos) e,
   se o projeto tiver, `npm run lint` — corrija até passar. Se as dependências não puderem ser instaladas no
@@ -5570,6 +5592,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
+- Siga `.claude/rules/frontend-ux-laws.md` — implemente as Decisões de UX da especificação técnica (ação principal em destaque, poucas opções por tela, indicador de progresso em fluxos de várias etapas, padrões de interação conhecidos); responda também às perguntas de UX da Revisão Crítica da rule antes de salvar
 - Escreva o código direto em `src/` — não copie o código para o relatório
 - **Só encerre com o build passando**: rode o build da stack (`npm run build`, que inclui a checagem de tipos) e,
   se o projeto tiver, `npm run lint` — corrija até passar. Se as dependências não puderem ser instaladas no
@@ -5636,6 +5659,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - Siga `.claude/rules/frontend-security.md` — nunca referencie segredo/API key em código que vai pro bundle, logout deve limpar todo o estado de sessão, rotas protegidas devem validar um token real
 - Use a skill `frontend-design` (plugin oficial `frontend-design@claude-plugins-official`, já habilitado no projeto) ao criar ou redesenhar qualquer tela ou componente visual
 - Siga `.claude/rules/frontend-design-direction.md` — implemente a Direção de Arte definida na especificação técnica (tipografia, layout, motion, cor); antes de salvar o output, faça a Revisão Crítica pedida na rule e corrija o que ela apontar
+- Siga `.claude/rules/frontend-ux-laws.md` — implemente as Decisões de UX da especificação técnica (ação principal em destaque, poucas opções por tela, indicador de progresso em fluxos de várias etapas, padrões de interação conhecidos); responda também às perguntas de UX da Revisão Crítica da rule antes de salvar
 - Escreva o código direto em `src/` — não copie o código para o relatório
 - **Só encerre com o build passando**: rode o build da stack (`npm run build`, que inclui a checagem de tipos) e,
   se o projeto tiver, `npm run lint` — corrija até passar. Se as dependências não puderem ser instaladas no
@@ -6808,6 +6832,9 @@ else
 Sempre que o pedido envolver tela, componente ou visual, use (e sugira ao usuário usar) a skill
 \`frontend-design\` do plugin oficial da Anthropic \`frontend-design@claude-plugins-official\`, já habilitado em
 \`.claude/settings.json\`. Não instalado? Sugira \`claude plugin install frontend-design@claude-plugins-official\`.
+
+Toda tela também segue as 7 leis de UX (\`.claude/rules/frontend-ux-laws.md\`): tela boa faz o cliente pensar
+menos — ação principal em destaque, poucas opções por tela, progresso visível em fluxos de várias etapas.
 "
 fi
 
@@ -7128,6 +7155,11 @@ $FRONTEND_RULE_PATHS
 Objetivo: sair de layout genérico de IA (cards iguais, hero previsível, fontes óbvias, grid sem hierarquia)
 para algo com direção de arte real. Siga isto ao criar ou revisar qualquer tela.
 
+**Precedência com UX:** a criatividade vale para a *apresentação* (tipografia, cor, composição, motion). Os
+*padrões de interação* (busca, carrinho, login, filtros, navegação) seguem as convenções que o usuário já conhece
+— veja \`.claude/rules/frontend-ux-laws.md\`. Quebrar a grade não pode esconder a ação principal nem espalhar
+destaque por tudo.
+
 **Sempre use a skill \`frontend-design\`** (plugin oficial da Anthropic, \`frontend-design@claude-plugins-official\`,
 já habilitado em \`.claude/settings.json\`) ao criar ou redesenhar tela/componente, e sugira ao usuário usá-la
 sempre que o pedido envolver interface. Se o plugin não estiver instalado, sugira
@@ -7162,8 +7194,60 @@ antes de salvar, não apenas relate:
 - O scroll conta uma história ou é só uma lista de seções empilhadas?
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/frontend-design-direction.md criado${NC}"
+
+cat > "$PROJECT_DIR/.claude/rules/frontend-ux-laws.md" << RULEEOF
+---
+paths:
+$FRONTEND_RULE_PATHS
+---
+
+# 7 Leis de UX — $FRONT_RULE_LABEL
+
+Base: lawsofux.com. Regra central: **tela boa faz o cliente pensar menos.** Aplique ao criar ou revisar
+qualquer tela, formulário ou fluxo. Complementa a Direção de Arte (\`frontend-design-direction.md\`): onde as
+duas divergirem, a criatividade vale para a apresentação e o padrão de interação segue a convenção.
+
+## 1. Fitts — a ação principal é grande e fácil de alcançar
+- Cada tela tem uma ação principal (comprar, enviar, continuar). Ela é o maior alvo clicável da tela, com
+  contraste claro e posição previsível; no mobile, ao alcance do polegar.
+- Ações secundárias e destrutivas ficam menores e afastadas da principal.
+
+## 2. Hick — poucas opções por tela
+- Não apresente 12 escolhas de uma vez. Passe de 7 opções no mesmo nível: agrupe, esconda atrás de "mais" ou
+  divida em etapas.
+- Prefira uma recomendação padrão pré-selecionada quando houver uma escolha óbvia.
+
+## 3. Zeigarnik — mostre o progresso
+- Fluxo com 2 ou mais etapas mostra onde o usuário está ("4 de 5 passos"): tarefa começada e visivelmente
+  incompleta puxa o usuário a terminar.
+
+## 4. Jakob — não reinvente padrões
+- Busca, carrinho, login, filtros, paginação, menu e ícones seguem o que os usuários já conhecem de outros
+  sites. Inove na apresentação, não na interação.
+
+## 5. Gradiente de meta — barra de progresso
+- Quanto mais perto da meta, mais motivado o usuário fica: use barra de progresso, contador de etapas ou
+  checklist de conclusão em onboarding, checkout e formulários longos.
+
+## 6. Von Restorff — destaque só o que importa
+- Se tudo grita, nada aparece. Um destaque visual (cor, tamanho, movimento) por região da tela, reservado ao que
+  o usuário precisa notar primeiro.
+
+## 7. Miller — agrupe e peça uma decisão por vez
+- Agrupe opções e campos relacionados em blocos com título; divida formulários longos em etapas curtas, com uma
+  decisão por vez.
+
+## Revisão Crítica de UX (obrigatória antes de salvar o output)
+Depois de gerar qualquer tela, responda a si mesmo — se apontar problema, corrija antes de salvar:
+- Qual é a ação principal desta tela, e ela é a coisa mais fácil de achar e clicar?
+- Há mais de 7 opções no mesmo nível sem agrupamento?
+- Todo fluxo de várias etapas mostra o progresso?
+- Algum padrão conhecido (busca, carrinho, login) foi reinventado sem necessidade?
+- Mais de um elemento disputa o destaque na mesma região?
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/frontend-ux-laws.md criado${NC}"
 if [ "$MONO" = 1 ]; then
-    for fe_rule in frontend-components frontend-security frontend-design-direction; do
+    for fe_rule in frontend-components frontend-security frontend-design-direction frontend-ux-laws; do
         mono_paths_sed "$PROJECT_DIR/.claude/rules/$fe_rule.md" "$FRONT_DIR"
     done
 fi
@@ -7253,6 +7337,24 @@ claude plugin install frontend-design@claude-plugins-official
 "
 fi
 
+if [ "$HAS_FRONT" = 0 ]; then
+    BRAG_STEP=""
+else
+    BRAG_STEP="
+## 🎬 Passo 6 — (Opcional) Gere um vídeo de lançamento com o brag
+
+Sistema entregue e commitado? O plugin \`brag\` (repositório \`latent-spaces/brag\`, usa o HyperFrames) gera um
+vídeo curto de lançamento do projeto. Não vem habilitado: é de terceiros e só serve no fim. Requer Node.js 22+ e
+FFmpeg instalados. Instale uma vez e rode no projeto:
+
+\`\`\`
+/plugin marketplace add latent-spaces/brag
+/plugin install brag@brag
+/brag
+\`\`\`
+"
+fi
+
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
     echo -e "${YELLOW}⏭️  README.md já existe — mantido sem alterações${NC}"
 else
@@ -7304,7 +7406,7 @@ de cada rodada.
 
 O \`/commit\` sincroniza o \`knowledge/\` com o que mudou no código **antes** de montar a mensagem, e leva o
 vault no mesmo commit. É isso que faz a próxima sessão saber o que já foi feito e o que ficou planejado.
-
+$BRAG_STEP
 ---
 
 ## 📁 Estrutura
@@ -7398,7 +7500,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v6.0.0**
+**Projeto criado com Claude SDD v6.1.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

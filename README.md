@@ -176,7 +176,7 @@ prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre id�
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
 | `01-analyst-sdd` | **Parte A** (só se `docs/raw/` tiver arquivos): consolida a documentação bruta na Base de Conhecimento em `knowledge/`. **Parte B** (sempre): valida `docs/SPEC.md` e gera o relatório da pausa de aprovação | sempre |
-| `02-architect-sdd` | Gera arquitetura técnica e rastreabilidade | sempre |
+| `02-architect-sdd` | Gera arquitetura técnica, rastreabilidade e o plano de execução em ondas (`EXECUTION_PLAN.md`: unidades, dependências e dono de cada arquivo) | sempre |
 | `03-dotnet-specialist` | Implementa o backend .NET 10 direto em `src/` — só termina com `dotnet build` passando | só stack `dotnet` |
 | `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend direto em `src/` — só termina com o build passando | só a stack correspondente |
 | `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte e as 7 leis de UX no frontend) | sempre |

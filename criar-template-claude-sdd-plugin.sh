@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v6.1.1
+# 🚀 Criar Template Claude SDD v6.2.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -184,7 +184,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.1.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.2.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1083,7 +1083,7 @@ Se `src/` estiver vazio ou não existir, prossiga normalmente como projeto novo 
 
 ## O Que Você Faz
 
-Com base em `docs/SPEC.md` e no relatório `output/1-analyst.md`, gere três documentos:
+Com base em `docs/SPEC.md` e no relatório `output/1-analyst.md`, gere quatro documentos:
 
 ### 1. TECHNICAL_SPECIFICATION.md
 - Camadas: Domain, Application, Infrastructure, API
@@ -1106,12 +1106,52 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Alternativas consideradas
 - Justificativa
 
+### 4. EXECUTION_PLAN.md
+O plano que permite ao orquestrador implementar várias partes **ao mesmo tempo** sem uma pisar na outra.
+Quebre o trabalho em **unidades**: fatias verticais coerentes (backend: módulo/agregado com seus use cases,
+repositório e controller; frontend: tela ou feature com seus componentes, hooks/services e estilos). Cada unidade
+tem um id (`U01`, `U02`...), as unidades de que depende e a lista **fechada** dos arquivos que ela cria ou altera.
+
+```markdown
+# Plano de Execução
+
+## Modo: PARALELO / SERIAL
+[SERIAL quando houver menos de 3 unidades independentes no total — a coordenação não compensa. Diga o motivo.]
+
+## Fundação (Onda 0 — serial, uma execução só)
+O que todas as unidades usam e que precisa existir antes: entidade/contrato base, autenticação, DbContext base,
+cliente HTTP, layout, design tokens, rota raiz. Liste os arquivos.
+
+## Unidades
+| Id | Unidade | Onda | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
+|----|---------|------|------------|-------------------------------------------|------------|
+| U01 | Pedidos | 1 | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+
+## Arquivos compartilhados (só a costura toca)
+Registro de DI/Program.cs, tabela de rotas, DbContext (DbSet), migrations, módulo/app raiz, menu de navegação,
+arquivos de i18n, `package.json`/`.csproj` — qualquer arquivo que mais de uma unidade precisaria editar.
+
+## Ordem de commit
+Ordem em que as unidades viram commits (uma por unidade) depois da costura.
+```
+
+Regras do plano:
+- **Cada arquivo pertence a uma unidade só.** Arquivo que duas unidades precisariam editar vai para "Arquivos
+  compartilhados" — nunca fica com uma das duas.
+- A **Onda** de uma unidade é 1 + a maior onda das unidades de que ela depende (Onda 1 = depende só da fundação).
+  Unidades da mesma onda **não podem depender uma da outra** e rodam ao mesmo tempo; se duas dependem uma da
+  outra, junte-as numa unidade só.
+- Prefira unidades de tamanho parecido (nenhuma deve ser tão grande que sozinha atrase a onda) e que dependam
+  do contrato (DTO/interface/rota), não da implementação uma da outra.
+- Num projeto acoplado, arquivos já existentes que a unidade vai alterar também entram na lista dela.
+- Na dúvida entre paralelo e serial, escolha serial — plano errado custa mais do que tempo.
+
 ## Regras Importantes
 
 - Siga sempre Clean Architecture (Domain não depende de nada; Application depende só de Domain; Infrastructure e API dependem de Application)
 - Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
-- Salve os três arquivos em `output/` com os nomes exatos acima
+- Salve os quatro arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 else
     cat > ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md"" << 'AGENTEOF'
@@ -1151,7 +1191,7 @@ Se `src/` estiver vazio ou não existir, prossiga normalmente como projeto novo 
 
 ## O Que Você Faz
 
-Com base em `docs/SPEC.md` e no relatório `output/1-analyst.md`, gere três documentos:
+Com base em `docs/SPEC.md` e no relatório `output/1-analyst.md`, gere quatro documentos:
 
 ### 1. TECHNICAL_SPECIFICATION.md
 - Estrutura de pastas do projeto (componentes, páginas/rotas, serviços/composables/hooks, estado)
@@ -1189,6 +1229,46 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Alternativas consideradas
 - Justificativa
 
+### 4. EXECUTION_PLAN.md
+O plano que permite ao orquestrador implementar várias partes **ao mesmo tempo** sem uma pisar na outra.
+Quebre o trabalho em **unidades**: fatias verticais coerentes (backend: módulo/agregado com seus use cases,
+repositório e controller; frontend: tela ou feature com seus componentes, hooks/services e estilos). Cada unidade
+tem um id (`U01`, `U02`...), as unidades de que depende e a lista **fechada** dos arquivos que ela cria ou altera.
+
+```markdown
+# Plano de Execução
+
+## Modo: PARALELO / SERIAL
+[SERIAL quando houver menos de 3 unidades independentes no total — a coordenação não compensa. Diga o motivo.]
+
+## Fundação (Onda 0 — serial, uma execução só)
+O que todas as unidades usam e que precisa existir antes: entidade/contrato base, autenticação, DbContext base,
+cliente HTTP, layout, design tokens, rota raiz. Liste os arquivos.
+
+## Unidades
+| Id | Unidade | Onda | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
+|----|---------|------|------------|-------------------------------------------|------------|
+| U01 | Pedidos | 1 | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+
+## Arquivos compartilhados (só a costura toca)
+Registro de DI/Program.cs, tabela de rotas, DbContext (DbSet), migrations, módulo/app raiz, menu de navegação,
+arquivos de i18n, `package.json`/`.csproj` — qualquer arquivo que mais de uma unidade precisaria editar.
+
+## Ordem de commit
+Ordem em que as unidades viram commits (uma por unidade) depois da costura.
+```
+
+Regras do plano:
+- **Cada arquivo pertence a uma unidade só.** Arquivo que duas unidades precisariam editar vai para "Arquivos
+  compartilhados" — nunca fica com uma das duas.
+- A **Onda** de uma unidade é 1 + a maior onda das unidades de que ela depende (Onda 1 = depende só da fundação).
+  Unidades da mesma onda **não podem depender uma da outra** e rodam ao mesmo tempo; se duas dependem uma da
+  outra, junte-as numa unidade só.
+- Prefira unidades de tamanho parecido (nenhuma deve ser tão grande que sozinha atrase a onda) e que dependam
+  do contrato (DTO/interface/rota), não da implementação uma da outra.
+- Num projeto acoplado, arquivos já existentes que a unidade vai alterar também entram na lista dela.
+- Na dúvida entre paralelo e serial, escolha serial — plano errado custa mais do que tempo.
+
 ## Regras Importantes
 
 - Siga `.claude/rules/frontend-components.md` para separação componente/estado — não repita essas convenções aqui
@@ -1197,7 +1277,7 @@ Decisões arquiteturais relevantes (formato ADR curto):
 - Siga `.claude/rules/frontend-ux-laws.md` para as decisões de UX — não repita essas convenções aqui
 - Seja específico o suficiente para que __SPECIALIST__ não precise tomar decisões arquiteturais por conta própria
 - Não escreva código de implementação aqui — apenas especificação técnica
-- Salve os três arquivos em `output/` com os nomes exatos acima
+- Salve os quatro arquivos em `output/` com os nomes exatos acima
 AGENTEOF
 fi
 sed -i "s/__SPECIALIST__/$SPECIALIST_AGENT_NAME/g" ""$PROJECT_DIR/.claude/agents/02-architect-sdd.md""
@@ -1222,8 +1302,8 @@ Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD, num **monore
 (`backend` e `frontend`). Cada rodada trabalha **uma frente**: descubra qual é pelo prompt de invocação
 (`backend` ou `frontend`) e siga **só a seção dela** abaixo — ignore a outra.
 
-Os três documentos de saída têm os mesmos nomes de sempre (`output/TECHNICAL_SPECIFICATION.md`,
-`output/TRACEABILITY_MATRIX.md`, `output/TECHNICAL_DECISIONS.md`); não duplique por frente. Cada decisão
+Os quatro documentos de saída têm os mesmos nomes de sempre (`output/TECHNICAL_SPECIFICATION.md`,
+`output/TRACEABILITY_MATRIX.md`, `output/TECHNICAL_DECISIONS.md`, `output/EXECUTION_PLAN.md`); não duplique por frente. Cada decisão
 relevante vira um ADR no vault compartilhado (`knowledge/vault/10 - ADR/`): no backend com a numeração
 `ADR-NNN`; no frontend com `ADR-FE-NNN`, desde o primeiro, para não haver numeração repetida.
 
@@ -1295,6 +1375,35 @@ proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do ze
 - Configuração de DI (Program.cs)
 - Configuração de autenticação JWT, se aplicável
 
+## Modos de execução (o prompt de invocação diz qual)
+
+- **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
+- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação.
+  Roda o build como de costume e grava `output/3-dotnet-specialist-F0.md`.
+- **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
+  Regras que valem só neste modo, e que prevalecem sobre o resto do arquivo:
+  - Leia a sua linha em `output/EXECUTION_PLAN.md` e **crie/altere apenas os arquivos que ela lista**. Os
+    arquivos de "Arquivos compartilhados" e os de outras unidades são proibidos, mesmo que pareçam faltar algo.
+  - O que precisa ser registrado num arquivo compartilhado (DI, rota, `DbSet`, dependência nova) **não** é
+    editado por você: anote, uma linha por item, em `output/costura-<id>.md` (arquivo alvo, o que adicionar,
+    trecho de código pronto).
+  - **Não rode** `dotnet build`, restore, migrations nem `knowledge-engine-build.cjs`: os outros estão escrevendo
+    ao mesmo tempo e o build de um quebra no meio do trabalho do outro. Releia o que escreveu e confira nomes,
+    usings e contratos contra o `TECHNICAL_SPECIFICATION.md`.
+  - No vault, atualize só notas da sua unidade (nome próprio, sem mexer em índices ou notas compartilhadas) e
+    pule o passo de rebuild da sincronização — a costura faz.
+  - Contratos de outras unidades ou da fundação, só leitura: se algo que você precisa não existir, registre em
+    `output/costura-<id>.md` em vez de criar.
+  - Relatório curto em `output/3-dotnet-specialist-<id>.md` (mesmo formato do relatório normal, sem o resultado
+    de build, que não foi rodado).
+- **`Costura`** — roda sozinho, depois que todas as unidades terminaram. Você é o dono dos arquivos
+  compartilhados: leia todos os `output/costura-*.md` e `output/3-dotnet-specialist-U*.md`, aplique os
+  registros, resolva conflito e inconsistência entre unidades (nomes, contratos, usings duplicados), gere a
+  migration única se houver mudança de modelo, rode `dotnet build` **e corrija até passar**, e rode
+  `node .claude/scripts/knowledge-engine-build.cjs`. Termine consolidando tudo em
+  `output/3-dotnet-specialist.md` (o relatório que o Reviewer lê): arquivos por unidade, decisões, pendências e
+  o resultado do build.
+
 ## Padrões Obrigatórios
 
 Siga `.claude/rules/dotnet-clean-architecture.md` (carrega automaticamente ao mexer em `src/**/*.cs`): SOLID,
@@ -1315,7 +1424,7 @@ fi
 cat > ""$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md"" << 'AGENTEOF'
 ---
 name: 04-reviewer-sdd
-description: Use this agent after __SPECIALIST__ has implemented the code, to review it in a single pass from two angles — compliance with the specification/traceability matrix and code quality (SOLID, clean code, patterns, performance). Use PROACTIVELY as step 4 of the SDD pipeline, before tests are written. Examples: <example>Context: Code was just implemented. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente 04-reviewer-sdd para verificar se o código atende 100% a especificação e revisar a qualidade numa leitura só." <commentary>Compliance and quality are checked in the same read of the code, before investing time in tests for potentially incorrect code.</commentary></example>
+description: Use this agent after __SPECIALIST__ has implemented the code, to review it in a single pass from two angles — compliance with the specification/traceability matrix and code quality (SOLID, clean code, patterns, performance). Use PROACTIVELY as step 4 of the SDD pipeline (it runs at the same time as 05-test-engineer, since it only reads the code). Examples: <example>Context: Code was just implemented. user: "O código foi gerado, confere se está tudo certo" assistant: "Vou usar o agente 04-reviewer-sdd para verificar se o código atende 100% a especificação e revisar a qualidade numa leitura só." <commentary>Compliance and quality are checked in the same read of the code, before investing time in tests for potentially incorrect code.</commentary></example>
 tools: Read, Grep, Glob
 model: opus
 ---
@@ -1473,7 +1582,7 @@ if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/.claude/agents/05-test-engineer.md"" << 'AGENTEOF'
 ---
 name: 05-test-engineer
-description: Use this agent after 04-reviewer-sdd has approved the code, to write the backend automated tests into the project, actually run build + tests + coverage, fix until green, and produce the API testing workflow (cURL per endpoint). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes, rodar build e testes de verdade e gerar o workflow de testes da API." <commentary>Tests are written and executed in the same step, so the pipeline knows for real whether the code builds and passes — no simulated build validation.</commentary></example>
+description: Use this agent after the code is implemented (it runs at the same time as 04-reviewer-sdd; if the review fails, the pipeline discards this step), to write the backend automated tests into the project, actually run build + tests + coverage, fix until green, and produce the API testing workflow (cURL per endpoint). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes, rodar build e testes de verdade e gerar o workflow de testes da API." <commentary>Tests are written and executed in the same step, so the pipeline knows for real whether the code builds and passes — no simulated build validation.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 ---
@@ -1592,7 +1701,7 @@ else
     cat > ""$PROJECT_DIR/.claude/agents/05-test-engineer.md"" << 'AGENTEOF'
 ---
 name: 05-test-engineer
-description: Use this agent after 04-reviewer-sdd has approved the code, to write the frontend automated tests (unit + end-to-end, including the session-invalidation check required by the project's frontend security rules) into the project, actually run build + tests, and fix until green. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes unitários e E2E e rodar tudo de verdade." <commentary>Unit and E2E tests are written and executed in one step, so the pipeline knows for real whether the app builds and the flows work.</commentary></example>
+description: Use this agent after the code is implemented (it runs at the same time as 04-reviewer-sdd; if the review fails, the pipeline discards this step), to write the frontend automated tests (unit + end-to-end, including the session-invalidation check required by the project's frontend security rules) into the project, actually run build + tests, and fix until green. Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o agente 05-test-engineer para escrever os testes unitários e E2E e rodar tudo de verdade." <commentary>Unit and E2E tests are written and executed in one step, so the pipeline knows for real whether the app builds and the flows work.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 ---
@@ -1714,7 +1823,7 @@ if [ "$MONO" = 1 ]; then
         cat << 'AGENTEOF'
 ---
 name: 05-test-engineer
-description: Use this agent after 04-reviewer-sdd has approved the code, to write the automated tests of the round's front (backend or frontend) of the monorepo, actually run build + tests + coverage, fix until green, and produce the test report (plus the API testing workflow on the backend front). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review of the backend front passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o 05-test-engineer, na seção da frente backend, para escrever e rodar os testes de verdade." <commentary>Tests come after the review gate; the agent applies only the section of the round's front.</commentary></example>
+description: Use this agent after the code is implemented (it runs at the same time as 04-reviewer-sdd; if the review fails, the pipeline discards this step), to write the automated tests of the round's front (backend or frontend) of the monorepo, actually run build + tests + coverage, fix until green, and produce the test report (plus the API testing workflow on the backend front). Use PROACTIVELY as step 5 of the SDD pipeline. Examples: <example>Context: Review of the backend front passed. user: "Revisão aprovada, agora precisa dos testes" assistant: "Vou usar o 05-test-engineer, na seção da frente backend, para escrever e rodar os testes de verdade." <commentary>Tests come after the review gate; the agent applies only the section of the round's front.</commentary></example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 ---
@@ -5509,6 +5618,37 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Client de API** centralizado (fetch/axios com tratamento de erro padronizado)
 - **Animações scroll-triggered** com Framer Motion nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
 
+## Modos de execução (o prompt de invocação diz qual)
+
+- **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
+- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+  (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
+  relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
+- **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
+  Regras que valem só neste modo, e que prevalecem sobre o resto do arquivo:
+  - Leia a sua linha em `output/EXECUTION_PLAN.md` e **crie/altere apenas os arquivos que ela lista**. Os
+    arquivos de "Arquivos compartilhados" e os de outras unidades são proibidos, mesmo que pareçam faltar algo.
+  - O que precisa ser registrado num arquivo compartilhado (tabela de rotas, item de menu, provider, dependência
+    nova, chave de i18n) **não** é editado por você: anote, uma linha por item, em `output/costura-<id>.md`
+    (arquivo alvo, o que adicionar, trecho de código pronto).
+  - **Não rode** build, lint, instalação de dependências nem `knowledge-engine-build.cjs`: os outros estão
+    escrevendo ao mesmo tempo e o build de um quebra no meio do trabalho do outro. Releia o que escreveu e
+    confira nomes, imports, tipos e contratos contra o `TECHNICAL_SPECIFICATION.md`.
+  - Use os design tokens e componentes da fundação; não crie token, fonte ou componente base novo — se faltar
+    algum, registre em `output/costura-<id>.md`.
+  - No vault, atualize só notas da sua unidade (nome próprio, sem mexer em índices ou notas compartilhadas) e
+    pule o passo de rebuild da sincronização — a costura faz.
+  - Contratos de outras unidades ou da fundação, só leitura: se algo que você precisa não existir, registre em
+    `output/costura-<id>.md` em vez de criar.
+  - Relatório curto com o nome do relatório normal acrescido de `-<id>` antes do `.md` (mesmo formato, sem o
+    resultado de build, que não foi rodado).
+- **`Costura`** — roda sozinho, depois que todas as unidades terminaram. Você é o dono dos arquivos
+  compartilhados: leia todos os `output/costura-*.md` e os relatórios das unidades (`-U*.md`), aplique os
+  registros, resolva conflito e inconsistência entre unidades (nomes, tipos, imports duplicados, rotas), instale
+  dependências novas, rode o build (`npm run build`) e o lint, se houver, **e corrija até passar**, e rode
+  `node .claude/scripts/knowledge-engine-build.cjs`. Termine consolidando tudo no relatório normal (o que o
+  Reviewer lê): arquivos por unidade, decisões, pendências e o resultado do build.
+
 ## Padrões Obrigatórios
 
 - TypeScript estrito (sem `any` desnecessário)
@@ -5577,6 +5717,37 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Interceptors** para tratamento centralizado de erro e autenticação (se aplicável)
 - **Animações scroll-triggered** com GSAP nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
 
+## Modos de execução (o prompt de invocação diz qual)
+
+- **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
+- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+  (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
+  relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
+- **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
+  Regras que valem só neste modo, e que prevalecem sobre o resto do arquivo:
+  - Leia a sua linha em `output/EXECUTION_PLAN.md` e **crie/altere apenas os arquivos que ela lista**. Os
+    arquivos de "Arquivos compartilhados" e os de outras unidades são proibidos, mesmo que pareçam faltar algo.
+  - O que precisa ser registrado num arquivo compartilhado (tabela de rotas, item de menu, provider, dependência
+    nova, chave de i18n) **não** é editado por você: anote, uma linha por item, em `output/costura-<id>.md`
+    (arquivo alvo, o que adicionar, trecho de código pronto).
+  - **Não rode** build, lint, instalação de dependências nem `knowledge-engine-build.cjs`: os outros estão
+    escrevendo ao mesmo tempo e o build de um quebra no meio do trabalho do outro. Releia o que escreveu e
+    confira nomes, imports, tipos e contratos contra o `TECHNICAL_SPECIFICATION.md`.
+  - Use os design tokens e componentes da fundação; não crie token, fonte ou componente base novo — se faltar
+    algum, registre em `output/costura-<id>.md`.
+  - No vault, atualize só notas da sua unidade (nome próprio, sem mexer em índices ou notas compartilhadas) e
+    pule o passo de rebuild da sincronização — a costura faz.
+  - Contratos de outras unidades ou da fundação, só leitura: se algo que você precisa não existir, registre em
+    `output/costura-<id>.md` em vez de criar.
+  - Relatório curto com o nome do relatório normal acrescido de `-<id>` antes do `.md` (mesmo formato, sem o
+    resultado de build, que não foi rodado).
+- **`Costura`** — roda sozinho, depois que todas as unidades terminaram. Você é o dono dos arquivos
+  compartilhados: leia todos os `output/costura-*.md` e os relatórios das unidades (`-U*.md`), aplique os
+  registros, resolva conflito e inconsistência entre unidades (nomes, tipos, imports duplicados, rotas), instale
+  dependências novas, rode o build (`npm run build`) e o lint, se houver, **e corrija até passar**, e rode
+  `node .claude/scripts/knowledge-engine-build.cjs`. Termine consolidando tudo no relatório normal (o que o
+  Reviewer lê): arquivos por unidade, decisões, pendências e o resultado do build.
+
 ## Padrões Obrigatórios
 
 - TypeScript estrito (sem `any` desnecessário)
@@ -5644,6 +5815,37 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 - **Vue Router** para as páginas principais da aplicação
 - **Pinia** para estado compartilhado, se necessário
 - **Animações scroll-triggered** com GSAP nas seções que a Direção de Arte da especificação técnica pedir (hero, transições entre blocos) — só se a spec descrever isso
+
+## Modos de execução (o prompt de invocação diz qual)
+
+- **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
+- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+  (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
+  relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
+- **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
+  Regras que valem só neste modo, e que prevalecem sobre o resto do arquivo:
+  - Leia a sua linha em `output/EXECUTION_PLAN.md` e **crie/altere apenas os arquivos que ela lista**. Os
+    arquivos de "Arquivos compartilhados" e os de outras unidades são proibidos, mesmo que pareçam faltar algo.
+  - O que precisa ser registrado num arquivo compartilhado (tabela de rotas, item de menu, provider, dependência
+    nova, chave de i18n) **não** é editado por você: anote, uma linha por item, em `output/costura-<id>.md`
+    (arquivo alvo, o que adicionar, trecho de código pronto).
+  - **Não rode** build, lint, instalação de dependências nem `knowledge-engine-build.cjs`: os outros estão
+    escrevendo ao mesmo tempo e o build de um quebra no meio do trabalho do outro. Releia o que escreveu e
+    confira nomes, imports, tipos e contratos contra o `TECHNICAL_SPECIFICATION.md`.
+  - Use os design tokens e componentes da fundação; não crie token, fonte ou componente base novo — se faltar
+    algum, registre em `output/costura-<id>.md`.
+  - No vault, atualize só notas da sua unidade (nome próprio, sem mexer em índices ou notas compartilhadas) e
+    pule o passo de rebuild da sincronização — a costura faz.
+  - Contratos de outras unidades ou da fundação, só leitura: se algo que você precisa não existir, registre em
+    `output/costura-<id>.md` em vez de criar.
+  - Relatório curto com o nome do relatório normal acrescido de `-<id>` antes do `.md` (mesmo formato, sem o
+    resultado de build, que não foi rodado).
+- **`Costura`** — roda sozinho, depois que todas as unidades terminaram. Você é o dono dos arquivos
+  compartilhados: leia todos os `output/costura-*.md` e os relatórios das unidades (`-U*.md`), aplique os
+  registros, resolva conflito e inconsistência entre unidades (nomes, tipos, imports duplicados, rotas), instale
+  dependências novas, rode o build (`npm run build`) e o lint, se houver, **e corrija até passar**, e rode
+  `node .claude/scripts/knowledge-engine-build.cjs`. Termine consolidando tudo no relatório normal (o que o
+  Reviewer lê): arquivos por unidade, decisões, pendências e o resultado do build.
 
 ## Padrões Obrigatórios
 
@@ -5847,12 +6049,13 @@ docs/raw/ (opcional) + docs/SPEC.md
     ↓
 ⏸️ Pausa — você aprova seguir? (única pausa do pipeline)
     ↓ (só continua se você aprovar)
-🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade
+🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade + plano de execução em ondas
     ↓
 __ORCH_SPECIALIST_LINE__
+    ↳ com plano PARALELO: fundação → ondas de unidades ao mesmo tempo (até 4 por vez) → costura (build único)
     ↓
 🔍 04 Reviewer         → Conformidade com a spec + qualidade do código, numa leitura só
-    ↓
+    ⇅ roda ao mesmo tempo que o 05 (o Reviewer só lê o código)
 __ORCH_TEST_LINE__
     ↓
 🛡️ 06 Security Scan    → Auditoria de segurança (5 categorias) + relatório HTML
@@ -5881,8 +6084,10 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
 - **Antes do Analyst, limpe a rodada anterior**: rode `node .claude/scripts/limpar-output.cjs`. Ele apaga os
   relatórios que sobraram em `output/` (inclusive de versões antigas do pipeline) e mantém o
   `token-report.md` — assim nenhum agente lê por engano um relatório velho.
-- **Um agente por vez, na ordem acima.** Cada agente lê o relatório do anterior em `output/` — não repasse
-  o conteúdo dos relatórios no prompt de invocação, só aponte o arquivo.
+- **Etapas em ordem, paralelismo só onde não há dependência.** Cada agente lê o relatório do anterior em
+  `output/` — não repasse o conteúdo dos relatórios no prompt de invocação, só aponte o arquivo. As etapas
+  01 → 02 → 03 → (04 ‖ 05) → 06 seguem em ordem; o paralelismo acontece **dentro** do 03 (ver "Execução
+  paralela" abaixo) e entre o 04 e o 05. Nunca paralelize duas coisas em que uma depende do resultado da outra.
 - **Modelo por tarefa (economia sem perder qualidade)**: cada agente tem seu modelo padrão no frontmatter,
   sempre por apelido de família (`opus` ou `sonnet`), que resolve sozinho para a versão mais recente — nunca
   escreva um ID com versão. Antes de chamar o `03-*` e o `05-test-engineer`, avalie a spec da rodada: se for
@@ -5905,7 +6110,7 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   |---|---|---|
   | 01 Analyst (depois da sua aprovação) | `docs/SPEC.md`, `knowledge/` e o `output/token-report.md` da rodada anterior | `docs(spec):` |
   | 02 Architect | `knowledge/` (arquitetura, ADRs, planejamento) | `docs(arquitetura):` |
-  | 03 Specialist | código em `src/` + notas do vault — **um commit por unidade lógica** | `feat(...)` |
+  | 03 Specialist | código em `src/` + notas do vault — **um commit por unidade lógica** (com plano paralelo: um por unidade do plano, mais a fundação e a costura, só depois que a costura passar o build) | `feat(...)` |
   | 04 Reviewer | correções que ele aplicou, se houver | `fix:` / `refactor:` |
   | 05 Test Engineer | testes (e `docs/api/`, se gerou) | `test(...)` |
   | 06 Security Scan | correções de segurança + relatório HTML em `docs/security-audit/` | `fix(security):` / `docs(security):` |
@@ -5929,6 +6134,41 @@ __STACK_COMMIT_EXAMPLES__
   marcador, apaga os relatórios intermediários. Rodada interrompida por gate reprovado **não** ganha marcador:
   os relatórios ficam em `output/` pra explicar o que precisa ser corrigido.
 
+## ⚡ Execução paralela (etapas 03, 04 e 05)
+
+Tempo é o recurso mais caro de uma rodada: o custo em tokens é praticamente o mesmo em série ou em paralelo,
+então tudo o que não depende de outra coisa roda **ao mesmo tempo**. Quem decide é o `output/EXECUTION_PLAN.md`
+que o `02-architect-sdd` gera (ondas, dependências e dono de cada arquivo).
+
+**Etapa 03 — specialists em ondas**
+
+1. Leia `output/EXECUTION_PLAN.md`. Se o modo for **SERIAL** (ou se o arquivo não existir), invoque o
+   specialist uma vez só, como sempre, e pule o resto desta seção.
+2. **Fundação (Onda 0)**: invoque o specialist uma vez, com `Fundação` no prompt. Espere terminar e passar o
+   build antes de seguir — tudo depende dela.
+3. **Cada onda seguinte**: invoque **um specialist por unidade da onda, todos na MESMA mensagem** (várias
+   chamadas do `Agent` de uma vez, é isso que as faz rodar simultaneamente), cada um com `Unidade <id>` no
+   prompt e o arquivo do plano apontado. No máximo **4 ao mesmo tempo**: se a onda tiver mais, divida em
+   lotes de 4. Só inicie a onda seguinte quando todas as unidades da atual terminarem.
+4. **Antes de seguir de uma onda para a outra**, rode `git status --porcelain` e confira que cada arquivo
+   alterado pertence a alguma unidade (ou aos compartilhados). Arquivo fora do dono vai para a costura revisar.
+   Se uma unidade ficou incompleta ou deu erro (inclusive limite de requisições), reinvoque **só ela**, depois
+   das outras — não refaça a onda.
+5. **Costura**: depois da última onda, invoque o specialist uma vez, com `Costura` no prompt. Ele aplica os
+   registros em arquivos compartilhados, resolve inconsistências, gera a migration única, roda o build
+   e só termina com ele passando, e consolida o relatório que o Reviewer lê. Esse é o gate da etapa 03.
+6. Cada unidade usa o modelo pela mesma regra de "Modelo por tarefa" (avalie a complexidade **da unidade**).
+   A fundação e a costura usam `opus`.
+
+**Etapas 04 e 05 — ao mesmo tempo**
+
+Depois da costura, invoque o `04-reviewer-sdd` e o `05-test-engineer` **na mesma mensagem**: o Reviewer só lê o
+código; o Test Engineer escreve e roda os testes. Se qualquer um reprovar, o pipeline para (o trabalho do outro
+fica no working tree, sem commit). O `06-security-scan-sdd` continua depois, pois revalida os testes do 05.
+
+**Quando NÃO paralelizar**: plano em modo SERIAL, onda com uma unidade só (invoque normal), ou qualquer sinal de
+que duas unidades precisam editar o mesmo arquivo — nesse caso reagrupe numa unidade só e siga em série.
+
 ## 📁 Resultados
 
 Durante a rodada, `output/` é o canal de passagem entre os agentes:
@@ -5938,6 +6178,8 @@ Durante a rodada, `output/` é o canal de passagem entre os agentes:
 TECHNICAL_SPECIFICATION.md   (Arquitetura)
 TRACEABILITY_MATRIX.md       (Rastreabilidade)
 TECHNICAL_DECISIONS.md       (Decisões)
+EXECUTION_PLAN.md            (Plano de execução: ondas, unidades e dono de cada arquivo)
+costura-<id>.md              (Só no modo paralelo: o que cada unidade pede para registrar nos arquivos compartilhados)
 __ORCH_SPECIALIST_OUT__
 4-review.md                  (Conformidade + qualidade)
 5-tests.md                   (Build, testes e cobertura — executados de verdade)
@@ -7003,6 +7245,11 @@ reportar falha. São 6 subagentes; cada etapa aprovada vira um commit local na c
 
 ## Trabalhando em paralelo
 
+Dentro de uma rodada, o \`/inicia-orquestracao\` já paraleliza sozinho: o \`02-architect-sdd\` gera \`output/EXECUTION_PLAN.md\`
+(unidades, ondas e dono de cada arquivo), os specialists de cada onda rodam ao mesmo tempo (até 4), uma costura
+final faz o build único, e o Reviewer e o Test Engineer rodam juntos. Unidades que dependem uma da outra ficam em
+ondas diferentes; projeto pequeno (menos de 3 unidades independentes) segue em série.
+
 Para tocar duas frentes ao mesmo tempo (ex: duas specs diferentes) sem os agentes esbarrarem nos mesmos
 arquivos, rode cada uma em uma worktree: \`claude --worktree nome-da-frente\`.
 
@@ -7524,7 +7771,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v6.1.1**
+**Projeto criado com Claude SDD v6.2.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

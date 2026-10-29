@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v6.2.0
+# 🚀 Criar Template Claude SDD v6.3.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -184,7 +184,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.2.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.3.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -735,6 +735,10 @@ Você é o **Analyst-SDD**, o primeiro agente do pipeline Spec-Driven Developmen
   e vá direto para a Parte B.
 
 ## Passo a Passo
+
+**Paralelismo:** a extração de arquivos de `docs/raw/` que não dependem uns dos outros (um PDF, um DOCX, um
+e-mail) roda junta — emita os comandos de extração e as leituras independentes na **mesma mensagem**, em vez de
+um arquivo por turno. Já a escrita das notas do vault e do `Index.md` fica em série, porque as notas se linkam.
 
 1. **Crie `knowledge/templates/` se ainda não existir** (projeto novo ou primeira vez que esta fase roda) — cinco
    templates Obsidian estáticos, usados como base nos passos seguintes e por outros agentes do pipeline mais
@@ -1935,6 +1939,9 @@ ela é de fato aplicada nos pontos encontrados.
   categorias acima se verificam lendo o código, a configuração e o histórico do Git. Isso mantém o gate
   determinístico e rodando em qualquer ambiente, inclusive sem rede. Use `Grep`/`Glob` para encontrar os
   pontos candidatos e confirme cada um lendo o arquivo — padrão encontrado por busca é pista, não achado.
+- **Dispare as buscas independentes juntas.** As cinco categorias não dependem umas das outras na fase de
+  busca: emita os `Grep`/`Glob`/`Read` de categorias diferentes na **mesma mensagem** (várias chamadas de uma
+  vez), em vez de uma categoria por turno. Só serialize o que depende do resultado anterior.
 
 ## Correções
 
@@ -6052,7 +6059,7 @@ docs/raw/ (opcional) + docs/SPEC.md
 🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade + plano de execução em ondas
     ↓
 __ORCH_SPECIALIST_LINE__
-    ↳ com plano PARALELO: fundação → ondas de unidades ao mesmo tempo (até 4 por vez) → costura (build único)
+    ↳ com plano PARALELO: fundação → ondas de unidades ao mesmo tempo (até 6 por vez) → costura (build único)
     ↓
 🔍 04 Reviewer         → Conformidade com a spec + qualidade do código, numa leitura só
     ⇅ roda ao mesmo tempo que o 05 (o Reviewer só lê o código)
@@ -6148,8 +6155,8 @@ que o `02-architect-sdd` gera (ondas, dependências e dono de cada arquivo).
    build antes de seguir — tudo depende dela.
 3. **Cada onda seguinte**: invoque **um specialist por unidade da onda, todos na MESMA mensagem** (várias
    chamadas do `Agent` de uma vez, é isso que as faz rodar simultaneamente), cada um com `Unidade <id>` no
-   prompt e o arquivo do plano apontado. No máximo **4 ao mesmo tempo**: se a onda tiver mais, divida em
-   lotes de 4. Só inicie a onda seguinte quando todas as unidades da atual terminarem.
+   prompt e o arquivo do plano apontado. No máximo **6 ao mesmo tempo**: se a onda tiver mais, divida em
+   lotes de 6. Só inicie a onda seguinte quando todas as unidades da atual terminarem.
 4. **Antes de seguir de uma onda para a outra**, rode `git status --porcelain` e confira que cada arquivo
    alterado pertence a alguma unidade (ou aos compartilhados). Arquivo fora do dono vai para a costura revisar.
    Se uma unidade ficou incompleta ou deu erro (inclusive limite de requisições), reinvoque **só ela**, depois
@@ -7246,9 +7253,13 @@ reportar falha. São 6 subagentes; cada etapa aprovada vira um commit local na c
 ## Trabalhando em paralelo
 
 Dentro de uma rodada, o \`/inicia-orquestracao\` já paraleliza sozinho: o \`02-architect-sdd\` gera \`output/EXECUTION_PLAN.md\`
-(unidades, ondas e dono de cada arquivo), os specialists de cada onda rodam ao mesmo tempo (até 4), uma costura
+(unidades, ondas e dono de cada arquivo), os specialists de cada onda rodam ao mesmo tempo (até 6), uma costura
 final faz o build único, e o Reviewer e o Test Engineer rodam juntos. Unidades que dependem uma da outra ficam em
 ondas diferentes; projeto pequeno (menos de 3 unidades independentes) segue em série.
+
+**Fora do pipeline vale a mesma regra.** Pedido avulso com várias tarefas (ex.: "esqueci de implementar tal
+coisa") também é paralelizado por padrão, sem o usuário precisar pedir — veja \`.claude/rules/paralelismo.md\`,
+que carrega em toda sessão.
 
 Para tocar duas frentes ao mesmo tempo (ex: duas specs diferentes) sem os agentes esbarrarem nos mesmos
 arquivos, rode cada uma em uma worktree: \`claude --worktree nome-da-frente\`.
@@ -7333,6 +7344,36 @@ paths:
   vault antes de montar a mensagem; o commit que leva código novo leva a memória junto.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/knowledge-vault.md criado${NC}"
+
+# Sem `paths:` — a rule carrega em toda sessão, inclusive nos pedidos avulsos feitos fora do pipeline.
+cat > "$PROJECT_DIR/.claude/rules/paralelismo.md" << 'RULEEOF'
+# Paralelismo por padrão
+
+Tempo de espera é o recurso mais caro: o custo em tokens é praticamente o mesmo em série ou em paralelo. Vale
+para **qualquer pedido**, dentro ou fora do `/inicia-orquestracao` — inclusive o "esqueci de implementar tal
+coisa" feito no meio da conversa. O usuário **não precisa pedir**: paralelizar é o comportamento padrão.
+
+1. **Antes de começar, liste as tarefas e monte o mapa de dependências**: o que depende do resultado de quê e
+   quais arquivos cada tarefa vai tocar. Pedido com duas ou mais tarefas sempre passa por esse passo.
+2. **Tarefas independentes rodam juntas.** São independentes quando uma não precisa do resultado da outra, não
+   editam o mesmo arquivo e inverter a ordem não quebra regra de negócio. Dispare-as na **mesma mensagem**
+   (várias chamadas de ferramenta, ou vários `Agent` de uma vez — é isso que as faz rodar simultaneamente),
+   em **no máximo 6 ao mesmo tempo**; se houver mais, divida em lotes e só comece o lote seguinte quando o
+   atual terminar. Ao delegar para subagente, diga a lista exata de arquivos que ele pode alterar.
+3. **Leituras e buscas independentes sempre juntas**: `Read`, `Grep`, `Glob` e comandos de consulta que não
+   dependem uns dos outros vão numa mensagem só, nunca um por turno.
+4. **Fica em série**: tarefa que depende do resultado de outra; duas tarefas no mesmo arquivo (reagrupe numa
+   só); arquivos compartilhados que várias tarefas "registrariam" (DI, rotas, módulos, barrels, `package.json`,
+   lockfile, migrations) — esses ficam para uma etapa final única, depois das tarefas paralelas.
+5. **Tarefa pequena não vale subagente.** Uma ou duas edições curtas, faça direto; subagente tem custo de
+   partida. Use subagente quando a tarefa for grande o bastante para compensar.
+6. **Ao juntar o paralelo**: rode `git status --porcelain` e confira que cada arquivo alterado pertence a
+   alguma tarefa; rode build e testes **uma vez só**, no fim, não por tarefa; se uma tarefa falhou (inclusive
+   limite de requisições), reinvoque **só ela**, sem refazer as outras.
+7. **Não pergunte se pode paralelizar.** Faça, e diga em uma linha o que rodou junto e o que ficou em série e
+   por quê. Commits e atualização do vault continuam sendo feitos na conversa principal, por unidade lógica.
+RULEEOF
+echo -e "${GREEN}✅ .claude/rules/paralelismo.md criado${NC}"
 
 if [ "$MONO" = 1 ]; then
     cat >> "$PROJECT_DIR/.claude/rules/knowledge-vault.md" << 'RULEEOF'
@@ -7771,7 +7812,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v6.2.0**
+**Projeto criado com Claude SDD v6.3.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.4
+# 🚀 Criar Template Claude SDD v7.0.5
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.4${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.5${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -7156,6 +7156,13 @@ Este comando não apresenta o relatório só no chat — ele grava a documentaç
 - Este relatório serve pra alguém (ou pra um subagente) que nunca viu o projeto conseguir se situar rápido — priorize clareza sobre exaustividade nos primeiros parágrafos de cada arquivo, e deixe detalhe fino pra quem quiser aprofundar.
 - Sempre cite caminhos de arquivo reais (ex: `src/Domain/Entities/Pedido.cs`) como evidência das afirmações, não descrições vagas.
 - Se o projeto for grande demais pra cobrir tudo numa passada, avise isso no `resumo.md` e priorize as áreas que o usuário pediu (ou, na ausência de pedido específico, priorize arquitetura → banco de dados → services, nessa ordem).
+
+## Depois do raio-x: documento de arquitetura
+
+Com os arquivos gravados em `docs/raw/`, gere em seguida o PDF da arquitetura, sem perguntar nada ao usuário: leia
+`.claude/commands/amostra-arquitetura.md` e siga as instruções dele. Como `docs/raw/` agora tem a saída do
+raio-x, ele entra no **modo projeto existente**: documenta a arquitetura **atual** (com evidência) e propõe a
+evolução. Ao final, informe só o caminho do PDF (`docs/entregaveis/arquitetura-completa.pdf`).
 RAIOXEOF
 fi
 if [ "$HAS_FRONT" = 1 ]; then
@@ -7251,6 +7258,13 @@ Este comando não apresenta o relatório só no chat — ele grava a documentaç
 - Sempre cite caminhos de arquivo reais (ex: `src/features/pedidos/PedidoForm.tsx`) como evidência das afirmações, não descrições vagas.
 - Nunca leia `node_modules/`, `dist/` ou artefatos de build — o que interessa é o código-fonte do projeto.
 - Se o projeto for grande demais pra cobrir tudo numa passada, avise isso no `resumo.md` e priorize as áreas que o usuário pediu (ou, na ausência de pedido específico, priorize arquitetura → estado → camada de API, nessa ordem).
+
+## Depois do raio-x: documento de arquitetura
+
+Com os arquivos gravados em `docs/raw/`, gere em seguida o PDF da arquitetura, sem perguntar nada ao usuário: leia
+`.claude/commands/amostra-arquitetura.md` e siga as instruções dele. Como `docs/raw/` agora tem a saída do
+raio-x, ele entra no **modo projeto existente**: documenta a arquitetura **atual** (com evidência) e propõe a
+evolução. Ao final, informe só o caminho do PDF (`docs/entregaveis/arquitetura-completa.pdf`).
 RAIOXEOF
 fi
 if [ "$MONO" = 1 ]; then
@@ -8654,7 +8668,6 @@ SDDPARTDESIGNEOF
     rm -f "$SNIP"
 fi
 
-if [ "$MONO" = 1 ]; then
 cat > "$PROJECT_DIR/.claude/commands/amostra-arquitetura.md" << 'SDDPARTAMARQEOF'
 ---
 description: Gera em PDF a proposta de arquitetura completa sugerida (ambiente, mensageria, back-end, front-end, observabilidade, custo) a partir das specs mínimas, para mostrar ao cliente. Não cria código nem roda o pipeline.
@@ -8668,10 +8681,16 @@ projeto de código e não chama agentes do pipeline.
 
 ## 1. Ler as fontes (em paralelo)
 
-Leia juntos: `docs/backend/SPEC.md`, `docs/frontend/SPEC.md`, tudo em `docs/raw/` e, se existir,
-`knowledge/index.json` e `knowledge/vault/`. Leia também `.claude/rules/principios-de-implementacao.md` e
-`docs/design/identidade.md` (se existir). Se as specs ainda forem só o template em branco e `docs/raw/` estiver
-vazia, pare e peça ao usuário um resumo do sistema (objetivo, usuários, integrações, volume esperado) — não invente.
+Leia juntos: as specs (`docs/backend/SPEC.md` e `docs/frontend/SPEC.md` no monorepo; `docs/SPEC.md` em projeto
+de uma frente só), tudo em `docs/raw/` e, se existir, `knowledge/index.json` e `knowledge/vault/`. Leia também
+`.claude/rules/principios-de-implementacao.md` e `docs/design/identidade.md` (se existir). Se as specs ainda forem
+só o template em branco e `docs/raw/` estiver vazia, pare e peça ao usuário um resumo do sistema (objetivo,
+usuários, integrações, volume esperado) — não invente. Em projeto que já tem código, sugira rodar antes o
+`/raio-x-backend`, `/raio-x-frontend` ou `/raio-x-projeto`.
+
+**Modo projeto existente:** se `docs/raw/` tiver a saída do raio-x (`resumo.md`, `arquitetura.md`,
+`banco-de-dados.md`, `interfaces.md`, `services.md`, `infraestrutura.md`, `pontos-de-atencao.md`), o documento
+descreve a arquitetura **que existe**, não uma inventada. Veja os ajustes marcados "(projeto existente)" abaixo.
 
 ## 2. Decidir a arquitetura (não existe uma só)
 
@@ -8695,13 +8714,20 @@ integrações, tempo real, criticidade, orçamento):
 Apresente **duas alternativas comparadas**: a **recomendada** e uma **mais simples e barata**, dizendo o que se
 perde ao escolher a barata.
 
+**(projeto existente)** Primeiro registre a **arquitetura atual**, só com o que o raio-x confirmou, citando os
+arquivos de evidência e marcando "(a confirmar)" o que o raio-x não provou. Liste as violações de camada e os
+pontos de atenção. As duas alternativas passam a ser **evolução** da atual: a recomendada e uma mais simples e
+barata, ambas sem exigir reescrita total e sem quebrar nenhuma regra de negócio existente.
+
 ## 3. Montar o documento
 
 Use o modelo `documento` de `docs/modelo-documento/` (leia `README.md` e `documento-modelo.html` de lá e siga a
 estrutura; não invente outro layout, tamanho de página ou CSS). Grave em `docs/entregaveis/arquitetura-completa.html`.
 Seções fixas, nesta ordem:
 
-1. **Contexto e premissas** — o que a spec diz; marque com "(suposição)" tudo que você inferiu.
+1. **Contexto e premissas** — o que a spec diz; marque com "(suposição)" tudo que você inferiu. **(projeto
+   existente)** Acrescente logo depois a seção **Arquitetura atual** (estilo, camadas reais, banco, integrações,
+   infraestrutura, violações encontradas), e use "Decisões e trade-offs" para a evolução proposta.
 2. **Visão geral** — um diagrama SVG inline cobrindo ambiente/hospedagem, mensageria, back-end, front-end, banco,
    observabilidade, segurança e CI/CD. Setas claras, legendas legíveis em A4 retrato.
 3. **Camadas e responsabilidades** — back e front, o que cada camada faz e o que ela nunca pode fazer.
@@ -8727,6 +8753,7 @@ Se faltar Chrome ou Edge, diga qual instalar e mantenha o HTML (já abre no nave
 Diga o caminho do PDF, a arquitetura recomendada em duas linhas e as perguntas em aberto. Próximos passos
 possíveis: `/identidade-visual`, `/amostra-telas` e, com o cliente decidido, `/definir-stack`.
 SDDPARTAMARQEOF
+if [ "$MONO" = 1 ]; then
 cat > "$PROJECT_DIR/.claude/commands/identidade-visual.md" << 'SDDPARTIDVISEOF'
 ---
 description: Captura a identidade visual do cliente (site, logo, cores) para entender cores, tipografia e tom, grava docs/design/identidade.md e atualiza os tokens do modelo de documento. Não clona o site.
@@ -9163,7 +9190,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.4**
+**Projeto criado com Claude SDD v7.0.5**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

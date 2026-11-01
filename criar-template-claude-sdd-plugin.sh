@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.1
+# 🚀 Criar Template Claude SDD v7.0.2
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.2${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -8649,10 +8649,17 @@ vazia, pare e peça ao usuário um resumo do sistema (objetivo, usuários, integ
 Analise a spec e **escolha** o estilo que ela pede, justificando com requisitos reais dela (volume, equipe,
 integrações, tempo real, criticidade, orçamento):
 
-- Back-end: Clean Architecture em monolito, monolito modular, microsserviços, event-driven/mensageria, CQRS só se a
-  leitura e a escrita realmente divergirem.
-- Front-end: componentes + estado local/global, camada de API isolada, micro-frontends só se houver times
-  independentes.
+- Back-end, **organização do código**: Clean Architecture, Hexagonal, Onion, Vertical Slice ou em camadas simples;
+  DDD quando o domínio for rico em regras; CQRS só se a leitura e a escrita realmente divergirem. **Implantação**:
+  monolito, monolito modular, microsserviços ou serverless (funções sob demanda). **Comunicação**: REST/gRPC
+  síncrono, event-driven com mensageria, Saga/Outbox quando houver transação distribuída.
+- Front-end, **organização**: componentes por funcionalidade (feature-based), camada de API isolada, Atomic Design
+  se houver design system. **Renderização**: SPA, SSR, SSG/ISR, PWA ou islands, conforme SEO, desempenho, uso
+  offline e orçamento de hospedagem. **Divisão**: micro-frontends só se houver times independentes; BFF quando o
+  front precisar de uma API sob medida. **Estado**: local, global ou de servidor (TanStack Query, NgRx, Pinia...).
+- **Decida cada frente separadamente e nomeie o estilo escolhido** (ex.: "backend: monolito modular com Clean
+  Architecture e mensageria para os eventos"; "frontend: SPA por funcionalidades com estado de servidor"). Se só
+  uma das duas specs tiver conteúdo, proponha essa e diga que a outra depende de informação que falta.
 - Sempre com SOLID e clean code, **sem gambiarra no desenho** (nenhuma camada pulada, nenhuma dependência na
   direção errada) e **sem quebrar regra de negócio** da spec.
 
@@ -9127,7 +9134,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.1**
+**Projeto criado com Claude SDD v7.0.2**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

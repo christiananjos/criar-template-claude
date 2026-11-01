@@ -99,14 +99,41 @@ de "nova versão disponível" na interface hoje.
 ```
 /sdd:comecar meu-projeto
 cd meu-projeto
-nano docs/SPEC.md
-/inicia-orquestracao
+nano docs/backend/SPEC.md        # e/ou docs/frontend/SPEC.md
+/definir-stack                   # só quando o cliente decidir a linguagem de cada frente
+/inicia-orquestracao backend     # ou frontend
 ```
 
-O plugin pergunta uma coisa de cada vez: projeto novo ou existente, caminho, nome do projeto (só no modo novo — no
-existente usa o nome da pasta) e a(s) frente(s): **só backend**, **só frontend** ou **os dois** (e, para cada frente, a
-stack: `.NET` no backend; `Angular`, `React` ou `Vue` no frontend). Com uma frente só, o projeto sai como sempre:
-`src/` na raiz, ajustado para a stack. Com as duas, sai um **monorepo** (veja abaixo).
+O plugin pergunta uma coisa de cada vez: projeto novo ou existente, caminho e nome do projeto (só no modo novo — no
+existente usa o nome da pasta). **No projeto novo ele não pergunta a linguagem** (v7.0.0): sai sempre um
+**monorepo** com `backend/` e `frontend/` prontos e a stack de cada frente em aberto (`.claude/stack.json`). A
+linguagem é escolhida depois, com `/definir-stack` (`.NET` no backend; `Angular`, `React` ou `Vue` no frontend), que
+instala o specialist, as skills e as rules daquela stack. No modo existente o código já tem stack, então ele
+pergunta as frentes e as stacks como antes (uma frente só continua saindo com `src/` na raiz).
+
+### Antes do código: mostrar ao cliente (v7.0.0)
+
+Para quem entra em projeto sem documentação e com cliente que ainda não sabe o que quer, o monorepo traz quatro
+comandos que trabalham só com a spec mínima:
+
+| Comando | O que entrega |
+|---|---|
+| `/amostra-arquitetura` | PDF com a arquitetura completa **sugerida** (ambiente, mensageria, back, front, observabilidade, segurança, CI/CD). Não existe uma arquitetura única: ele escolhe e justifica o estilo para aquela spec (SOLID e clean code sempre), compara duas alternativas e estima o custo do mais barato ao mais caro. |
+| `/identidade-visual` | Captura a identidade do cliente a partir do site e/ou do logo (cores, fontes, logo, tom) com navegador headless gratuito — para entender, não para copiar o site — e grava `docs/design/identidade.md`. Sugere a skill [Impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0, de terceiros, opcional). |
+| `/amostra-telas` | Apresentação de design em PDF (mockups web e mobile, menus, paleta, tipografia), **sem gerar projeto de código**: fácil de mandar por e-mail. Aprovada a identidade, aí sim se gera a POC. |
+| `/definir-stack` | Pergunta a linguagem das frentes pendentes e instala o specialist da stack. Depois, reabra o Claude Code. |
+
+Todo PDF sai do **mesmo modelo** (`docs/modelo-documento/`): `documento` em A4 retrato e `apresentacao` em A4
+paisagem, com cabeçalho e "Página X de Y". As cores e fontes vêm só de `tokens.css` (o `/identidade-visual` o
+atualiza), e `node .claude/scripts/gerar-pdf.cjs arquivo.html` usa o Chrome/Edge já instalado — sem dependências.
+A rule `padrao-documentos.md` impede que um documento novo invente outro layout ou tamanho de página.
+
+### Princípios de implementação (v7.0.0)
+
+A rule global `principios-de-implementacao.md` vale em toda sessão e os agentes `02`, `03` e `04` a seguem: **nunca
+quebrar a regra de negócio da spec**, **nunca sair da arquitetura pedida** (Clean Architecture, SOLID, clean code,
+sem gambiarra) e **custo mínimo primeiro** (gratuito, free tier e serviço nativo da cloud antes de ferramenta
+externa paga, do mais barato ao mais caro). Em conflito: regra de negócio > arquitetura > custo.
 
 ### Monorepo (backend + frontend)
 
@@ -138,7 +165,7 @@ stack: `.NET` no backend; `Angular`, `React` ou `Vue` no frontend). Com uma fren
 - As skills `cicd-pipeline-expert` e as demais trazem o que é específico de cada stack lado a lado, e a de CI/CD ganha
   a orientação de monorepo: um workflow por deploy com `paths:` por pasta e `working-directory`/`context` na subpasta.
 
-Pelo script: `bash criar-template-claude-sdd-plugin.sh meu-projeto dotnet react` (uma stack: `... meu-projeto react`;
+Pelo script: `bash criar-template-claude-sdd-plugin.sh meu-projeto backend-pendente frontend-pendente` (linguagem em aberto) ou `... meu-projeto dotnet react` (uma stack: `... meu-projeto react`; uma só frente pendente: `... meu-projeto dotnet frontend-pendente`;
 modo existente: acrescente `existente` no fim).
 
 O `/inicia-orquestracao` leva ~12-25 minutos e tem **uma única pausa manual**: assim que `01-analyst-sdd` valida a especificação, o pipeline mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se você aprova seguir — mesmo se o status já for ✅ APROVADO. Aprovando, o resto roda 100% automático até o fim, sem pedir mais nenhuma confirmação; só interrompe de novo se `04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd` reportar falha. Se você não aprovar na pausa inicial, o pipeline para ali, sem gerar arquitetura nem código.
@@ -233,7 +260,8 @@ qualquer momento, fora de uma rodada do `/inicia-orquestracao`:
 |---|---|---|
 | `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `01-analyst-sdd` na próxima rodada do `/inicia-orquestracao`. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
-| `/video-lancamento` | frontend | Opcional, fora do pipeline: com o sistema entregue, gera um vídeo curto de lançamento via plugin `brag` (confere Node 22+ e FFmpeg e orienta a instalação do plugin). |
+| `/video-lancamento` | frontend | Opcional, fora do pipeline: gera o vídeo **completo** de treinamento do sistema (nome e objetivo, login e todos os menus, narração em português do Brasil com uma voz só) e deixa **apenas o `.mp4` em `output/`** — todo o resto vive numa pasta temporária apagada no fim. Usa o motor do plugin `brag` (HyperFrames); confere Node 22+ e FFmpeg. |
+| `/amostra-arquitetura`, `/identidade-visual`, `/amostra-telas`, `/definir-stack` | monorepo | Amostras para mostrar ao cliente antes do código e escolha da stack de cada frente (veja "Antes do código"). |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura
 `.csproj`, `DbContext`/EF Core e violação de camada; a de frontend procura `package.json`, mapa de rotas,
@@ -386,7 +414,9 @@ Nas stacks de front o template gera a rule `.claude/rules/frontend-ux-laws.md` c
 
 ## Plugin brag (opcional)
 
-Nas stacks de front, todo projeto sai com o comando avulso `/video-lancamento`, que envolve o plugin [`latent-spaces/brag`](https://github.com/latent-spaces/brag) (usa o HyperFrames) para gerar um vídeo de lançamento do sistema entregue. Fica fora do pipeline: nenhum agente o chama e o `/inicia-orquestracao` não depende dele. O plugin é de terceiros e não vem habilitado no `settings.json`; o comando confere Node.js 22+ e FFmpeg e orienta a instalação (`/plugin marketplace add latent-spaces/brag` e `/plugin install brag@brag`).
+Nas stacks de front, todo projeto sai com o comando avulso `/video-lancamento`, que usa o motor do plugin [`latent-spaces/brag`](https://github.com/latent-spaces/brag) (HyperFrames) para gerar o vídeo de treinamento do sistema entregue. Fica fora do pipeline: nenhum agente o chama e o `/inicia-orquestracao` não depende dele. O plugin é de terceiros e não vem habilitado no `settings.json`; o comando confere Node.js 22+ e FFmpeg e orienta a instalação (`/plugin marketplace add latent-spaces/brag` e `/plugin install brag@brag`).
+
+O vídeo é sempre o completo (nunca só a introdução) e a narração usa uma única voz pt-BR em ritmo constante: termos em inglês são trocados por português ou por grafia fonética antes de sintetizar, o que evita a mudança de tom no meio da frase. Só o `.mp4` final fica em `output/`; o `limpar-output.cjs` do pipeline preserva `*.mp4`.
 
 ## Estrutura de projeto oficial do Claude Code
 

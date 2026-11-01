@@ -51,7 +51,12 @@ em relação ao plugin.
    parte 1 e explique que a pasta atual não é um projeto SDD (para acoplar o pipeline a ela, o comando é
    `/comecar`, escolhendo "projeto existente").
 
-6. Descubra a(s) stack(s) do projeto pelo nome dos arquivos do specialist em `.claude/agents/`:
+6. Descubra a(s) stack(s) do projeto. **Primeiro olhe `.claude/stack.json`** (projetos criados a partir da
+   v7.0.0 têm esse arquivo): ele guarda `{"backend": ..., "frontend": ...}`, cada valor sendo a stack
+   (`dotnet`, `react`, `angular`, `vue`) ou `"pendente"`. Monte `STACKS_DETECTADAS` direto dele, backend primeiro,
+   trocando `"pendente"` por `backend-pendente` / `frontend-pendente` (ex.: `dotnet frontend-pendente`,
+   `backend-pendente frontend-pendente`). **Frente pendente continua pendente** — nunca escolha uma stack por ela.
+   Só se o arquivo não existir, descubra pelo nome dos arquivos do specialist em `.claude/agents/`:
 
    | Arquivo encontrado | Stack |
    |---|---|

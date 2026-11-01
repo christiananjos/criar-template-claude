@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v6.3.0
+# 🚀 Criar Template Claude SDD v7.0.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -55,10 +55,16 @@ MODE="novo"
 BACK_STACK=""
 FRONT_STACK=""
 STACK_COUNT=0
+# Frente que existe no monorepo mas ainda não tem linguagem definida (v7.0.0): a pasta, a spec e os
+# comandos já ficam prontos; o specialist e as skills da stack só entram depois do /definir-stack.
+BACK_PENDING=0
+FRONT_PENDING=0
 
 for arg in "$@"; do
     case "$arg" in
         novo|existente) MODE="$arg" ;;
+        backend-pendente)  BACK_PENDING=1 ;;
+        frontend-pendente) FRONT_PENDING=1 ;;
         dotnet)
             if [ -n "$BACK_STACK" ]; then
                 echo -e "${RED}Erro: \"dotnet\" informado duas vezes${NC}"; exit 1
@@ -76,16 +82,37 @@ for arg in "$@"; do
     esac
 done
 
-if [ "$STACK_COUNT" -eq 0 ]; then
+if [ "$STACK_COUNT" -eq 0 ] && [ "$BACK_PENDING" = 0 ] && [ "$FRONT_PENDING" = 0 ]; then
     echo -e "${RED}Erro: informe a stack${NC}"
     echo "Opções válidas: dotnet, angular, react, vue (uma stack, ou dotnet + um frontend para monorepo)"
+    echo "Ou, para deixar a linguagem em aberto: backend-pendente frontend-pendente"
     echo "$USO"
     exit 1
 fi
 
-HAS_BACK=0; [ -n "$BACK_STACK" ] && HAS_BACK=1
-HAS_FRONT=0; [ -n "$FRONT_STACK" ] && HAS_FRONT=1
+if [ "$BACK_PENDING" = 1 ] && [ -n "$BACK_STACK" ]; then
+    echo -e "${RED}Erro: backend informado como \"$BACK_STACK\" e como pendente ao mesmo tempo${NC}"; exit 1
+fi
+if [ "$FRONT_PENDING" = 1 ] && [ -n "$FRONT_STACK" ]; then
+    echo -e "${RED}Erro: frontend informado como \"$FRONT_STACK\" e como pendente ao mesmo tempo${NC}"; exit 1
+fi
+
+# HAS_BACK/HAS_FRONT = a frente EXISTE (com stack definida ou pendente). BACK_STACK/FRONT_STACK ficam
+# vazios enquanto a stack estiver pendente.
+HAS_BACK=0; { [ -n "$BACK_STACK" ] || [ "$BACK_PENDING" = 1 ]; } && HAS_BACK=1
+HAS_FRONT=0; { [ -n "$FRONT_STACK" ] || [ "$FRONT_PENDING" = 1 ]; } && HAS_FRONT=1
 MONO=0; [ "$HAS_BACK" = 1 ] && [ "$HAS_FRONT" = 1 ] && MONO=1
+
+if { [ "$BACK_PENDING" = 1 ] || [ "$FRONT_PENDING" = 1 ]; } && [ "$MONO" = 0 ]; then
+    echo -e "${RED}Erro: \"backend-pendente\"/\"frontend-pendente\" só valem no monorepo (as duas frentes juntas)${NC}"
+    echo "Exemplos: backend-pendente frontend-pendente | dotnet frontend-pendente | backend-pendente react"
+    exit 1
+fi
+
+# Estado das stacks, gravado em .claude/stack.json (o /definir-stack lê e atualiza).
+STACK_JSON_BACK="${BACK_STACK:-pendente}"
+STACK_JSON_FRONT="${FRONT_STACK:-pendente}"
+ANY_PENDING=0; { [ "$BACK_PENDING" = 1 ] || [ "$FRONT_PENDING" = 1 ]; } && ANY_PENDING=1
 
 # ALL_STACKS: as stacks do projeto, backend primeiro. Os trechos que dependem da stack rodam uma vez
 # por item desta lista (com STACK apontando para o item) e, no monorepo, os resultados são combinados.
@@ -161,13 +188,14 @@ set_stack_vars() {
 # Globais do projeto: no monorepo, os textos compartilhados falam do specialist "da frente da rodada".
 init_stack_globals() {
     if [ "$MONO" = 1 ]; then
-        stack_info "$BACK_STACK";  BACK_LABEL="${STACK_LABEL_ONE%% (*}"
-        stack_info "$FRONT_STACK"; FRONT_LABEL="${STACK_LABEL_ONE%% (*}"
+        # Frente com stack pendente: rótulo "stack a definir" e specialist ainda sem nome (<stack>)
+        if [ -n "$BACK_STACK" ]; then stack_info "$BACK_STACK"; BACK_LABEL="${STACK_LABEL_ONE%% (*}"; else BACK_LABEL="Backend a definir"; fi
+        if [ -n "$FRONT_STACK" ]; then stack_info "$FRONT_STACK"; FRONT_LABEL="${STACK_LABEL_ONE%% (*}"; else FRONT_LABEL="Frontend a definir"; fi
         STACK_LABEL="$BACK_LABEL (backend/) + $FRONT_LABEL (frontend/) — monorepo"
-        BACK_SPECIALIST="03-dotnet-specialist"
-        FRONT_SPECIALIST="03-$FRONT_STACK-specialist"
+        BACK_SPECIALIST="03-${BACK_STACK:-<stack>}-specialist"
+        FRONT_SPECIALIST="03-${FRONT_STACK:-<stack>}-specialist"
         SPECIALIST_AGENT_NAME="$BACK_SPECIALIST (frente backend) ou $FRONT_SPECIALIST (frente frontend)"
-        SPECIALIST_OUTPUT="output/3-dotnet-specialist.md (backend) ou output/3-$FRONT_STACK-specialist.md (frontend)"
+        SPECIALIST_OUTPUT="output/3-${BACK_STACK:-<stack>}-specialist.md (backend) ou output/3-${FRONT_STACK:-<stack>}-specialist.md (frontend)"
         SPECIALIST_OUTPUT_FILE="3-<specialist>.md"
         STACK_DIR=""
         STACK="mono"
@@ -184,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v6.3.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -276,23 +304,55 @@ agent_body() {
     awk '$0 == "---" { n++; next } n >= 2 { print }' "$1"
 }
 
+# Seção de uma frente num agente combinado do monorepo (02 e 05). $1 = arquivo temporário da stack,
+# $2 = frente. Frente com stack pendente não tem arquivo: sai um aviso no lugar da seção, para o agente
+# parar e mandar o usuário rodar /definir-stack em vez de inventar uma stack.
+frente_body() {
+    if [ -f "$1" ]; then
+        agent_body "$1"
+    else
+        echo "A stack da frente **$2** ainda não foi definida (veja \`.claude/stack.json\`). **Pare aqui**: não gere"
+        echo "especificação, plano nem código para esta frente. Avise o usuário para rodar \`/definir-stack $2\`, reabrir"
+        echo "o Claude Code e chamar \`/inicia-orquestracao $2\` de novo."
+    fi
+}
+
+# Esqueleto de pastas de uma frente do monorepo, conforme a stack. Só cria se a pasta ainda for "casca"
+# (vazia, ou só com .gitkeep/CLAUDE.md/README.md) — nunca mexe em código já existente.
+casca_vazia() {
+    [ -d "$1" ] || return 0
+    [ -z "$(find "$1" -mindepth 1 -maxdepth 1 ! -name .gitkeep ! -name CLAUDE.md ! -name README.md 2>/dev/null | head -1)" ]
+}
+criar_esqueleto_frente() {
+    local frente="$1" stack="$2" dir="$PROJECT_DIR/$1"
+    mkdir -p "$dir"
+    if [ -z "$stack" ]; then
+        [ -e "$dir/.gitkeep" ] || : > "$dir/.gitkeep"
+        return 0
+    fi
+    casca_vazia "$dir" || return 0
+    rm -f "$dir/.gitkeep"
+    if [ "$stack" = "dotnet" ]; then
+        mkdir -p "$dir/src/Domain" "$dir/src/Application" "$dir/src/Infrastructure" "$dir/src/API" "$dir/src/Tests"
+    else
+        mkdir -p "$dir/src"
+    fi
+}
+
 if [ "$MODE" = "existente" ]; then
     echo -e "${GREEN}✅ Pastas do pipeline criadas (.claude/commands/, .claude/agents/, docs/, docs/raw/, output/, knowledge/)${NC}"
     if [ "$MONO" = 1 ]; then
-        mkdir -p "$PROJECT_DIR/$BACK_DIR" "$PROJECT_DIR/$FRONT_DIR"
+        criar_esqueleto_frente "$BACK_DIR" "$BACK_STACK"
+        criar_esqueleto_frente "$FRONT_DIR" "$FRONT_STACK"
         echo -e "${YELLOW}   backend/ e frontend/ não foram tocados — o código já existente foi preservado${NC}"
     else
         echo -e "${YELLOW}   src/ não foi tocado — a estrutura de pastas do código já existente foi preservada${NC}"
     fi
 else
     if [ "$MONO" = 1 ]; then
-        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Domain"
-        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Application"
-        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Infrastructure"
-        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/API"
-        mkdir -p "$PROJECT_DIR/$BACK_DIR/src/Tests"
-        mkdir -p "$PROJECT_DIR/$FRONT_DIR/src"
-        echo -e "${GREEN}✅ Pastas criadas (.claude/, docs/, docs/raw/, output/, knowledge/, backend/src/, frontend/src/)${NC}"
+        criar_esqueleto_frente "$BACK_DIR" "$BACK_STACK"
+        criar_esqueleto_frente "$FRONT_DIR" "$FRONT_STACK"
+        echo -e "${GREEN}✅ Pastas criadas (.claude/, docs/, docs/raw/, output/, knowledge/, backend/, frontend/)${NC}"
     elif [ "$STACK" = "dotnet" ]; then
         mkdir -p "$PROJECT_DIR/src/Domain"
         mkdir -p "$PROJECT_DIR/src/Application"
@@ -313,16 +373,23 @@ fi
 # ----------------------------------------------------------------------------
 
 write_front_claude_md() {
-    local frente="$1" stack="$2" target="$PROJECT_DIR/$1/CLAUDE.md" titulo
-    if [ -f "$target" ]; then
+    local frente="$1" stack="$2" target="$PROJECT_DIR/$1/CLAUDE.md" titulo marca=""
+    # Arquivo criado com a stack pendente leva a marca abaixo e é regravado quando a stack é definida.
+    if [ -f "$target" ] && ! grep -q 'sdd:stack-pendente' "$target"; then
         echo -e "${YELLOW}⏭️  $frente/CLAUDE.md já existe — mantido sem alterações${NC}"
         return 0
     fi
     mkdir -p "$PROJECT_DIR/$frente"
     case "$frente" in backend) titulo="Backend" ;; *) titulo="Frontend" ;; esac
-    stack_info "$stack"
+    if [ -n "$stack" ]; then
+        stack_info "$stack"
+    else
+        STACK_BUILD_INLINE="a stack desta frente ainda não foi definida — rode \`/definir-stack $frente\` na raiz do projeto"
+        marca="<!-- sdd:stack-pendente -->
+"
+    fi
     cat > "$target" << MINICLAUDEEOF
-# $titulo — atenção ao abrir esta pasta
+${marca}# $titulo — atenção ao abrir esta pasta
 
 Este projeto é um **monorepo**. O \`knowledge/\`, o \`.claude/\` (agentes, comandos, skills, rules), o \`docs/\` e o
 \`output/\` ficam na **raiz do repositório** (\`..\`), compartilhados com a outra frente.
@@ -340,13 +407,19 @@ MINICLAUDEEOF
 
 write_front_readme() {
     local frente="$1" stack="$2" target="$PROJECT_DIR/$1/README.md"
-    if [ -f "$target" ]; then
+    if [ -f "$target" ] && ! grep -q 'sdd:stack-pendente' "$target"; then
         echo -e "${YELLOW}⏭️  $frente/README.md já existe — mantido sem alterações${NC}"
         return 0
     fi
     mkdir -p "$PROJECT_DIR/$frente"
-    stack_info "$stack"
+    if [ -n "$stack" ]; then
+        stack_info "$stack"
+    else
+        STACK_LABEL_ONE="stack a definir"
+        STACK_BUILD_STEPS="# a stack desta frente ainda não foi definida: rode /definir-stack $frente na raiz do projeto"
+    fi
     {
+        [ -n "$stack" ] || echo "<!-- sdd:stack-pendente -->"
         echo "# ${frente^} — $STACK_LABEL_ONE"
         echo ""
         echo "Parte do monorepo (veja o \`README.md\` da raiz). O código desta frente fica em \`$frente/src/\`;"
@@ -665,8 +738,9 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 
 cat > ""$PROJECT_DIR/.claude/scripts/limpar-output.cjs"" << 'LIMPAROUTEOF'
 #!/usr/bin/env node
-// Apaga os relatórios intermediários de output/, mantendo token-report.md.
-// Não mexe em subpastas (backups do /atualizar-versao) nem nas cópias COMECE-AQUI.removido-*.
+// Apaga os relatórios intermediários de output/, mantendo token-report.md e os vídeos .mp4 finais
+// (gerados pelo /video-lancamento). Não mexe em subpastas (backups do /atualizar-versao) nem nas cópias
+// COMECE-AQUI.removido-*.
 // Nunca deve falhar o pipeline.
 
 const fs = require("fs");
@@ -683,7 +757,7 @@ function limparOutput(projectDir) {
   const removidos = [];
   for (const e of entries) {
     if (!e.isFile()) continue;
-    if (e.name === "token-report.md" || e.name.startsWith("COMECE-AQUI.removido-")) continue;
+    if (e.name === "token-report.md" || e.name.startsWith("COMECE-AQUI.removido-") || e.name.endsWith(".mp4")) continue;
     try {
       fs.unlinkSync(path.join(outputDir, e.name));
       removidos.push(e.name);
@@ -1314,11 +1388,11 @@ relevante vira um ADR no vault compartilhado (`knowledge/vault/10 - ADR/`): no b
 AGENTEOF
         echo "# Frente backend"
         echo ""
-        agent_body "$AGENTS_TMP/02.$BACK_STACK.md"
+        frente_body "$AGENTS_TMP/02.$BACK_STACK.md" backend
         echo ""
         echo "# Frente frontend"
         echo ""
-        agent_body "$AGENTS_TMP/02.$FRONT_STACK.md"
+        frente_body "$AGENTS_TMP/02.$FRONT_STACK.md" frontend
     } > "$PROJECT_DIR/.claude/agents/02-architect-sdd.md"
 fi
 init_stack_globals
@@ -1843,11 +1917,11 @@ Os comandos de build e teste rodam **dentro da pasta da frente** (`cd backend &&
 AGENTEOF
         echo "# Frente backend"
         echo ""
-        agent_body "$AGENTS_TMP/05.$BACK_STACK.md"
+        frente_body "$AGENTS_TMP/05.$BACK_STACK.md" backend
         echo ""
         echo "# Frente frontend"
         echo ""
-        agent_body "$AGENTS_TMP/05.$FRONT_STACK.md"
+        frente_body "$AGENTS_TMP/05.$FRONT_STACK.md" frontend
     } > "$PROJECT_DIR/.claude/agents/05-test-engineer.md"
 fi
 rm -rf "$AGENTS_TMP"
@@ -5541,6 +5615,11 @@ for s in $ALL_STACKS; do
         cat "$part" >> "$SKILL_TMP/$name"
     done
 done
+# Frente com stack pendente (ou nenhuma stack definida ainda): os blocos específicos de stack ficam vazios
+# até o /definir-stack. Cria os arquivos que faltarem para a injeção e o cp abaixo não falharem.
+for name in cicd_build cicd_pr azure_sample azure_tasks gh_sample gh_actions gh_deploy qa_automation aws_deploy techleader commit_examples; do
+    [ -e "$SKILL_TMP/$name" ] || : > "$SKILL_TMP/$name"
+done
 init_stack_globals
 
 CICD_SKILL="$PROJECT_DIR/.claude/skills/cicd-pipeline-expert"
@@ -5575,7 +5654,7 @@ Este projeto é um monorepo: o código fica em `backend/` e `frontend/`. Ao gera
 MONOCICDEOF
 fi
 
-echo -e "${GREEN}✅ .claude/skills/ criado (skills de ${ALL_STACKS// /, } + cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert, mais as de segurança/dados da stack)${NC}"
+echo -e "${GREEN}✅ .claude/skills/ criado (skills de ${ALL_STACKS:+${ALL_STACKS// /, }}${ALL_STACKS:-stack a definir} + cicd-pipeline-expert, tech-leader-expert, qa-expert, aws-expert, architect-expert, github-expert, azure-expert, hostinger-expert, mais as de segurança/dados da stack)${NC}"
 
 
 # ============================================================================
@@ -6220,6 +6299,10 @@ Argumento recebido: `$ARGUMENTS`
 
 - A rodada trabalha **uma frente**: `backend` ou `frontend`. Se o argumento estiver vazio ou for outra coisa,
   **pergunte ao usuário qual frente** antes de qualquer outra ação — não escolha sozinho.
+- **Confira a stack da frente antes de tudo:** leia `.claude/stack.json`. Se a frente escolhida estiver
+  `"pendente"`, **pare** e diga ao usuário para rodar `/definir-stack <frente>` (ele pergunta a linguagem e
+  instala o specialist), reabrir o Claude Code e chamar `/inicia-orquestracao <frente>` de novo. Não rode
+  nenhum agente e não assuma uma stack.
 - Chame de `<frente>` o valor escolhido. A spec da rodada é `docs/<frente>/SPEC.md`, o código vive em
   `<frente>/`, e o specialist é o `03-*` da stack dessa frente. Diga a frente no prompt de invocação de **todo**
   agente.
@@ -6266,11 +6349,18 @@ Projeto: **__STACK_LABEL__**
    nano docs/backend/SPEC.md      # ou docs/frontend/SPEC.md
    ```
 
-3. **Execute o orchestrador, dizendo a frente**
+   **Cliente ainda decidindo? Mostre antes de codar** (todos geram PDF no mesmo modelo, em `docs/entregaveis/`):
+   - `/amostra-arquitetura` — arquitetura completa sugerida a partir da spec, com custo do mais barato ao mais caro
+   - `/identidade-visual` — captura a identidade do cliente (site/logo) para as telas não terem cara de IA
+   - `/amostra-telas` — apresentação de design (telas web e mobile), sem gerar projeto de código
+
+3. **Defina a linguagem da frente e execute o orchestrador**
    ```
+   /definir-stack                  # pergunta a linguagem de cada frente (só na primeira vez)
    /inicia-orquestracao backend
    /inicia-orquestracao frontend
    ```
+   Depois do `/definir-stack`, reabra o Claude Code (`claude --continue`) para carregar o specialist da stack.
    Sem argumento, o orquestrador pergunta qual frente. Mudança que cruza as duas = duas rodadas (backend
    primeiro). Para rodar as duas ao mesmo tempo, uma worktree por frente: `claude --worktree nome-da-frente`.
 
@@ -6302,7 +6392,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
-- `/video-lancamento` — opcional, com o frontend já entregue: gera um vídeo curto de lançamento com o plugin `brag` (não faz parte do pipeline).
+- `/video-lancamento` — opcional, com o frontend já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e deixa só o `.mp4` em `output/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6434,7 +6524,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
-- `/video-lancamento` — opcional, com o sistema já entregue: gera um vídeo curto de lançamento com o plugin `brag` (não faz parte do pipeline).
+- `/video-lancamento` — opcional, com o sistema já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e deixa só o `.mp4` em `output/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6621,34 +6711,341 @@ echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
 if [ "$HAS_FRONT" = 1 ]; then
 cat > ""$PROJECT_DIR/.claude/commands/video-lancamento.md"" << 'VIDEOEOF'
 ---
-description: Opcional — gera um vídeo curto de lançamento do sistema entregue com o plugin brag (latent-spaces/brag, usa HyperFrames). Fora do pipeline; só roda quando você chamar.
-allowed-tools: Bash(node --version), Bash(ffmpeg -version), Skill
+description: Opcional — gera o vídeo COMPLETO de treinamento do sistema (nome e objetivo, login e todos os menus, com narração em português do Brasil) e deixa só o arquivo .mp4 em output/. Fora do pipeline; só roda quando você chamar.
+allowed-tools: Bash(node:*), Bash(ffmpeg:*), Bash(ffprobe:*), Bash(mktemp:*), Bash(ls:*), Bash(mv:*), Bash(npx hyperframes:*), Bash(npx playwright:*), Read, Write, Glob, Grep, Skill
 ---
 
-# Vídeo de lançamento (opcional)
+# Vídeo de treinamento do sistema (opcional)
 
-Comando avulso: nenhum agente do pipeline chama isto, e o `/inicia-orquestracao` não depende dele. Use só se
-quiser um vídeo de divulgação do sistema entregue.
+Comando avulso: nenhum agente do pipeline chama isto, e o `/inicia-orquestracao` não depende dele. Gera **um
+único arquivo `.mp4` em `output/`**, e o vídeo é **sempre o completo** — nunca uma introdução ou um teaser.
 
-## O que fazer
+## Regras fixas (valem em toda execução)
 
-1. Confira os requisitos rodando `node --version` (precisa ser 22 ou superior) e `ffmpeg -version`. Se algum
-   faltar ou estiver abaixo do necessário, diga exatamente o que instalar e pare — não tente instalar sozinho.
+1. **Só o `.mp4` final fica no projeto.** Roteiro, áudios, capturas de tela, projeto de vídeo, `node_modules`,
+   cache e qualquer outro intermediário vivem numa **pasta temporária fora do repositório** (`mktemp -d`) e são
+   apagados no fim — também quando algo der errado ou o usuário cancelar. Nada de poster `.jpg`, `share-copy.txt`,
+   `brag-output/`, `composition/` ou `work/` dentro do projeto.
+2. **Vídeo completo, estilo treinamento** para quem nunca viu o sistema: abre dizendo o nome do sistema e para que
+   ele serve, entra pelo login (ou pela primeira tela), percorre **todos** os menus, telas e fluxos principais, e
+   fecha com um resumo. Para cada menu: o que é, para que serve e como usar, passo a passo. **A duração acompanha a
+   quantidade de menus** — não existe limite curto (a regra de "15 a 25 segundos" do plugin `brag` **não** vale
+   aqui).
+3. **Narração em português do Brasil com uma voz só, no mesmo ritmo do começo ao fim**, sem mudar de tom ou de
+   velocidade quando aparece palavra em inglês (veja o Passo 3 em diante).
+4. **Não invente telas.** Tudo o que o vídeo mostra e explica existe no código do frontend ou na especificação.
+5. **Nunca coloque dados reais** (e-mail, nome de cliente, token, URL interna, conteúdo de `.env`) no vídeo nem na
+   narração: use dados fictícios plausíveis.
 
-2. Confira se a skill `brag` está disponível. Se não estiver, o plugin ainda não foi instalado: peça ao usuário
-   para rodar, uma vez, os dois comandos abaixo (são comandos do Claude Code, o usuário digita) e depois chamar
-   `/video-lancamento` de novo. É um plugin de terceiros — avise isso ao pedir a instalação.
+## Por que este comando não usa o fluxo do `brag` como está
+
+O plugin `brag` (v0.5.0) foi feito para vídeos de **15 a 25 segundos**, grava uma pasta `brag-output/` com plano,
+brief, composição, poster e texto de divulgação, e a narração (`--voice`) usa por padrão a voz `af_heart`, que é
+em **inglês americano**. Isso conflita com os três pedidos acima. Este comando usa o **mesmo motor** (Hyperframes
+para montar e renderizar, Kokoro para a voz, ambos via `npx`) com fluxo próprio. O `brag-slim` também não serve:
+é de ~20 segundos e não faz narração.
+
+## Passo 1 — Requisitos
+
+1. Rode `node --version` (precisa ser 22 ou superior), `ffmpeg -version` e `ffprobe -version`. Se algum faltar ou
+   estiver abaixo do necessário, diga exatamente o que instalar (no Windows, por exemplo,
+   `winget install Gyan.FFmpeg`) e **pare** — não instale sozinho.
+2. Confira se a skill `hyperframes` está disponível (ela vem com o plugin `brag`, que é de terceiros). Se não
+   estiver, peça ao usuário para rodar, uma vez, os comandos abaixo (são comandos do Claude Code, o usuário digita)
+   e depois chamar `/video-lancamento` de novo. **Avise que é um plugin de terceiros** e que a primeira execução
+   baixa pacotes via `npx` (Hyperframes e o modelo de voz).
 
    ```
    /plugin marketplace add latent-spaces/brag
    /plugin install brag@brag
    ```
 
-3. Com tudo pronto, invoque a skill `brag` (via Skill) sobre este projeto. Use `docs/SPEC.md` e o frontend (em
-   `src/`, ou `frontend/` no monorepo) como fonte do que o sistema faz; não invente funcionalidades que não existem no código.
+3. O frontend fica em `frontend/`. Se `frontend/` estiver vazio (sem código de tela), diga que ainda não há o que
+   mostrar e **pare**.
 
-4. Reporte onde o vídeo foi gerado e como abri-lo. Se o render falhar, mostre o erro exato.
+## Passo 2 — Pasta temporária e levantamento das telas
+
+1. Crie a pasta de trabalho **fora do projeto** e guarde o caminho (repita-o em toda chamada seguinte, porque
+   cada comando de shell começa do zero):
+
+   ```bash
+   WORK=$(mktemp -d) && echo "$WORK"
+   mkdir -p "$WORK"/{voz,telas,composicao} && ls -A output > "$WORK/output-antes.txt" 2>/dev/null; true
+   ```
+
+   `output-antes.txt` é a foto de `output/` antes do vídeo; ela serve para conferir no fim que só o `.mp4` entrou.
+
+2. Levante o que o sistema tem, **lendo o código real**: rotas (`frontend/src/**` — arquivo de rotas, `router`,
+   `app.routes.ts`), componentes de menu/navegação/sidebar, telas e formulários, `docs/frontend/SPEC.md`,
+   `docs/backend/SPEC.md`, `docs/raw/` e, se existir, `docs/design/identidade.md` (cores, fontes e logo do cliente).
+   Não leia `node_modules/`, `dist/`, `.env*`, chaves ou credenciais.
+3. Mostre ao usuário a **lista de menus/telas encontrados** (uma linha cada) e siga **sem pedir confirmação** — o
+   usuário quer rapidez. Só pare se não achar nenhuma tela.
+
+## Passo 3 — Roteiro e normalização da fala
+
+Grave `$WORK/roteiro.json` neste formato (UTF-8):
+
+```json
+{
+  "excecoes": ["nomedosistema"],
+  "cenas": [
+    { "id": "01", "tela": "Texto exibido na tela, com a grafia original", "fala": "O que a voz vai dizer, em português." }
+  ]
+}
+```
+
+Ordem das cenas: **abertura** (nome do sistema + objetivo), **acesso/login**, **uma cena por menu, tela ou fluxo**
+(duas ou três cenas quando o menu tem passos — listar, criar, editar, excluir, filtrar...), **encerramento**
+(resumo e onde pedir ajuda). Cada cena aponta para uma tela real (`tela` é o texto/título que aparece no vídeo).
+
+Como escrever a `fala`:
+
+- Português do Brasil, frases curtas (no máximo ~20 palavras), um assunto por cena, tom de quem ensina alguém que
+  nunca viu o sistema: **o que é, para que serve, como usar**.
+- **Nunca deixe palavra em inglês na fala quando existe equivalente em português**: "painel" (não dashboard),
+  "acesso" ou "entrar" (não login), "baixar o arquivo" (não fazer download), "configurações" (não settings). O
+  texto que aparece na tela mantém a grafia original; só a fala muda.
+- Nome de menu em inglês que existe na tela e não tem tradução natural: escreva a fala com o equivalente em
+  português ou com grafia fonética que a voz leia do jeito certo (ex.: "dáunlôude"). Siglas são soletradas.
+- O nome do sistema e nomes próprios entram na lista `excecoes` (em minúsculas) para não serem apontados.
+
+Agora grave o verificador em `$WORK/normalizar-fala.mjs` e rode `node "$WORK/normalizar-fala.mjs" "$WORK/roteiro.json"`.
+Ele troca o que sobrou de termo em inglês por equivalente em português ou grafia fonética, grava o resultado em
+`fala_tts` de cada cena e **sai com erro (código 2) listando os termos suspeitos**. Reescreva a `fala` das cenas
+apontadas e rode de novo, **até sair sem pendências**. Só a `fala_tts` vai para a voz.
+
+```js
+// normalizar-fala.mjs <roteiro.json>
+// Lê { "excecoes": [...], "cenas": [{ "id", "tela", "fala" }] } e grava "fala_tts" em cada cena.
+// Sai com código 2 enquanto sobrar termo suspeito de ser inglês na fala.
+import fs from "node:fs";
+
+const arquivo = process.argv[2];
+const roteiro = JSON.parse(fs.readFileSync(arquivo, "utf8"));
+const excecoes = new Set((roteiro.excecoes || []).map((s) => s.toLowerCase()));
+
+// Rede de segurança: a fala já deve ser escrita em português. O que sobrar aqui troca por um
+// equivalente em português SÓ quando mantém gênero e número ("o login" -> "o acesso"); nos demais
+// casos vira grafia fonética, que a voz pt-BR lê de forma natural e sem trocar de ritmo.
+const DICIONARIO = {
+  "login": "acesso", "log in": "acesso", "sign in": "acesso", "logout": "saída do sistema",
+  "dashboard": "painel", "download": "dáunlôude", "upload": "envio",
+  "e-mail": "imêiu", "email": "imêiu", "click": "clique", "app": "aplicativo",
+  "feedback": "retorno", "input": "campo", "button": "botão", "checkout": "fechamento do pedido",
+  "offline": "ófilaine", "online": "ônlaine", "backup": "békape", "template": "modelo",
+  "status": "estado", "mobile": "móvel", "user": "usuário", "password": "péssuórdi",
+  "username": "nome de usuário", "settings": "configurações", "profile": "perfil",
+  "search": "busca", "filter": "filtro", "report": "relatório", "scroll": "rolagem",
+  "software": "sistema", "shopping": "xópim", "wi-fi": "uai-fai", "link": "linque",
+  "pdf": "pê dê éfe", "api": "á pê i", "sql": "ésse quiu éle", "url": "u érre éle",
+  "cpf": "cê pê éfe", "cnpj": "cê ene pê jota", "id": "i dê",
+};
+
+const LETRAS = {
+  a: "á", b: "bê", c: "cê", d: "dê", e: "é", f: "éfe", g: "gê", h: "agá", i: "i", j: "jota",
+  k: "cá", l: "éle", m: "ême", n: "êne", o: "ó", p: "pê", q: "quê", r: "érre", s: "ésse",
+  t: "tê", u: "u", v: "vê", w: "dáblio", x: "xis", y: "ípsilon", z: "zê",
+};
+
+const LETRA_OU_NUMERO = "[\\p{L}\\p{N}]";
+const escapar = (s) => s.replace(/[.*+?^$()|{}\[\]\\]/g, "\\$&");
+const termos = Object.keys(DICIONARIO).sort((a, b) => b.length - a.length);
+const reDicionario = new RegExp(
+  "(?<!" + LETRA_OU_NUMERO + ")(" + termos.map(escapar).join("|") + ")(?!" + LETRA_OU_NUMERO + ")",
+  "giu"
+);
+const reSigla = new RegExp("(?<!" + LETRA_OU_NUMERO + ")([A-ZÀ-Ú]{2,5})(?!" + LETRA_OU_NUMERO + ")", "gu");
+
+// Palavras inglesas comuns em telas de sistema que o português não usa.
+const COMUNS_EN = new Set([
+  "the", "and", "for", "with", "your", "you", "this", "that", "from", "have", "will", "can",
+  "get", "set", "add", "run", "open", "close", "page", "menu", "item", "list", "form", "card",
+  "tab", "name", "data", "file", "image", "video", "chat", "post", "like", "share", "team",
+  "plan", "free", "pro", "premium", "trial", "pay", "order", "cart", "shop", "store", "sale",
+  "board", "task", "todo", "draft", "live", "beta", "click", "mouse", "link", "site", "online",
+]);
+
+// Sinal de inglês: letras k/w/y, consoantes dobradas que o português não usa e grupos típicos.
+function suspeito(palavra) {
+  const p = palavra.toLowerCase();
+  if (p.length < 3 || excecoes.has(p)) return false;
+  if (COMUNS_EN.has(p)) return true;
+  if (/[kwy]/.test(p)) return true;
+  if (/(tt|pp|ff|dd|th|sh|ck|ght|ough)/.test(p)) return true;
+  if (/(ing|tion)$/.test(p)) return true;
+  return false;
+}
+
+const pendencias = [];
+for (const cena of roteiro.cenas) {
+  let fala = String(cena.fala || "");
+  fala = fala.replace(reDicionario, (m) => DICIONARIO[m.toLowerCase()]);
+  // Siglas em maiúsculas (2 a 5 letras) fora do dicionário: soletrar, senão a voz tropeça.
+  fala = fala.replace(reSigla, (m) =>
+    excecoes.has(m.toLowerCase())
+      ? m
+      : m.toLowerCase().split("").map((c) => LETRAS[c] || c).join(" ")
+  );
+  cena.fala_tts = fala;
+  for (const token of fala.match(/\p{L}+(?:-\p{L}+)*/gu) || []) {
+    if (suspeito(token)) pendencias.push({ cena: cena.id, termo: token });
+  }
+}
+
+fs.writeFileSync(arquivo, JSON.stringify(roteiro, null, 2));
+if (pendencias.length) {
+  console.log("TERMOS SUSPEITOS DE SEREM INGLÊS (reescreva a fala; se for mesmo português ou nome próprio, ponha em excecoes):");
+  for (const p of pendencias) console.log("  cena " + p.cena + ": " + p.termo);
+  process.exit(2);
+}
+console.log("OK: nenhuma palavra em inglês crua na fala (" + roteiro.cenas.length + " cenas).");
+```
+
+## Passo 4 — Voz (uma só, pt-BR, velocidade fixa)
+
+1. Descubra as vozes e as opções reais da ferramenta, sem supor:
+   `npx hyperframes tts --list` e `npx hyperframes tts --help`.
+2. Escolha **uma voz em português do Brasil** (as vozes pt-BR do Kokoro têm nomes que começam com `pf_` ou `pm_`;
+   confira na lista). **Nunca use a voz padrão `af_heart`** (inglês americano) para texto em português — é a
+   causa mais provável de a voz mudar de tom e de ritmo em palavras estrangeiras. Se `--help` mostrar opção de
+   idioma, use `pt-BR`; se mostrar opção de velocidade, fixe **o mesmo valor** em todas as cenas. Se a lista não
+   tiver nenhuma voz em português, **pare** e diga isso ao usuário — não gere com voz em inglês.
+3. Gere **um arquivo por cena**, sempre com a mesma voz e as mesmas opções, a partir do campo `fala_tts`:
+
+   ```bash
+   npx hyperframes tts "<fala_tts da cena>" --voice <voz-pt-BR> --output "$WORK/voz/cena-<id>.wav"
+   ```
+
+   Frases curtas por cena mantêm a prosódia estável. Não misture vozes, não mude opções no meio.
+
+## Passo 5 — Ritmo e volume iguais em todas as cenas
+
+Grave `$WORK/ritmo.mjs` e rode `node "$WORK/ritmo.mjs" "$WORK"`. Ele apara o silêncio das pontas, mede as letras
+faladas por segundo de cada cena, acelera ou desacelera (entre 0,88× e 1,14× da velocidade original) as que fugirem da mediana, normaliza o volume
+(`loudnorm`), padroniza tudo em 48 kHz mono e grava `$WORK/voz-final/` e `$WORK/duracoes.json`. Se alguma cena
+precisar de ajuste maior que o limite, gere-a de novo (Passo 4) com uma `fala` mais curta, em vez de forçar.
+
+```js
+// ritmo.mjs <pasta-de-trabalho>
+// Lê <pasta>/roteiro.json e <pasta>/voz/cena-<id>.wav (um arquivo por cena, mesma voz e mesma velocidade),
+// iguala o ritmo de fala entre as cenas, padroniza volume e taxa de amostragem e grava
+// <pasta>/voz-final/cena-<id>.wav. Imprime a duração final de cada cena (o vídeo usa essa duração).
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+const pasta = process.argv[2];
+const roteiro = JSON.parse(fs.readFileSync(path.join(pasta, "roteiro.json"), "utf8"));
+const entrada = path.join(pasta, "voz");
+const saida = path.join(pasta, "voz-final");
+const aparado = path.join(pasta, "voz-aparada");
+fs.mkdirSync(saida, { recursive: true });
+fs.mkdirSync(aparado, { recursive: true });
+
+const TOLERANCIA = 0.1; // ritmos até 10% da mediana ficam como estão
+const LIMITE_ATEMPO = [0.88, 1.14]; // nunca acelera/desacelera mais que isso (soaria artificial)
+const SILENCIO_FINAL = 0.45; // respiro entre cenas, igual em todas
+
+function ff(args) {
+  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", ...args], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error("ffmpeg falhou: " + (r.stderr || r.error));
+}
+function duracao(arquivo) {
+  const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", arquivo], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error("ffprobe falhou: " + (r.stderr || r.error));
+  return parseFloat(r.stdout.trim());
+}
+const mediana = (v) => {
+  const o = [...v].sort((a, b) => a - b);
+  const m = Math.floor(o.length / 2);
+  return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+};
+
+// 1) Apara silêncio do começo e do fim e mede o ritmo (letras faladas por segundo).
+const cenas = roteiro.cenas.map((c) => {
+  const origem = path.join(entrada, "cena-" + c.id + ".wav");
+  if (!fs.existsSync(origem)) throw new Error("falta o áudio da cena " + c.id + ": " + origem);
+  const destino = path.join(aparado, "cena-" + c.id + ".wav");
+  const corte = "silenceremove=start_periods=1:start_threshold=-45dB";
+  ff(["-i", origem, "-af", corte + ",areverse," + corte + ",areverse", destino]);
+  const letras = (c.fala_tts || c.fala || "").replace(/[^\p{L}\p{N}]/gu, "").length;
+  const seg = duracao(destino);
+  return { id: c.id, destino, seg, ritmo: letras / seg };
+});
+
+// 2) Cena muito mais rápida ou lenta que a mediana é ajustada para o ritmo comum.
+const alvo = mediana(cenas.map((c) => c.ritmo));
+const relatorio = [];
+for (const c of cenas) {
+  let fator = c.ritmo / alvo; // >1: a cena está rápida demais, então desacelera
+  fator = Math.abs(fator - 1) <= TOLERANCIA ? 1 : 1 / fator;
+  fator = Math.min(LIMITE_ATEMPO[1], Math.max(LIMITE_ATEMPO[0], fator));
+  const filtro = [
+    fator !== 1 ? "atempo=" + fator.toFixed(3) : null,
+    "loudnorm=I=-16:TP=-1.5:LRA=7",
+    "apad=pad_dur=" + SILENCIO_FINAL,
+  ].filter(Boolean).join(",");
+  const final = path.join(saida, "cena-" + c.id + ".wav");
+  ff(["-i", c.destino, "-af", filtro, "-ar", "48000", "-ac", "1", "-sample_fmt", "s16", final]);
+  const seg = duracao(final);
+  relatorio.push({ id: c.id, ritmo_original: +c.ritmo.toFixed(2), atempo: +fator.toFixed(3), duracao_s: +seg.toFixed(2) });
+}
+fs.writeFileSync(path.join(pasta, "duracoes.json"), JSON.stringify(relatorio, null, 2));
+console.log("ritmo-alvo (letras/s): " + alvo.toFixed(2));
+for (const r of relatorio) console.log("cena " + r.id + ": ritmo " + r.ritmo_original + " | atempo " + r.atempo + " | " + r.duracao_s + "s");
+```
+
+## Passo 6 — Telas reais
+
+1. Suba o frontend **sem sujar o projeto**: se `frontend/node_modules/` já existir, rode o servidor de
+   desenvolvimento dali (em segundo plano, anotando a porta). Se não existir, copie `frontend/` (sem `node_modules`)
+   para `$WORK/app`, rode `npm install` e suba de lá — nunca crie `node_modules` ou arquivos de build dentro do
+   projeto.
+2. Capture cada cena em 1920×1080 para `$WORK/telas/cena-<id>.png` com Playwright (`npx playwright screenshot
+   --viewport-size=1920,1080 --wait-for-timeout=1000 <url> <arquivo>`; para telas atrás de login, escreva um
+   script Playwright em `$WORK` que entre com **dados fictícios**).
+3. Se uma tela depender do backend e ele não estiver no ar, reconstrua a tela a partir dos **componentes, CSS e
+   fontes reais** do `frontend/` com dados fictícios — nunca desenhe uma tela que não existe no código.
+4. Pare o servidor de desenvolvimento quando terminar as capturas.
+
+## Passo 7 — Montagem e render
+
+1. Monte a composição em `$WORK/composicao` com a skill `hyperframes` (e `hyperframes-cli` para validar e
+   renderizar), uma cena por captura: a imagem da tela, o título/`tela` da cena, um destaque no menu que está sendo
+   explicado, a **legenda com a `fala` original** (grafia original, não a `fala_tts`) e o áudio `voz-final/cena-<id>.wav`.
+   **Cada cena dura o `duracao_s` do `duracoes.json`** (que já inclui um respiro de ~0,45 s). Identidade visual:
+   use `docs/design/identidade.md` se existir. **Sem música de fundo** — é treinamento e a voz vem primeiro.
+2. Renderize para `$WORK/video.mp4` (qualidade de entrega). Se a skill `hyperframes` não estiver utilizável, monte
+   com ffmpeg: um clipe por cena (`-loop 1 -i cena.png -i cena.wav -shortest -c:v libx264 -tune stillimage -pix_fmt
+   yuv420p -c:a aac`), com a legenda gravada na imagem, e junte os clipes com o concat do ffmpeg.
+3. Confira com `ffprobe`: existe trilha de vídeo e de áudio, e a duração é aproximadamente a soma das cenas. Se
+   não for, corrija antes de entregar.
+
+## Passo 8 — Entregar e limpar
+
+1. Mova o arquivo final para `output/` com nome fixo do projeto, sem espaços (ex.:
+   `output/treinamento-<nome-do-projeto>.mp4`): `mkdir -p output && mv "$WORK/video.mp4" output/<nome>.mp4`.
+2. **Confira que só o `.mp4` entrou em `output/`**: liste `ls -A output` e compare com `$WORK/output-antes.txt`; a
+   única diferença deve ser o arquivo `.mp4`. Se aparecer qualquer outra coisa nova, apague-a e avise.
+3. **Apague a pasta temporária** e confirme que ela não existe mais (`rm -rf "$WORK"`; depois `ls "$WORK"` deve
+   falhar). Se o `rm` pedir permissão, peça ao usuário para aprovar — não deixe a pasta para trás.
+4. O `limpar-output.cjs` do pipeline apaga arquivos soltos de `output/` no começo e no fim de cada rodada do
+   `/inicia-orquestracao`. Rode `grep -c mp4 .claude/scripts/limpar-output.cjs`: se der `0`, **avise o usuário**
+   para copiar o vídeo para fora de `output/` antes da próxima rodada.
+5. Reporte: caminho do vídeo, duração total, número de cenas e a voz usada, e a lista de menus cobertos.
+
+## Se algo falhar ou o usuário cancelar
+
+Antes de reportar o erro: pare o servidor de desenvolvimento, **apague um `.mp4` parcial que esteja em `output/`** e
+**apague `$WORK`**. Mostre o erro exato. O projeto deve ficar exatamente como estava antes do comando.
 VIDEOEOF
+# Projeto de uma frente só: o código do front vive em src/ e a spec em docs/SPEC.md (o texto do comando
+# foi escrito para o monorepo).
+if [ "$MONO" != 1 ]; then
+    sed -i 's#docs/frontend/SPEC\.md#docs/SPEC.md#g; s#frontend/src/#src/#g; s#frontend/node_modules/#node_modules/#g; s#`frontend/`#`src/`#g' \
+        "$PROJECT_DIR/.claude/commands/video-lancamento.md"
+fi
 echo -e "${GREEN}✅ .claude/commands/video-lancamento.md criado${NC}"
 fi
 
@@ -6853,11 +7250,23 @@ echo -e "${GREEN}✅ .claude/commands/raio-x-projeto.md criado${NC}"
 # ============================================================================
 # CRIAR docs/SPEC.md — stack sugerida reflete a escolha
 # ============================================================================
-for STACK in $ALL_STACKS; do
+SPEC_STACKS="$ALL_STACKS"
+[ "$BACK_PENDING" = 1 ] && SPEC_STACKS="dotnet $SPEC_STACKS"
+[ "$FRONT_PENDING" = 1 ] && SPEC_STACKS="$SPEC_STACKS react"
+for STACK in $SPEC_STACKS; do
 set_stack_vars "$STACK"
+# SPEC_PEND=1: a frente desta spec ainda não tem stack (a spec sai com o esqueleto padrão e "Stack: a definir")
+SPEC_PEND=0
+{ [ "$STACK" = "dotnet" ] && [ "$BACK_PENDING" = 1 ]; } && SPEC_PEND=1
+{ [ "$STACK" = "react" ] && [ "$FRONT_PENDING" = 1 ]; } && SPEC_PEND=1
 if [ "$MONO" = 1 ]; then SPEC_REL="docs/$STACK_DIR/SPEC.md"; else SPEC_REL="docs/SPEC.md"; fi
 if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/$SPEC_REL" ]; then
-    echo -e "${YELLOW}⏭️  $SPEC_REL já existe — mantido sem alterações${NC}"
+    if [ "$SPEC_PEND" = 0 ] && grep -qF '**Stack:** a definir' "$PROJECT_DIR/$SPEC_REL"; then
+        sed -i "s#^[*][*]Stack:[*][*] a definir.*#**Stack:** $STACK_LABEL_ONE#" "$PROJECT_DIR/$SPEC_REL"
+        echo -e "${GREEN}✅ $SPEC_REL: stack definida ($STACK_LABEL_ONE)${NC}"
+    else
+        echo -e "${YELLOW}⏭️  $SPEC_REL já existe — mantido sem alterações${NC}"
+    fi
 else
 if [ "$STACK" = "dotnet" ]; then
     cat > ""$PROJECT_DIR/$SPEC_REL"" << 'SPECEOF'
@@ -7082,6 +7491,9 @@ if [ "$MONO" = 1 ] && [ "$STACK" != "dotnet" ]; then
         -e 's#(API externa, se houver)#(API do backend/ ou externa)#' \
         "$PROJECT_DIR/$SPEC_REL"
 fi
+if [ "$SPEC_PEND" = 1 ]; then
+    sed -i 's#^[*][*]Stack:[*][*].*#**Stack:** a definir — rode `/definir-stack` antes do `/inicia-orquestracao`#' "$PROJECT_DIR/$SPEC_REL"
+fi
 echo -e "${GREEN}✅ $SPEC_REL criado${NC}"
 fi
 done
@@ -7093,18 +7505,32 @@ init_stack_globals
 
 if [ "$MONO" = 1 ]; then
     CLAUDE_BUILD_STEPS="# Backend (rode sempre de dentro de backend/)"
-    stack_info "$BACK_STACK"
-    BACK_PERM="$STACK_PERM_JSON"
-    while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+    BACK_PERM="[]"
+    if [ -n "$BACK_STACK" ]; then
+        stack_info "$BACK_STACK"
+        BACK_PERM="$STACK_PERM_JSON"
+        while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
 cd $BACK_DIR && $line"; done <<< "$STACK_BUILD_STEPS"
+    else
+        CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+# stack ainda não definida — rode /definir-stack backend"
+    fi
     CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
 
 # Frontend (rode sempre de dentro de frontend/)"
-    stack_info "$FRONT_STACK"
-    FRONT_PERM="$STACK_PERM_JSON"
-    while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+    FRONT_PERM="[]"
+    if [ -n "$FRONT_STACK" ]; then
+        stack_info "$FRONT_STACK"
+        FRONT_PERM="$STACK_PERM_JSON"
+        while IFS= read -r line; do CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
 cd $FRONT_DIR && $line"; done <<< "$STACK_BUILD_STEPS"
-    PERM_BASH_JSON="${BACK_PERM%]},${FRONT_PERM#[}"
+    else
+        CLAUDE_BUILD_STEPS="$CLAUDE_BUILD_STEPS
+# stack ainda não definida — rode /definir-stack frontend"
+    fi
+    if [ "$BACK_PERM" = "[]" ]; then PERM_BASH_JSON="$FRONT_PERM"
+    elif [ "$FRONT_PERM" = "[]" ]; then PERM_BASH_JSON="$BACK_PERM"
+    else PERM_BASH_JSON="${BACK_PERM%]},${FRONT_PERM#[}"; fi
     PERM_EDIT_JSON='["Edit(backend/src/**)","Edit(backend/tests/**)","Edit(frontend/src/**)","Edit(frontend/e2e/**)"]'
     init_stack_globals
 else
@@ -7168,11 +7594,20 @@ else
     CLAUDE_FLUXO_EXTRA=""
     CLAUDE_MONO_BLOCK=""
 fi
-if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+CLAUDE_PEND_MARK=""
+CLAUDE_STACK_LINE=""
+if [ "$ANY_PENDING" = 1 ]; then
+    CLAUDE_PEND_MARK="<!-- sdd:stack-pendente -->
+"
+    CLAUDE_STACK_LINE="- \`.claude/stack.json\` — a linguagem de cada frente. Frente \`pendente\` ainda não tem specialist: antes do
+  \`/inicia-orquestracao <frente>\` rode \`/definir-stack <frente>\` (ele pergunta a linguagem e instala o specialist)
+"
+fi
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/CLAUDE.md" ] && ! grep -q 'sdd:stack-pendente' "$PROJECT_DIR/CLAUDE.md"; then
     echo -e "${YELLOW}⏭️  CLAUDE.md já existe — mantido sem alterações${NC}"
 else
 cat > "$PROJECT_DIR/CLAUDE.md" << CLAUDEMDEOF
-# Projeto SDD — $STACK_LABEL
+${CLAUDE_PEND_MARK}# Projeto SDD — $STACK_LABEL
 
 Este projeto usa o **Pipeline SDD** (Spec-Driven Development): agentes especializados em
 \`.claude/agents/\` implementam, testam e revisam código a partir de \`docs/SPEC.md\`, disparados pelo
@@ -7194,7 +7629,7 @@ $CLAUDE_BUILD_STEPS
   \`token-report.md\` vai para o Git; os relatórios intermediários ficam fora dele e são apagados no fim da
   rodada — por isso nada que precise sobreviver à sessão pode ficar só aqui
 - $CLAUDE_SRC_LINE
-- \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/inicia-orquestracao\` cuida disso)
+${CLAUDE_STACK_LINE}- \`.claude/agents/\` — subagentes do pipeline (não chame manualmente; o \`/inicia-orquestracao\` cuida disso)
 - \`.claude/rules/\` — convenções por caminho de arquivo (carregam só quando relevante — veja lá antes de
   duplicar uma convenção aqui)
 
@@ -7412,6 +7847,9 @@ if [ "$HAS_FRONT" = 1 ]; then
             angular) FRONTEND_RULE_PATHS='  - "src/**/*.ts"' ;;
             vue)     FRONTEND_RULE_PATHS='  - "src/**/*.vue"
   - "src/**/*.ts"' ;;
+            *)       FRONTEND_RULE_PATHS='  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "src/**/*.vue"' ;;   # stack ainda pendente: cobre as três
         esac
 cat > "$PROJECT_DIR/.claude/rules/frontend-components.md" << RULEEOF
 ---
@@ -7584,6 +8022,856 @@ fi
 fi
 
 # ============================================================================
+# v7.0.0 — princípios de implementação, modelo único de documentos (PDF), comandos de amostra e
+# /definir-stack. As rules e o modelo valem para todo projeto; os comandos de amostra e o estado das
+# stacks (.claude/stack.json) só existem no monorepo.
+# ============================================================================
+mkdir -p "$PROJECT_DIR/.claude/rules" "$PROJECT_DIR/docs/modelo-documento" "$PROJECT_DIR/docs/entregaveis" "$PROJECT_DIR/docs/design"
+cat > "$PROJECT_DIR/.claude/rules/principios-de-implementacao.md" << 'SDDPARTPRINCEOF'
+# Princípios de implementação
+
+Valem para **toda** implementação, decisão de infra e revisão, dentro ou fora do `/inicia-orquestracao`.
+Em conflito, a ordem é: **regra de negócio > arquitetura > custo**.
+
+1. **Nunca quebre a regra de negócio da spec.** Se uma implementação, otimização ou atalho exigir mudá-la, pare e
+   pergunte ao usuário antes de seguir.
+2. **Nunca saia da arquitetura pedida** (Clean Architecture, SOLID, clean code; back ou front). Nenhuma gambiarra:
+   sem atalho que fure camada, sem dependência na direção errada, sem "depois eu arrumo". Se a arquitetura não
+   comporta o pedido, aponte isso e proponha o ajuste da arquitetura; não contorne.
+3. **Custo mínimo primeiro.** Antes de propor infra, serviço ou ferramenta, liste as opções do **mais barato ao mais
+   caro** (gratuito, free tier, nativo da cloud já usada: Azure ou AWS) e escolha a mais barata que atenda.
+   Prefira o serviço nativo da plataforma a ferramenta externa paga. Só suba de nível com justificativa de um
+   requisito que a opção barata não cumpre, registrada em ADR.
+4. Ao reportar, diga qual regra de negócio e qual decisão de arquitetura sustentam a entrega e, se houve escolha
+   de custo, quais opções foram comparadas.
+SDDPARTPRINCEOF
+cat > "$PROJECT_DIR/.claude/rules/padrao-documentos.md" << 'SDDPARTPADRAOEOF'
+# Padrão de documentos
+
+Todo documento ou entregável para cliente (arquitetura, backend, frontend, apresentação de design, qualquer
+PDF) usa **sempre** o modelo de `docs/modelo-documento/`. O usuário já teve o segundo PDF saindo com layout
+e tamanho diferentes do primeiro; isto existe para isso nunca mais acontecer.
+
+1. **Parta de um modelo:** copie `docs/modelo-documento/documento-modelo.html` (texto) ou
+   `apresentacao-modelo.html` (apresentação de design) para `docs/entregaveis/<nome>.html`.
+2. **Formato fixo por tipo:** `documento` = A4 retrato, para todo texto. `apresentacao` = A4 paisagem, **só**
+   para a apresentação de design. Não misture e não invente um terceiro formato.
+3. **PDF só pelo script:** `node .claude/scripts/gerar-pdf.cjs docs/entregaveis/<nome>.html`. O tamanho da
+   página vem do CSS, nunca de parâmetro, de outra ferramenta ou de biblioteca diferente.
+4. **Nunca improvise:** não crie CSS próprio, `<style>` com cor/fonte/tamanho de página, nem template novo.
+   Se faltar um componente visual, acrescente-o a `modelo.css` ou `apresentacao.css`, para valer para todos.
+5. **Identidade do cliente entra só por `docs/modelo-documento/tokens.css`** (cores e fontes), via
+   `/identidade-visual`. Nunca por estilo dentro do HTML do documento.
+6. Reuse a pasta `docs/entregaveis/`: HTML de origem e PDF final ficam lado a lado, com o mesmo nome.
+
+Antes de entregar, confira que o PDF novo tem o mesmo tamanho de página e o mesmo cabeçalho/rodapé dos
+anteriores do mesmo formato.
+SDDPARTPADRAOEOF
+if [ ! -f "$PROJECT_DIR/docs/modelo-documento/tokens.css" ]; then
+cat > "$PROJECT_DIR/docs/modelo-documento/tokens.css" << 'SDDPARTTOKENSEOF'
+/*
+ * tokens.css — ÚNICA fonte de cor e fonte dos documentos e apresentações.
+ *
+ * Todo entregável (docs/entregaveis/*.html) usa modelo.css ou apresentacao.css, e os dois
+ * leem SÓ estas variáveis. O comando /identidade-visual sobrescreve estes valores com a
+ * identidade do cliente. Não coloque cor ou fonte em nenhum outro lugar.
+ * Fontes de sistema de propósito: o PDF sai igual em qualquer máquina, sem depender de rede.
+ */
+:root {
+  --cor-primaria:   #1f3a5f;
+  --cor-secundaria: #5b7089;
+  --cor-destaque:   #c8553d;
+  --cor-texto:      #1c2430;
+  --cor-fundo:      #ffffff;
+  --cor-borda:      #d5dbe3;
+
+  --fonte-titulo: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --fonte-corpo:  "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+SDDPARTTOKENSEOF
+fi
+cat > "$PROJECT_DIR/docs/modelo-documento/modelo.css" << 'SDDPARTMODELOEOF'
+/*
+ * modelo.css — formato "documento": A4 RETRATO.
+ * Não edite para um documento específico. Cores e fontes vêm de tokens.css.
+ * No HTML, defina o nome que aparece no cabeçalho:
+ *   <style>:root { --doc-titulo: "Arquitetura do Sistema"; }</style>
+ */
+@import url("tokens.css");
+
+@page {
+  size: A4 portrait;
+  margin: 24mm 20mm 22mm 20mm;
+  @top-left {
+    content: var(--doc-titulo, "");
+    font: 600 8.5pt var(--fonte-corpo);
+    color: var(--cor-secundaria);
+  }
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font: 8.5pt var(--fonte-corpo);
+    color: var(--cor-secundaria);
+  }
+}
+@page :first {
+  margin: 0;
+  @top-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: 10.5pt/1.55 var(--fonte-corpo);
+}
+
+/* Capa: ocupa a primeira página inteira (sem margem) */
+.capa {
+  width: 210mm;
+  height: 297mm;
+  padding: 40mm 25mm 25mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--cor-primaria);
+  color: #fff;
+  break-after: page;
+  page-break-after: always;
+}
+.capa .marca { font: 600 11pt var(--fonte-titulo); letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
+.capa h1 { font: 700 34pt/1.15 var(--fonte-titulo); margin: 0 0 6mm; color: #fff; border: none; padding: 0; }
+.capa .subtitulo { font: 400 15pt/1.4 var(--fonte-corpo); opacity: .9; margin: 0; }
+.capa .faixa { width: 30mm; height: 2mm; background: var(--cor-destaque); margin-bottom: 8mm; }
+.capa .meta { font-size: 10pt; opacity: .85; line-height: 1.7; }
+
+/* Títulos */
+h1, h2, h3 { font-family: var(--fonte-titulo); color: var(--cor-primaria); line-height: 1.25; break-after: avoid; page-break-after: avoid; }
+h1 { font-size: 20pt; margin: 0 0 5mm; padding-bottom: 2mm; border-bottom: 1.5pt solid var(--cor-destaque); }
+h2 { font-size: 14pt; margin: 8mm 0 3mm; }
+h3 { font-size: 11.5pt; margin: 6mm 0 2mm; color: var(--cor-secundaria); }
+/* Cada seção principal começa em página nova */
+.secao { break-before: page; page-break-before: always; }
+p { margin: 0 0 3mm; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin-bottom: 1mm; }
+a { color: var(--cor-primaria); }
+
+/* Tabelas */
+table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9.5pt; }
+thead { display: table-header-group; }
+th { background: var(--cor-primaria); color: #fff; text-align: left; font-weight: 600; padding: 2mm 3mm; }
+td { padding: 2mm 3mm; border-bottom: 0.5pt solid var(--cor-borda); vertical-align: top; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--cor-borda) 28%, transparent); }
+
+/* Código */
+code, pre { font-family: Consolas, "Cascadia Mono", "Courier New", monospace; font-size: 9pt; }
+code { background: color-mix(in srgb, var(--cor-borda) 45%, transparent); padding: 0 1mm; border-radius: 1mm; }
+pre { background: color-mix(in srgb, var(--cor-borda) 35%, transparent); border: 0.5pt solid var(--cor-borda); border-left: 2pt solid var(--cor-primaria); padding: 3mm; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; }
+pre code { background: none; padding: 0; }
+
+/* Callouts */
+.nota, .alerta { margin: 4mm 0; padding: 3mm 4mm; border-left: 3pt solid var(--cor-primaria); background: color-mix(in srgb, var(--cor-primaria) 8%, transparent); break-inside: avoid; page-break-inside: avoid; }
+.alerta { border-left-color: var(--cor-destaque); background: color-mix(in srgb, var(--cor-destaque) 10%, transparent); }
+.nota > :last-child, .alerta > :last-child { margin-bottom: 0; }
+
+/* Figuras e diagramas SVG: nunca quebram entre páginas */
+figure { margin: 4mm 0; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+figure svg, figure img { max-width: 100%; height: auto; }
+figcaption { font-size: 8.5pt; color: var(--cor-secundaria); margin-top: 2mm; }
+svg text { font-family: var(--fonte-corpo); }
+SDDPARTMODELOEOF
+cat > "$PROJECT_DIR/docs/modelo-documento/apresentacao.css" << 'SDDPARTAPRESEOF'
+/*
+ * apresentacao.css — formato "apresentacao": A4 PAISAGEM, uma section.slide por página.
+ * Usado só para a apresentação de design (telas web/mobile, paleta, tipografia).
+ * Não edite para uma apresentação específica. Cores e fontes vêm de tokens.css.
+ * No HTML, defina o nome do cabeçalho e o total de páginas:
+ *   <style>:root { --doc-titulo: "Nome do Projeto"; --total-slides: "3"; }</style>
+ * (a numeração "Página X de Y" usa @page margin boxes, igual ao documento)
+ */
+@import url("tokens.css");
+
+@page {
+  size: A4 landscape;
+  margin: 12mm 0 12mm 0;
+  @top-left {
+    content: var(--doc-titulo, "");
+    font: 600 8.5pt var(--fonte-corpo);
+    color: var(--cor-secundaria);
+    padding-left: 18mm;
+  }
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font: 8.5pt var(--fonte-corpo);
+    color: var(--cor-secundaria);
+    padding-right: 18mm;
+  }
+}
+@page :first {
+  margin: 0;
+  @top-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: 12pt/1.5 var(--fonte-corpo);
+}
+
+/* Cada slide ocupa uma página A4 paisagem (a área útil já desconta cabeçalho e rodapé) */
+.slide {
+  width: 297mm;
+  height: 186mm;
+  padding: 8mm 18mm 4mm;
+  overflow: hidden;
+  break-after: page;
+  page-break-after: always;
+  background: var(--cor-fundo);
+}
+.slide:last-child { break-after: auto; page-break-after: auto; }
+
+/* Capa da apresentação: primeira página inteira (297 x 210 mm), sem margem */
+.slide-capa {
+  height: 210mm;
+  background: var(--cor-primaria);
+  color: #fff;
+  padding: 40mm 25mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.slide-capa h1 { font: 700 38pt/1.15 var(--fonte-titulo); color: #fff; border: none; margin: 0 0 6mm; padding: 0; }
+.slide-capa p { font-size: 16pt; opacity: .9; margin: 0; }
+.slide-capa .faixa { width: 30mm; height: 2mm; background: var(--cor-destaque); margin-bottom: 8mm; }
+
+h1, h2, h3 { font-family: var(--fonte-titulo); color: var(--cor-primaria); line-height: 1.2; margin: 0 0 4mm; }
+h1 { font-size: 24pt; padding-bottom: 2mm; border-bottom: 1.5pt solid var(--cor-destaque); }
+h2 { font-size: 16pt; }
+h3 { font-size: 12pt; color: var(--cor-secundaria); }
+p { margin: 0 0 3mm; }
+
+.colunas { display: flex; gap: 10mm; align-items: flex-start; }
+.colunas > * { flex: 1; }
+
+/* Paleta de cores */
+.paleta { display: flex; gap: 5mm; margin: 4mm 0; }
+.amostra { flex: 1; border: 0.5pt solid var(--cor-borda); border-radius: 2mm; overflow: hidden; font-size: 9pt; }
+.amostra .cor { height: 28mm; }
+.amostra .legenda { padding: 2mm 3mm; background: #fff; color: var(--cor-texto); }
+.amostra b { display: block; }
+
+/* Tipografia */
+.tipo-titulo { font: 700 26pt var(--fonte-titulo); color: var(--cor-primaria); margin: 0; }
+.tipo-corpo  { font: 12pt/1.5 var(--fonte-corpo); margin: 0; }
+
+/* Molduras de tela: navegador (web) e celular (mobile) */
+.moldura-web { border: 1pt solid var(--cor-borda); border-radius: 3mm; overflow: hidden; background: #fff; box-shadow: 0 1mm 3mm rgba(0,0,0,.12); }
+.moldura-web .barra { height: 7mm; background: var(--cor-borda); display: flex; align-items: center; gap: 1.5mm; padding: 0 3mm; }
+.moldura-web .barra i { width: 2.5mm; height: 2.5mm; border-radius: 50%; background: var(--cor-secundaria); opacity: .6; }
+.moldura-web .tela { padding: 4mm; font-size: 9pt; min-height: 90mm; }
+.moldura-mobile { width: 58mm; border: 2pt solid var(--cor-texto); border-radius: 7mm; overflow: hidden; background: #fff; box-shadow: 0 1mm 3mm rgba(0,0,0,.12); }
+.moldura-mobile .tela { padding: 5mm 3mm; font-size: 8pt; min-height: 110mm; }
+.rotulo-tela { font-size: 9pt; color: var(--cor-secundaria); margin-top: 2mm; text-align: center; }
+
+.botao { display: inline-block; background: var(--cor-primaria); color: #fff; padding: 1.5mm 4mm; border-radius: 1.5mm; font-size: 8.5pt; }
+.botao.destaque { background: var(--cor-destaque); }
+.menu-lateral { float: left; width: 28mm; margin-right: 4mm; background: var(--cor-primaria); color: #fff; padding: 3mm; border-radius: 1.5mm; min-height: 80mm; font-size: 8pt; line-height: 2; }
+
+table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+th { background: var(--cor-primaria); color: #fff; text-align: left; padding: 2mm 3mm; }
+td { padding: 2mm 3mm; border-bottom: 0.5pt solid var(--cor-borda); }
+SDDPARTAPRESEOF
+cat > "$PROJECT_DIR/docs/modelo-documento/documento-modelo.html" << 'SDDPARTDOCHTMLEOF'
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- 1) Título da aba/arquivo -->
+<title>Título do Documento</title>
+<!-- 2) NÃO troque este CSS e não crie CSS próprio. Cor e fonte mudam só em tokens.css -->
+<link rel="stylesheet" href="../modelo-documento/modelo.css">
+<!-- 3) Nome que aparece no cabeçalho de todas as páginas (entre aspas duplas) -->
+<style>:root { --doc-titulo: "Nome do Projeto — Título do Documento"; }</style>
+</head>
+<body>
+
+<!-- CAPA: sempre a primeira coisa do <body>. Ocupa a página 1 inteira. -->
+<section class="capa">
+  <div>
+    <div class="marca"><!-- nome do cliente ou do projeto --> Nome do Projeto</div>
+  </div>
+  <div>
+    <div class="faixa"></div>
+    <h1>Título do Documento</h1>
+    <p class="subtitulo"><!-- uma frase que diz o que é este documento --> Subtítulo do documento</p>
+  </div>
+  <div class="meta">
+    <!-- versão, data e autor -->
+    Versão 1.0<br>
+    Data: 01/01/2026<br>
+    Elaborado por: Nome
+  </div>
+</section>
+
+<!-- CONTEÚDO: cada <section class="secao"> começa em página nova. Use <h1> uma vez por seção. -->
+<section class="secao">
+  <h1>1. Visão geral</h1>
+  <p>Texto da seção. Use parágrafos curtos e listas quando fizer sentido.</p>
+
+  <h2>1.1 Objetivo</h2>
+  <p>Descreva o objetivo em duas ou três frases.</p>
+
+  <!-- Tabela: o cabeçalho (thead) se repete se a tabela passar de página -->
+  <table>
+    <thead><tr><th>Item</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>Exemplo</td><td>Descrição do exemplo</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Callouts: .nota (informação) e .alerta (risco ou decisão pendente) -->
+  <div class="nota"><p><strong>Nota:</strong> informação complementar.</p></div>
+  <div class="alerta"><p><strong>Atenção:</strong> ponto que exige decisão.</p></div>
+</section>
+
+<section class="secao">
+  <h1>2. Diagrama</h1>
+  <!-- Figura com SVG inline. Nunca quebra entre páginas. Use var(--cor-...) nas cores do SVG. -->
+  <figure>
+    <svg viewBox="0 0 400 100" width="400" height="100" role="img" aria-label="Exemplo de diagrama">
+      <rect x="10" y="30" width="110" height="40" rx="6" fill="var(--cor-primaria)"/>
+      <text x="65" y="55" text-anchor="middle" fill="#fff" font-size="13">Origem</text>
+      <rect x="280" y="30" width="110" height="40" rx="6" fill="var(--cor-destaque)"/>
+      <text x="335" y="55" text-anchor="middle" fill="#fff" font-size="13">Destino</text>
+      <line x1="120" y1="50" x2="280" y2="50" stroke="var(--cor-secundaria)" stroke-width="2"/>
+    </svg>
+    <figcaption>Figura 1 — legenda do diagrama</figcaption>
+  </figure>
+
+  <!-- Código: <pre><code> -->
+  <pre><code>exemplo de bloco de código</code></pre>
+</section>
+
+</body>
+</html>
+SDDPARTDOCHTMLEOF
+cat > "$PROJECT_DIR/docs/modelo-documento/apresentacao-modelo.html" << 'SDDPARTAPRESHTMLEOF'
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- 1) Título da aba/arquivo -->
+<title>Apresentação de Design</title>
+<!-- 2) NÃO troque este CSS e não crie CSS próprio. Cor e fonte mudam só em tokens.css -->
+<link rel="stylesheet" href="../modelo-documento/apresentacao.css">
+<!-- 3) Nome que aparece no cabeçalho de todas as páginas (entre aspas duplas) -->
+<style>:root { --doc-titulo: "Nome do Projeto — Apresentação de Design"; }</style>
+</head>
+<body>
+
+<!-- Cada <section class="slide"> vira UMA página A4 paisagem. O primeiro slide é a capa. -->
+<section class="slide slide-capa">
+  <div class="faixa"></div>
+  <h1>Nome do Projeto</h1>
+  <p>Apresentação de identidade visual e telas</p>
+</section>
+
+<!-- SLIDE: identidade visual (paleta e tipografia). Use as variáveis de tokens.css nas amostras. -->
+<section class="slide">
+  <h1>Identidade visual</h1>
+  <div class="paleta">
+    <div class="amostra"><div class="cor" style="background:var(--cor-primaria)"></div><div class="legenda"><b>Primária</b>--cor-primaria</div></div>
+    <div class="amostra"><div class="cor" style="background:var(--cor-secundaria)"></div><div class="legenda"><b>Secundária</b>--cor-secundaria</div></div>
+    <div class="amostra"><div class="cor" style="background:var(--cor-destaque)"></div><div class="legenda"><b>Destaque</b>--cor-destaque</div></div>
+    <div class="amostra"><div class="cor" style="background:var(--cor-texto)"></div><div class="legenda"><b>Texto</b>--cor-texto</div></div>
+  </div>
+  <div class="colunas">
+    <div><h3>Títulos</h3><p class="tipo-titulo">Aa Título de exemplo</p></div>
+    <div><h3>Corpo</h3><p class="tipo-corpo">Texto de corpo de exemplo, como aparece nas telas.</p></div>
+  </div>
+</section>
+
+<!-- SLIDE: uma tela web e uma mobile lado a lado. Repita este slide para cada tela do sistema. -->
+<section class="slide">
+  <h1>Tela: nome da tela</h1>
+  <div class="colunas">
+    <div style="flex:2">
+      <div class="moldura-web">
+        <div class="barra"><i></i><i></i><i></i></div>
+        <div class="tela">
+          <!-- monte a tela aqui com HTML simples: menu, título, tabela, botões -->
+          <div class="menu-lateral">Início<br>Cadastros<br>Relatórios</div>
+          <h3>Título da tela</h3>
+          <p>Conteúdo de exemplo.</p>
+          <span class="botao">Salvar</span> <span class="botao destaque">Novo</span>
+        </div>
+      </div>
+      <div class="rotulo-tela">Versão web</div>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center">
+      <div class="moldura-mobile">
+        <div class="tela">
+          <h3>Título da tela</h3>
+          <p>Conteúdo de exemplo.</p>
+          <span class="botao">Salvar</span>
+        </div>
+      </div>
+      <div class="rotulo-tela">Versão mobile</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
+SDDPARTAPRESHTMLEOF
+cat > "$PROJECT_DIR/docs/modelo-documento/README.md" << 'SDDPARTMODELOREADMEEOF'
+# Modelo de documentos
+
+Todo entregável para cliente (arquitetura, backend, frontend, apresentação de design, qualquer PDF) sai
+**deste modelo**, para ter sempre o mesmo tamanho de página, o mesmo layout e a mesma identidade.
+
+## Os dois formatos
+
+| Formato | CSS | Página | Quando usar |
+|---|---|---|---|
+| `documento` | `modelo.css` | A4 **retrato** | Todo texto: arquitetura, backend, frontend, relatórios |
+| `apresentacao` | `apresentacao.css` | A4 **paisagem**, 1 `section.slide` por página | Só a apresentação de design (telas web/mobile, paleta, tipografia) |
+
+Os dois leem cor e fonte **somente** de `tokens.css`, e têm cabeçalho com o nome do documento e rodapé
+"Página X de Y".
+
+## Criar um documento novo
+
+1. Copie `documento-modelo.html` (ou `apresentacao-modelo.html`) para `docs/entregaveis/<nome>.html`.
+2. Edite só o conteúdo e o nome do cabeçalho (`--doc-titulo`). Os comentários `<!-- -->` dizem onde.
+3. Gere o PDF, da raiz do projeto:
+
+```bash
+node .claude/scripts/gerar-pdf.cjs docs/entregaveis/<nome>.html
+```
+
+O PDF fica ao lado do HTML (`docs/entregaveis/<nome>.pdf`). O script usa o Chrome, Edge ou Chromium já
+instalado (gratuito, sem dependências); se o seu estiver em outro lugar, aponte-o em `CHROME_PATH`.
+O tamanho da página vem do CSS, nunca de parâmetro.
+
+## Regra
+
+**Nunca crie CSS próprio, tamanho de página ou template novo.** O que muda de um cliente para outro é só
+`tokens.css` (cores e fontes), e quem altera isso é o comando `/identidade-visual`. Se faltar um componente
+visual, ele entra em `modelo.css` ou `apresentacao.css`, valendo para todos os documentos.
+
+## Observações técnicas
+
+- Cabeçalho e "Página X de Y" usam `@page` margin boxes (`@top-left`, `@bottom-right`), suportados pelo
+  Chrome/Edge atuais (verificado no Edge). Em navegador muito antigo eles podem não aparecer.
+- Fontes de sistema (Segoe UI / Helvetica / Arial): o PDF não depende de rede. Se a identidade do cliente
+  pedir fonte própria, ela precisa estar instalada na máquina ou embutida em `tokens.css` via `@font-face`
+  com arquivo local.
+- Na apresentação, a capa ocupa a página 1 inteira e não tem cabeçalho nem rodapé.
+SDDPARTMODELOREADMEEOF
+cat > "$PROJECT_DIR/.claude/scripts/gerar-pdf.cjs" << 'SDDPARTGERARPDFEOF'
+#!/usr/bin/env node
+// gerar-pdf.cjs — converte um HTML de docs/entregaveis/ em PDF usando o Chrome/Edge/Chromium já instalado.
+// Uso: node .claude/scripts/gerar-pdf.cjs <arquivo.html> [saida.pdf]
+// Sem dependências. O tamanho da página vem SEMPRE do CSS (@page size) — nunca de parâmetro —,
+// é isso que mantém todos os documentos no mesmo padrão. Para mudar cor/fonte, edite só tokens.css.
+'use strict';
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+const { pathToFileURL } = require('url');
+
+function falhar(msg) {
+  console.error('[gerar-pdf] ERRO: ' + msg);
+  process.exit(1);
+}
+
+function acharNavegador() {
+  const candidatos = [];
+  if (process.env.CHROME_PATH) candidatos.push(process.env.CHROME_PATH);
+
+  if (process.platform === 'win32') {
+    const bases = [process.env['PROGRAMFILES'], process.env['PROGRAMFILES(X86)'], process.env['LOCALAPPDATA']].filter(Boolean);
+    for (const b of bases) {
+      candidatos.push(path.join(b, 'Google', 'Chrome', 'Application', 'chrome.exe'));
+      candidatos.push(path.join(b, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+      candidatos.push(path.join(b, 'Chromium', 'Application', 'chrome.exe'));
+    }
+  } else if (process.platform === 'darwin') {
+    candidatos.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+    candidatos.push('/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge');
+    candidatos.push('/Applications/Chromium.app/Contents/MacOS/Chromium');
+  } else {
+    for (const nome of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable']) {
+      for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+        if (dir) candidatos.push(path.join(dir, nome));
+      }
+    }
+  }
+  return candidatos.find((c) => { try { return fs.statSync(c).isFile(); } catch (e) { return false; } });
+}
+
+const entrada = process.argv[2];
+if (!entrada || entrada === '-h' || entrada === '--help') {
+  console.log('Uso: node .claude/scripts/gerar-pdf.cjs <arquivo.html> [saida.pdf]');
+  process.exit(entrada ? 0 : 1);
+}
+const html = path.resolve(entrada);
+if (!fs.existsSync(html)) falhar('arquivo não encontrado: ' + html);
+const saida = path.resolve(process.argv[3] || html.replace(/\.html?$/i, '') + '.pdf');
+fs.mkdirSync(path.dirname(saida), { recursive: true });
+
+const navegador = acharNavegador();
+if (!navegador) {
+  falhar('não achei Chrome, Edge nem Chromium instalado. Instale um deles (gratuito) ou aponte o executável na variável de ambiente CHROME_PATH.');
+}
+
+// Perfil temporário: evita conflito com um navegador já aberto e não deixa lixo no perfil do usuário.
+const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'gerar-pdf-'));
+if (fs.existsSync(saida)) fs.unlinkSync(saida);
+
+const args = [
+  '--headless=new',
+  '--disable-gpu',
+  '--no-sandbox',
+  '--no-first-run',
+  '--allow-file-access-from-files',
+  '--no-pdf-header-footer',
+  '--run-all-compositor-stages-before-draw',
+  '--virtual-time-budget=5000',
+  '--user-data-dir=' + perfil,
+  '--print-to-pdf=' + saida,
+  pathToFileURL(html).href,
+];
+
+const r = spawnSync(navegador, args, { stdio: 'pipe', timeout: 120000 });
+try { fs.rmSync(perfil, { recursive: true, force: true }); } catch (e) { /* ignora */ }
+
+if (!fs.existsSync(saida) || fs.statSync(saida).size === 0) {
+  const detalhe = ((r.stderr || '').toString().trim().split('\n').slice(-3).join(' | ')) || 'sem detalhe';
+  falhar('o PDF não foi gerado (' + path.basename(navegador) + '). Detalhe: ' + detalhe);
+}
+console.log('[gerar-pdf] PDF gerado: ' + saida);
+SDDPARTGERARPDFEOF
+echo -e "${GREEN}✅ Princípios de implementação, modelo único de documentos e gerar-pdf.cjs criados${NC}"
+
+# Princípios de implementação nos agentes (arquitetura sem atalho, custo do mais barato ao mais caro)
+SNIP=$(mktemp)
+cat > "$SNIP" << 'SDDPARTSNIPARCHITECTEOF'
+## Princípios de implementação
+
+Siga `.claude/rules/principios-de-implementacao.md`. Ao escolher infra, serviços ou ferramentas, compare as opções
+do **mais barato ao mais caro** (gratuito, free tier e nativo da cloud antes de ferramenta externa paga) e registre
+a escolha em ADR, justificando qualquer subida de nível por um requisito. O desenho não pode ter atalho que fure
+camada nem quebrar regra de negócio da spec.
+
+SDDPARTSNIPARCHITECTEOF
+insert_after_frontmatter "$PROJECT_DIR/.claude/agents/02-architect-sdd.md" "$SNIP"
+cat > "$SNIP" << 'SDDPARTSNIPREVIEWEREOF'
+## Princípios de implementação
+
+Siga `.claude/rules/principios-de-implementacao.md`. Marque ❌ REPROVADO se houver: quebra de regra de negócio da
+spec, desvio de camada ou violação de SOLID, ou escolha de infra mais cara sem justificativa em ADR. Sempre cite
+arquivo e linha.
+SDDPARTSNIPREVIEWEREOF
+insert_after_frontmatter "$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md" "$SNIP"
+cat > "$SNIP" << 'SDDPARTSNIPSPECIALISTEOF'
+## Princípios de implementação
+
+Siga `.claude/rules/principios-de-implementacao.md`. Nunca contorne a arquitetura nem a regra de negócio da spec.
+Se só uma gambiarra resolver, **pare e reporte** o conflito no relatório em vez de implementá-la.
+
+SDDPARTSNIPSPECIALISTEOF
+for agent_file in "$PROJECT_DIR"/.claude/agents/03-*-specialist.md; do [ -f "$agent_file" ] && insert_after_frontmatter "$agent_file" "$SNIP"; done
+rm -f "$SNIP"
+
+# Identidade do cliente antes de qualquer tela (rule de direção de arte)
+if [ "$HAS_FRONT" = 1 ] && [ -f "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" ]; then
+    SNIP=$(mktemp)
+    cat > "$SNIP" << 'SDDPARTDESIGNEOF'
+**Identidade do cliente primeiro.** Antes de criar ou alterar qualquer tela, leia `docs/design/identidade.md` (se
+não existir, sugira ao usuário rodar `/identidade-visual`) e use as cores, fontes e o logo dela. A cada tela,
+pergunte-se: "isso tem a cara do cliente ou a cara padrão de IA?". Se for a segunda, refaça. Se a skill
+Impeccable estiver instalada (opcional, de terceiros), use `/impeccable critique` e `/impeccable polish` na revisão
+e respeite o `DESIGN.md` dela junto de `docs/design/identidade.md`.
+SDDPARTDESIGNEOF
+    awk -v snip="$SNIP" '{ print } /claude plugin install frontend-design@claude-plugins-official/ && !feito { print ""; while ((getline l < snip) > 0) print l; close(snip); feito=1 }' "$PROJECT_DIR/.claude/rules/frontend-design-direction.md" > "$SNIP.out" && mv "$SNIP.out" "$PROJECT_DIR/.claude/rules/frontend-design-direction.md"
+    rm -f "$SNIP"
+fi
+
+if [ "$MONO" = 1 ]; then
+cat > "$PROJECT_DIR/.claude/commands/amostra-arquitetura.md" << 'SDDPARTAMARQEOF'
+---
+description: Gera em PDF a proposta de arquitetura completa sugerida (ambiente, mensageria, back-end, front-end, observabilidade, custo) a partir das specs mínimas, para mostrar ao cliente. Não cria código nem roda o pipeline.
+allowed-tools: Read, Write, Glob, Grep, Bash(node .claude/scripts/gerar-pdf.cjs:*), Bash(ls:*), Bash(mkdir:*)
+---
+
+# /amostra-arquitetura — Proposta de arquitetura para o cliente
+
+Gera **um documento PDF** com a arquitetura completa sugerida, rápido, só com o que as specs dizem. Não cria
+projeto de código e não chama agentes do pipeline.
+
+## 1. Ler as fontes (em paralelo)
+
+Leia juntos: `docs/backend/SPEC.md`, `docs/frontend/SPEC.md`, tudo em `docs/raw/` e, se existir,
+`knowledge/index.json` e `knowledge/vault/`. Leia também `.claude/rules/principios-de-implementacao.md` e
+`docs/design/identidade.md` (se existir). Se as specs ainda forem só o template em branco e `docs/raw/` estiver
+vazia, pare e peça ao usuário um resumo do sistema (objetivo, usuários, integrações, volume esperado) — não invente.
+
+## 2. Decidir a arquitetura (não existe uma só)
+
+Analise a spec e **escolha** o estilo que ela pede, justificando com requisitos reais dela (volume, equipe,
+integrações, tempo real, criticidade, orçamento):
+
+- Back-end: Clean Architecture em monolito, monolito modular, microsserviços, event-driven/mensageria, CQRS só se a
+  leitura e a escrita realmente divergirem.
+- Front-end: componentes + estado local/global, camada de API isolada, micro-frontends só se houver times
+  independentes.
+- Sempre com SOLID e clean code, **sem gambiarra no desenho** (nenhuma camada pulada, nenhuma dependência na
+  direção errada) e **sem quebrar regra de negócio** da spec.
+
+Apresente **duas alternativas comparadas**: a **recomendada** e uma **mais simples e barata**, dizendo o que se
+perde ao escolher a barata.
+
+## 3. Montar o documento
+
+Use o modelo `documento` de `docs/modelo-documento/` (leia `README.md` e `documento-modelo.html` de lá e siga a
+estrutura; não invente outro layout, tamanho de página ou CSS). Grave em `docs/entregaveis/arquitetura-completa.html`.
+Seções fixas, nesta ordem:
+
+1. **Contexto e premissas** — o que a spec diz; marque com "(suposição)" tudo que você inferiu.
+2. **Visão geral** — um diagrama SVG inline cobrindo ambiente/hospedagem, mensageria, back-end, front-end, banco,
+   observabilidade, segurança e CI/CD. Setas claras, legendas legíveis em A4 retrato.
+3. **Camadas e responsabilidades** — back e front, o que cada camada faz e o que ela nunca pode fazer.
+4. **Decisões e trade-offs** — as duas alternativas lado a lado e por que a recomendada vence.
+5. **Stack sugerida** — uma linha por frente: `backend: .NET 10 (Clean Architecture)`, `frontend: React | Angular | Vue`
+   com o motivo. Esta seção alimenta o `/definir-stack`.
+6. **Custo mensal estimado** — tabela do **mais barato para o mais caro**, priorizando gratuito, free tier e serviço
+   nativo da cloud (Azure/AWS) antes de ferramenta externa paga. Marque o que só entra por requisito e diga qual.
+   Valores são estimativas: informe a premissa de uso e peça para conferir o preço atual no site do provedor.
+7. **Riscos e perguntas em aberto para o cliente** — lacunas da spec que mudariam a arquitetura.
+
+## 4. Gerar o PDF
+
+```bash
+mkdir -p docs/entregaveis
+node .claude/scripts/gerar-pdf.cjs docs/entregaveis/arquitetura-completa.html docs/entregaveis/arquitetura-completa.pdf
+```
+
+Se faltar Chrome ou Edge, diga qual instalar e mantenha o HTML (já abre no navegador).
+
+## 5. Reportar
+
+Diga o caminho do PDF, a arquitetura recomendada em duas linhas e as perguntas em aberto. Próximos passos
+possíveis: `/identidade-visual`, `/amostra-telas` e, com o cliente decidido, `/definir-stack`.
+SDDPARTAMARQEOF
+cat > "$PROJECT_DIR/.claude/commands/identidade-visual.md" << 'SDDPARTIDVISEOF'
+---
+description: Captura a identidade visual do cliente (site, logo, cores) para entender cores, tipografia e tom, grava docs/design/identidade.md e atualiza os tokens do modelo de documento. Não clona o site.
+argument-hint: [url-do-site] [caminho-do-logo]
+allowed-tools: Read, Write, Edit, Glob, Bash(node --version), Bash(npx playwright:*), Bash(node:*), Bash(mkdir:*), Bash(ls:*)
+---
+
+# /identidade-visual — Identidade visual do cliente
+
+Argumentos passados: $ARGUMENTS
+
+O objetivo é **entender** a identidade (cores, tipografia, tom, logo) para que as telas e os documentos tenham a
+cara do cliente em vez da cara padrão de IA. **Não clone o site**, não copie textos, imagens nem layout dele.
+
+> **Aviso ao usuário:** usar o logo e a marca do cliente exige autorização dele. Confirme que existe antes de
+> colocar o logo em material que será mostrado ou publicado.
+
+## 1. Entradas
+
+Use os argumentos; o que faltar, pergunte uma coisa por vez: URL do site, caminho do logo (arquivo, de preferência
+SVG), cores já definidas (hex) e referências que o cliente gosta ou detesta. Leia também as specs e `docs/raw/` para
+captar setor, público e tom.
+
+## 2. Capturar do site (gratuito, navegador headless)
+
+Com a URL, use Chrome/Edge headless ou o Playwright já disponível (`npx playwright`), sem pagar serviço externo.
+Num script temporário fora do repositório (apague depois), abra a página e leia:
+
+- cores do CSS computado de `body`, títulos, links, botões, cabeçalho e rodapé; `<meta name="theme-color">`;
+- `font-family` real dos elementos e as fontes carregadas (Google Fonts etc.);
+- logo: `<link rel="icon">`, `<img>`/`<svg>` do cabeçalho; baixe só o necessário para referência interna;
+- um screenshot em `docs/design/referencias/` apenas como referência de estudo.
+
+Se o site bloquear o acesso, diga e peça logo e cores manualmente. O **Firecrawl** (MCP externo, usa créditos) faz
+extração parecida, mas só o cite se o usuário pedir uma opção paga.
+
+## 3. Sem site nem logo
+
+Ajude a **definir** a identidade a partir da spec (setor, público, tom): proponha 2 direções distintas e peça a
+escolha. Evite o padrão genérico de IA (roxo-azul em degradê, Inter para tudo, cartões idênticos). Escolha uma
+tipografia com personalidade, uma cor de destaque ousada com neutros coerentes e um traço de forma recorrente.
+
+## 4. Gravar o resultado
+
+Crie `docs/design/identidade.md` com: paleta (hex e papel de cada cor: primária, destaque, fundo, texto, erro,
+sucesso), tipografia (família, pesos, escala), tom de voz, regras de uso do logo (área de respiro, versões, o que não
+fazer), espaçamento e forma (raio, bordas, sombras) e **o que evitar**. Guarde o logo em `docs/design/logo/`.
+
+Depois **atualize só as variáveis** de `docs/modelo-documento/tokens.css` (cores e fonte) para que todo documento
+gerado daqui em diante use a mesma identidade. Não altere `modelo.css` nem `apresentacao.css`.
+
+## 5. Etapa opcional: skill Impeccable
+
+Sugira, sem instalar sozinho: a skill **Impeccable** (open source, Apache-2.0, `pbakaus/impeccable`) ajuda a
+revisar e refinar o design e a pegar sinais de "cara de IA". Instalação: `npx impeccable install` na raiz do projeto
+ou `/plugin marketplace add pbakaus/impeccable` no Claude Code. Comandos úteis: `/impeccable init`, `critique`,
+`audit`, `polish`. Ela grava `PRODUCT.md` e `DESIGN.md` e pode instalar um hook de design. **É de terceiros: peça ao
+usuário para revisar o que ela instala.** Se já estiver instalada, mande rodar `/impeccable init` e
+`/impeccable document` e referencie o `DESIGN.md` dela junto de `docs/design/identidade.md`.
+
+## 6. Reportar
+
+Mostre a paleta e as fontes escolhidas, o que veio do site e o que foi decisão sua. Próximo passo: `/amostra-telas`.
+SDDPARTIDVISEOF
+cat > "$PROJECT_DIR/.claude/commands/amostra-telas.md" << 'SDDPARTAMTELASEOF'
+---
+description: Gera a apresentação de design (mockups de alta fidelidade das telas, web e mobile, com identidade visual) em HTML único e PDF para o cliente aprovar antes de qualquer código. Nunca cria projeto de código.
+allowed-tools: Read, Write, Glob, Grep, Skill, Bash(node .claude/scripts/gerar-pdf.cjs:*), Bash(mkdir:*), Bash(ls:*)
+---
+
+# /amostra-telas — Apresentação de design para o cliente
+
+Gera a **apresentação de design** que um designer mostraria ao cliente: telas, menus, cores e tipografia. É um
+HTML autocontido e um PDF, fáceis de mandar por e-mail. **Nunca crie projeto de código nem POC aqui.**
+
+## 1. Pré-requisito: identidade visual
+
+Leia `docs/design/identidade.md`. Se não existir, **pare** e mande rodar `/identidade-visual` antes; ou pergunte se
+o usuário aceita que você proponha uma identidade a partir da spec (grave-a em `docs/design/identidade.md` e
+mostre-a na apresentação como proposta).
+
+## 2. Ler as fontes (em paralelo)
+
+`docs/frontend/SPEC.md`, `docs/backend/SPEC.md` (para entender os dados que cada tela mostra), `docs/raw/`,
+`knowledge/` se existir, e as rules `.claude/rules/frontend-design-direction.md` e
+`.claude/rules/frontend-ux-laws.md`. Liste **todas as telas e menus** que a spec descreve (login, navegação,
+listagens, formulários, detalhes, dashboards, erros). O que a spec não cobre, marque como "(sugestão)".
+
+## 3. Criar o design
+
+Use a skill `frontend-design` (via Skill) e, se estiver instalada, a Impeccable (`/impeccable critique` na revisão).
+Regras para fugir da cara de IA:
+
+- Cores, fontes e logo vêm de `docs/design/identidade.md`; nada de roxo-azul em degradê nem Inter para tudo.
+- Tipografia e composição com personalidade; hierarquia clara, grade que quebra com propósito.
+- **Copy do domínio**: nomes, números e mensagens realistas do negócio do cliente. Proibido "Lorem ipsum", "Bem-vindo
+  ao nosso site", "Usuário 1".
+- Padrões de interação conhecidos (busca, filtros, login, carrinho) seguem as leis de UX da rule.
+
+## 4. Montar a apresentação
+
+Use o modelo `apresentacao` (A4 paisagem) de `docs/modelo-documento/` (`README.md`, `apresentacao-modelo.html`,
+`apresentacao.css`, `tokens.css`); não crie outro tamanho nem outro CSS. Grave **um único HTML autocontido** (CSS e
+SVG inline, imagens em data URI, nenhuma dependência de rede) em `docs/entregaveis/amostra-telas.html`, com:
+
+1. Capa (nome do sistema, objetivo em uma frase, data).
+2. Identidade visual: logo, paleta, tipografia, exemplos de botões e campos.
+3. Mapa de navegação e menus.
+4. Uma tela por slide em moldura **web**, e a versão **mobile** das telas principais ao lado.
+5. Estados importantes: vazio, carregando, erro, sucesso.
+6. Componentes reutilizáveis.
+
+## 5. Gerar o PDF
+
+```bash
+mkdir -p docs/entregaveis
+node .claude/scripts/gerar-pdf.cjs docs/entregaveis/amostra-telas.html docs/entregaveis/amostra-telas.pdf
+```
+
+Se faltar Chrome ou Edge, diga qual instalar e mantenha o HTML.
+
+## 6. Reportar e próximos passos
+
+Diga o caminho dos arquivos e as telas cobertas. Depois que o cliente **aprovar a identidade**, o caminho é
+`/definir-stack` e `/inicia-orquestracao frontend`; o projeto real herda `docs/design/identidade.md`.
+SDDPARTAMTELASEOF
+cat > "$PROJECT_DIR/.claude/commands/definir-stack.md" << 'SDDPARTDEFSTACKEOF'
+---
+description: Define a linguagem/stack de cada frente (backend e frontend) que ainda está pendente, instala o especialista correspondente e deixa o projeto pronto para o /inicia-orquestracao. Pergunta só o que falta.
+argument-hint: [backend|frontend]
+allowed-tools: Read, Bash(claude plugin list:*), Bash(bash:*), Bash(basename:*), Bash(cat:*), Bash(ls:*)
+---
+
+# /definir-stack — Escolher a stack de cada frente
+
+Argumento opcional: $ARGUMENTS (`backend` ou `frontend`; vazio = todas as frentes pendentes).
+
+O projeto nasce com `backend/` e `frontend/` prontos e **sem linguagem definida**. Este comando fecha essa escolha
+quando o cliente já decidiu o que quer.
+
+## 1. Ler o estado
+
+Leia `.claude/stack.json`, no formato `{"backend":"pendente|dotnet","frontend":"pendente|react|angular|vue"}`.
+Se não existir, esta pasta não é um projeto criado pelo `/comecar`: avise e pare.
+
+Procure sugestão de stack em `docs/entregaveis/arquitetura-completa.html` (seção "Stack sugerida") e em
+`docs/backend/SPEC.md`/`docs/frontend/SPEC.md`; se achar, destaque como "(sugerida)".
+
+## 2. Perguntar só o que falta (uma pergunta por vez)
+
+- Frente pedida em `$ARGUMENTS`, ou cada frente ainda `pendente`.
+- **Backend:** `.NET 10 (Clean Architecture)` — é a única opção hoje.
+- **Frontend:** `React`, `Angular` ou `Vue`.
+
+Se a frente pedida **já tem stack definida**, **não troque** sem confirmação explícita do usuário. Avise que
+trocar de stack com código já gerado em `backend/` ou `frontend/` é perigoso: o código antigo não é convertido e os
+agentes passam a seguir a stack nova.
+
+## 3. Aplicar
+
+Monte os argumentos preservando a frente que já estava definida:
+
+| Frente | Definida | Pendente |
+|---|---|---|
+| backend | `dotnet` | `backend-pendente` |
+| frontend | `react`, `angular` ou `vue` | `frontend-pendente` |
+
+Localize o plugin com `claude plugin list --json` (id `sdd@christian-criar-template-claude`, campo `installPath`).
+O caminho vem no formato Windows: troque `\` por `/` e use aspas. Rode o script no modo `existente`, sempre com o
+backend primeiro:
+
+```bash
+bash "CAMINHO_DO_INSTALLPATH/criar-template-claude-sdd-plugin.sh" "$(basename "$PWD")" BACKEND_ARG FRONTEND_ARG existente
+```
+
+O script só adiciona e regrava a máquina do pipeline (agentes, skills, rules, comandos, permissões); **não** toca em
+`backend/`, `frontend/`, specs, `docs/raw/` nem `knowledge/`.
+
+## 4. Conferir e orientar
+
+Leia `.claude/stack.json` de novo e confirme que a(s) frente(s) mudaram. Depois explique, sem esperar resposta:
+
+1. **Reabra a sessão** (`claude --continue`): agentes e comandos novos só carregam numa sessão nova.
+2. Então rode `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend` (uma frente por rodada).
+3. Se alguma frente continua `pendente`, o `/inicia-orquestracao` dela fica bloqueado até rodar `/definir-stack` de novo.
+SDDPARTDEFSTACKEOF
+    printf '{\n  "backend": "%s",\n  "frontend": "%s"\n}\n' "$STACK_JSON_BACK" "$STACK_JSON_FRONT" > "$PROJECT_DIR/.claude/stack.json"
+    echo -e "${GREEN}✅ Comandos /amostra-arquitetura, /identidade-visual, /amostra-telas e /definir-stack criados (.claude/stack.json: backend=$STACK_JSON_BACK, frontend=$STACK_JSON_FRONT)${NC}"
+fi
+
+# ============================================================================
 # CRIAR README.md — guia de início + estrutura do projeto, num arquivo só
 # (COMECE-AQUI.md foi absorvido por ele na v3.17.0)
 # ============================================================================
@@ -7618,6 +8906,20 @@ if [ "$MONO" = 1 ]; then
 **Abra o projeto pela raiz.** Cada rodada do \`/inicia-orquestracao\` trabalha uma frente
 (\`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`); mudança que cruza as duas são duas
 rodadas, backend primeiro. Para rodar as duas ao mesmo tempo, uma worktree por frente.
+
+## 🎯 Antes do código: mostrar ao cliente e definir a linguagem
+
+A linguagem de cada frente fica em aberto até você decidir (\`.claude/stack.json\`). Com a spec mínima em
+\`docs/backend/SPEC.md\` e \`docs/frontend/SPEC.md\`:
+
+| Comando | O que gera |
+|---|---|
+| \`/amostra-arquitetura\` | PDF com a arquitetura completa **sugerida** (ambiente, mensageria, back, front, observabilidade, custo do mais barato ao mais caro) |
+| \`/identidade-visual\` | A identidade visual do cliente (cores, fontes, logo) a partir do site ou do logo, sem copiar o site |
+| \`/amostra-telas\` | PDF de apresentação de design (telas web e mobile) — sem gerar projeto de código |
+| \`/definir-stack\` | Pergunta a linguagem de cada frente e instala o specialist; só então rode o \`/inicia-orquestracao\` |
+
+Todos os PDFs usam o mesmo modelo (\`docs/modelo-documento/\`) e saem em \`docs/entregaveis/\`.
 "
 fi
 
@@ -7667,11 +8969,14 @@ claude plugin install frontend-design@claude-plugins-official
 "
 fi
 
-if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ]; then
+if [ "$MODE" = "existente" ] && [ -f "$PROJECT_DIR/README.md" ] && ! grep -q 'sdd:stack-pendente' "$PROJECT_DIR/README.md"; then
     echo -e "${YELLOW}⏭️  README.md já existe — mantido sem alterações${NC}"
 else
+README_PEND_MARK=""
+[ "$ANY_PENDING" = 1 ] && README_PEND_MARK="<!-- sdd:stack-pendente -->
+"
 cat > "$PROJECT_DIR/README.md" << READMEEOF
-# Seu Projeto SDD
+${README_PEND_MARK}# Seu Projeto SDD
 
 Projeto criado com **Pipeline SDD** — Stack: $STACK_LABEL
 
@@ -7812,7 +9117,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v6.3.0**
+**Projeto criado com Claude SDD v7.0.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -8766,8 +10071,17 @@ else
     echo "  3️⃣  Editar especificação"
     if [ "$MONO" = 1 ]; then echo "     nano docs/backend/SPEC.md   (ou docs/frontend/SPEC.md)"; else echo "     nano docs/SPEC.md"; fi
     echo ""
-    echo "  4️⃣  Executar orchestrador (no Claude Code)"
-    if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
+    if [ "$ANY_PENDING" = 1 ]; then
+        echo "  4️⃣  Cliente ainda decidindo? Antes do código, gere as amostras (PDF em docs/entregaveis/)"
+        echo "     /amostra-arquitetura   /identidade-visual   /amostra-telas"
+        echo ""
+        echo "  5️⃣  Definir a linguagem de cada frente e executar o orchestrador (no Claude Code)"
+        echo "     /definir-stack"
+        echo "     /inicia-orquestracao backend   (ou frontend)"
+    else
+        echo "  4️⃣  Executar orchestrador (no Claude Code)"
+        if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
+    fi
 fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"

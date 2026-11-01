@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.3
+# 🚀 Criar Template Claude SDD v7.0.4
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.3${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.4${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -8593,6 +8593,21 @@ if (!fs.existsSync(saida) || fs.statSync(saida).size === 0) {
 }
 console.log('[gerar-pdf] PDF gerado: ' + saida);
 SDDPARTGERARPDFEOF
+cat > "$PROJECT_DIR/.claude/rules/respostas-curtas.md" << 'SDDPARTCURTASEOF'
+# Respostas curtas e objetivas
+
+Vale para **toda** resposta ao usuário, dentro ou fora do `/inicia-orquestracao`. O usuário consulta e repassa o
+que lê: texto longo atrapalha.
+
+1. **Comece pela resposta**, em uma ou duas frases. Contexto e justificativa só se ele precisar para decidir.
+2. **Curto por padrão.** Sem introdução, sem repetir a pergunta, sem resumo do que acabou de dizer, sem "vale
+   lembrar". Prefira lista curta a parágrafo. Tabela só quando comparar de verdade.
+3. **Relatório de tarefa** em poucas linhas: o que foi feito, o que ficou sem verificar, o que o usuário precisa
+   decidir. Nada de narrar o passo a passo.
+4. **Detalhe sob demanda.** Se há muito a dizer, entregue o essencial e ofereça aprofundar em uma linha.
+5. Linguagem simples, sem jargão desnecessário: a resposta deve poder ser repassada a outra pessoa como está.
+6. Isto vale para o chat. Documento pedido (spec, ADR, PDF) segue o formato e o tamanho que ele pede.
+SDDPARTCURTASEOF
 echo -e "${GREEN}✅ Princípios de implementação, modelo único de documentos e gerar-pdf.cjs criados${NC}"
 
 # Princípios de implementação nos agentes (arquitetura sem atalho, custo do mais barato ao mais caro)
@@ -9148,7 +9163,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.3**
+**Projeto criado com Claude SDD v7.0.4**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

@@ -2,3 +2,11 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Temporários do Claude Code (worktrees são cópias inteiras do repositório)
+.claude/worktrees/
+.claude/*.lock
+tmp/
+temp/
+*.tmp
+*.bak

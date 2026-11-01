@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.2
+# 🚀 Criar Template Claude SDD v7.0.3
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.2${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.3${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6649,6 +6649,11 @@ mensagem, e nenhum commit sai sem eles.
 9. `git add -A` e, explicitamente, `git add -A .claude/ CLAUDE.md .mcp.json knowledge/` (só os que existirem) —
    toda alteração do Claude no projeto sobe sempre, mesmo que algum `.gitignore` aninhado tenha escapado
    da checagem do passo 3.
+   **Temporários nunca sobem:** logo depois do `git add`, rode `git ls-files .claude/worktrees tmp temp` e
+   `git diff --cached --name-only | grep -E '(^|/)(worktrees|tmp|temp)/|\.(tmp|bak)$'`. Se algo aparecer,
+   tire do stage e do índice (`git rm -r -q --cached <caminho>`) e garanta que o caminho está no `.gitignore`
+   (`.claude/worktrees/`, `tmp/`, `temp/`, `*.tmp`, `*.bak`). Pasta de worktree é uma cópia inteira do repositório:
+   subir isso polui a branch.
    **Ainda não commite** — falta o gate do passo 10.
 
 10. **Varredura de segredos — o último portão antes do commit.** Agora que tudo está no stage, você sabe
@@ -7817,6 +7822,11 @@ coisa" feito no meio da conversa. O usuário **não precisa pedir**: paralelizar
    limite de requisições), reinvoque **só ela**, sem refazer as outras.
 7. **Não pergunte se pode paralelizar.** Faça, e diga em uma linha o que rodou junto e o que ficou em série e
    por quê. Commits e atualização do vault continuam sendo feitos na conversa principal, por unidade lógica.
+8. **Limpe o que criou.** Worktree, branch auxiliar e arquivo temporário existem só enquanto a tarefa dura. Ao
+   terminar (e depois de mergear o que precisa): `git worktree remove <caminho>`, `git branch -d <branch>` (só
+   se já foi mergeada) e `git worktree prune`. Não deixe cópia do repositório em `.claude/worktrees/`. Arquivo
+   temporário nasce fora do projeto (`mktemp -d`) ou em `output/` e é apagado no fim, mesmo em caso de erro.
+   Nada disso é commitado: `.claude/worktrees/`, `tmp/`, `temp/`, `*.tmp` e `*.bak` ficam no `.gitignore`.
 RULEEOF
 echo -e "${GREEN}✅ .claude/rules/paralelismo.md criado${NC}"
 
@@ -8054,6 +8064,10 @@ Em conflito, a ordem é: **regra de negócio > arquitetura > custo**.
    requisito que a opção barata não cumpre, registrada em ADR.
 4. Ao reportar, diga qual regra de negócio e qual decisão de arquitetura sustentam a entrega e, se houve escolha
    de custo, quais opções foram comparadas.
+5. **Arquivo temporário não fica.** Worktree, branch auxiliar, rascunho, áudio, captura de tela e cópia de
+   trabalho são criados só quando a tarefa precisa e **apagados ao terminar** (também se der erro). Crie-os fora
+   do projeto (`mktemp -d`) ou em `output/`; nunca na árvore versionada. Nada temporário entra em commit nem em
+   merge: `.claude/worktrees/`, `tmp/`, `temp/`, `*.tmp` e `*.bak` estão no `.gitignore`.
 SDDPARTPRINCEOF
 cat > "$PROJECT_DIR/.claude/rules/padrao-documentos.md" << 'SDDPARTPADRAOEOF'
 # Padrão de documentos
@@ -9134,7 +9148,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.2**
+**Projeto criado com Claude SDD v7.0.3**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -9976,6 +9990,21 @@ knowledge/embeddings/fontes/
         GI_REPORT="${GI_REPORT}knowledge/embeddings/fontes/ "
     fi
 
+    # Temporários (v7.0.3): worktrees e afins nunca sobem. Vão no FIM do arquivo, depois das negações
+    # "!.claude/**", senão a negação os reabilita.
+    if ! grep -qxF '.claude/worktrees/' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
+# Temporários — nunca vão para o repositório (depois das negações de .claude/ de propósito)
+.claude/worktrees/
+.claude/*.lock
+tmp/
+temp/
+*.tmp
+*.bak
+"
+        GI_REPORT="${GI_REPORT}.claude/worktrees/ "
+    fi
+
     if [ -n "$GI_APPEND" ]; then
         printf '\n# Pipeline SDD (criar-template-claude)\n%s' "$GI_APPEND" >> "$GI"
         echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras que faltavam: ${GI_REPORT}${NC}"
@@ -10025,6 +10054,16 @@ knowledge/embeddings/fontes/
 !.claude/**
 !CLAUDE.md
 !.mcp.json
+
+# Temporários — NUNCA vão para o repositório. Ficam DEPOIS das negações acima de propósito: sem isso,
+# "!.claude/**" reabilitaria .claude/worktrees/ (cópias inteiras do repositório criadas por
+# "claude --worktree") e o /commit as subiria junto.
+.claude/worktrees/
+.claude/*.lock
+tmp/
+temp/
+*.tmp
+*.bak
 
 # IDE
 .idea/

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.5
+# 🚀 Criar Template Claude SDD v7.0.6
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.5${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.6${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6392,7 +6392,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
-- `/video-lancamento` — opcional, com o frontend já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e deixa só o `.mp4` em `output/` (não faz parte do pipeline).
+- `/video-lancamento` — opcional, com o frontend já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6524,7 +6524,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
-- `/video-lancamento` — opcional, com o sistema já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e deixa só o `.mp4` em `output/` (não faz parte do pipeline).
+- `/video-lancamento` — opcional, com o sistema já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
 
@@ -6716,14 +6716,14 @@ echo -e "${GREEN}✅ .claude/commands/commit.md criado${NC}"
 if [ "$HAS_FRONT" = 1 ]; then
 cat > ""$PROJECT_DIR/.claude/commands/video-lancamento.md"" << 'VIDEOEOF'
 ---
-description: Opcional — gera o vídeo COMPLETO de treinamento do sistema (nome e objetivo, login e todos os menus, com narração em português do Brasil) e deixa só o arquivo .mp4 em output/. Fora do pipeline; só roda quando você chamar.
+description: Opcional — gera o vídeo COMPLETO de treinamento do sistema (nome e objetivo, login e todos os menus, com narração em português do Brasil) e deixa só o arquivo .mp4 em docs/entregaveis/. Fora do pipeline; só roda quando você chamar.
 allowed-tools: Bash(node:*), Bash(ffmpeg:*), Bash(ffprobe:*), Bash(mktemp:*), Bash(ls:*), Bash(mv:*), Bash(npx hyperframes:*), Bash(npx playwright:*), Read, Write, Glob, Grep, Skill
 ---
 
 # Vídeo de treinamento do sistema (opcional)
 
 Comando avulso: nenhum agente do pipeline chama isto, e o `/inicia-orquestracao` não depende dele. Gera **um
-único arquivo `.mp4` em `output/`**, e o vídeo é **sempre o completo** — nunca uma introdução ou um teaser.
+único arquivo `.mp4` em `docs/entregaveis/`**, e o vídeo é **sempre o completo** — nunca uma introdução ou um teaser.
 
 ## Regras fixas (valem em toda execução)
 
@@ -6775,10 +6775,10 @@ para montar e renderizar, Kokoro para a voz, ambos via `npx`) com fluxo próprio
 
    ```bash
    WORK=$(mktemp -d) && echo "$WORK"
-   mkdir -p "$WORK"/{voz,telas,composicao} && ls -A output > "$WORK/output-antes.txt" 2>/dev/null; true
+   mkdir -p "$WORK"/{voz,telas,composicao} && ls -A docs/entregaveis > "$WORK/output-antes.txt" 2>/dev/null; true
    ```
 
-   `output-antes.txt` é a foto de `output/` antes do vídeo; ela serve para conferir no fim que só o `.mp4` entrou.
+   `output-antes.txt` é a foto de `docs/entregaveis/` antes do vídeo; ela serve para conferir no fim que só o `.mp4` entrou.
 
 2. Levante o que o sistema tem, **lendo o código real**: rotas (`frontend/src/**` — arquivo de rotas, `router`,
    `app.routes.ts`), componentes de menu/navegação/sidebar, telas e formulários, `docs/frontend/SPEC.md`,
@@ -7039,20 +7039,19 @@ for (const r of relatorio) console.log("cena " + r.id + ": ritmo " + r.ritmo_ori
 
 ## Passo 8 — Entregar e limpar
 
-1. Mova o arquivo final para `output/` com nome fixo do projeto, sem espaços (ex.:
-   `output/treinamento-<nome-do-projeto>.mp4`): `mkdir -p output && mv "$WORK/video.mp4" output/<nome>.mp4`.
-2. **Confira que só o `.mp4` entrou em `output/`**: liste `ls -A output` e compare com `$WORK/output-antes.txt`; a
+1. Mova o arquivo final para `docs/entregaveis/` com nome fixo do projeto, sem espaços (ex.:
+   `docs/entregaveis/treinamento-<nome-do-projeto>.mp4`): `mkdir -p docs/entregaveis && mv "$WORK/video.mp4" docs/entregaveis/<nome>.mp4`.
+2. **Confira que só o `.mp4` entrou em `docs/entregaveis/`**: liste `ls -A docs/entregaveis` e compare com `$WORK/output-antes.txt`; a
    única diferença deve ser o arquivo `.mp4`. Se aparecer qualquer outra coisa nova, apague-a e avise.
 3. **Apague a pasta temporária** e confirme que ela não existe mais (`rm -rf "$WORK"`; depois `ls "$WORK"` deve
    falhar). Se o `rm` pedir permissão, peça ao usuário para aprovar — não deixe a pasta para trás.
-4. O `limpar-output.cjs` do pipeline apaga arquivos soltos de `output/` no começo e no fim de cada rodada do
-   `/inicia-orquestracao`. Rode `grep -c mp4 .claude/scripts/limpar-output.cjs`: se der `0`, **avise o usuário**
-   para copiar o vídeo para fora de `output/` antes da próxima rodada.
+4. O `.mp4` é pesado: o `.gitignore` do projeto ignora `docs/entregaveis/*.mp4`, então o vídeo fica só na máquina
+   e não entra em commit. Avise isso em uma linha (para versioná-lo, o usuário remove a regra ou usa Git LFS).
 5. Reporte: caminho do vídeo, duração total, número de cenas e a voz usada, e a lista de menus cobertos.
 
 ## Se algo falhar ou o usuário cancelar
 
-Antes de reportar o erro: pare o servidor de desenvolvimento, **apague um `.mp4` parcial que esteja em `output/`** e
+Antes de reportar o erro: pare o servidor de desenvolvimento, **apague um `.mp4` parcial que esteja em `docs/entregaveis/`** e
 **apague `$WORK`**. Mostre o erro exato. O projeto deve ficar exatamente como estava antes do comando.
 VIDEOEOF
 # Projeto de uma frente só: o código do front vive em src/ e a spec em docs/SPEC.md (o texto do comando
@@ -9190,7 +9189,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.5**
+**Projeto criado com Claude SDD v7.0.6**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -10047,6 +10046,14 @@ temp/
         GI_REPORT="${GI_REPORT}.claude/worktrees/ "
     fi
 
+    if ! grep -qxF 'docs/entregaveis/*.mp4' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
+# Vídeos gerados pelo /video-lancamento são pesados: ficam só na máquina
+docs/entregaveis/*.mp4
+"
+        GI_REPORT="${GI_REPORT}docs/entregaveis/*.mp4 "
+    fi
+
     if [ -n "$GI_APPEND" ]; then
         printf '\n# Pipeline SDD (criar-template-claude)\n%s' "$GI_APPEND" >> "$GI"
         echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras que faltavam: ${GI_REPORT}${NC}"
@@ -10106,6 +10113,9 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# Vídeos gerados pelo /video-lancamento são pesados: ficam só na máquina (docs/entregaveis/ guarda PDFs e HTMLs)
+docs/entregaveis/*.mp4
 
 # IDE
 .idea/

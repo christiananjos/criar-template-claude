@@ -1,6 +1,6 @@
 {
   "name": "sdd",
-  "version": "7.0.0",
+  "version": "7.0.1",
   "description": "Monta a estrutura de projeto SDD (monorepo backend + frontend com a linguagem de cada frente definida depois, ou .NET, Angular, React, Vue), seguindo as convenções oficiais do Claude Code, com agentes especializados que implementam, testam e validam código automaticamente.",
   "author": {
     "name": "Christian Anjos"

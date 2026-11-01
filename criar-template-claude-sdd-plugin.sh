@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.0
+# 🚀 Criar Template Claude SDD v7.0.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6789,8 +6789,9 @@ Grave `$WORK/roteiro.json` neste formato (UTF-8):
 ```json
 {
   "excecoes": ["nomedosistema"],
+  "pronuncias": { "briefing": "brífim" },
   "cenas": [
-    { "id": "01", "tela": "Texto exibido na tela, com a grafia original", "fala": "O que a voz vai dizer, em português." }
+    { "id": "01", "tela": "Texto exibido na tela, com a grafia original", "fala": "O que a voz vai dizer, em português, mantendo os termos em inglês do cliente." }
   ]
 }
 ```
@@ -6803,44 +6804,50 @@ Como escrever a `fala`:
 
 - Português do Brasil, frases curtas (no máximo ~20 palavras), um assunto por cena, tom de quem ensina alguém que
   nunca viu o sistema: **o que é, para que serve, como usar**.
-- **Nunca deixe palavra em inglês na fala quando existe equivalente em português**: "painel" (não dashboard),
-  "acesso" ou "entrar" (não login), "baixar o arquivo" (não fazer download), "configurações" (não settings). O
-  texto que aparece na tela mantém a grafia original; só a fala muda.
-- Nome de menu em inglês que existe na tela e não tem tradução natural: escreva a fala com o equivalente em
-  português ou com grafia fonética que a voz leia do jeito certo (ex.: "dáunlôude"). Siglas são soletradas.
-- O nome do sistema e nomes próprios entram na lista `excecoes` (em minúsculas) para não serem apontados.
+- **Mantenha os termos em inglês que o cliente usa** ("briefing", "dashboard", "login"...): **não traduza** nem
+  troque por outra palavra. O problema a resolver não é o termo, é a **entonação**: a voz em português, ao
+  encontrar uma palavra em inglês, muda de tom ou de velocidade, como se algo estranho estivesse encaixado no meio
+  da frase. A solução é fazer a mesma voz pt-BR ler o termo com a mesma melodia da frase.
+- Para isso, cada termo em inglês ganha uma **grafia de pronúncia em português** em `pronuncias` (ex.:
+  `"briefing": "brífim"`). O texto que aparece na tela mantém a grafia original; só o que vai para a voz muda.
+- **Escreva a frase sem pausas em volta do termo**: nada de aspas, parênteses, travessão, dois-pontos ou vírgula
+  antes ou depois dele. O termo entra solto, no meio da frase, como qualquer outra palavra ("Preencha o briefing
+  com o objetivo do projeto"). Aspas e vírgulas fazem a voz parar e recomeçar com outro tom.
+- Siglas são soletradas pelo verificador. O nome do sistema e nomes próprios entram em `excecoes` (minúsculas).
 
 Agora grave o verificador em `$WORK/normalizar-fala.mjs` e rode `node "$WORK/normalizar-fala.mjs" "$WORK/roteiro.json"`.
-Ele troca o que sobrou de termo em inglês por equivalente em português ou grafia fonética, grava o resultado em
-`fala_tts` de cada cena e **sai com erro (código 2) listando os termos suspeitos**. Reescreva a `fala` das cenas
-apontadas e rode de novo, **até sair sem pendências**. Só a `fala_tts` vai para a voz.
+Ele troca cada termo em inglês pela sua grafia de pronúncia, grava o resultado em `fala_tts` de cada cena e
+**sai com erro (código 2) listando os termos em inglês que ainda não têm pronúncia**. Para cada um, acrescente em
+`pronuncias` a grafia em português que faz a voz pt-BR ler o termo de forma natural (ex.: `"checkout":
+"tchékiaute"`) e rode de novo, **até sair sem pendências**. Só a `fala_tts` vai para a voz.
 
 ```js
 // normalizar-fala.mjs <roteiro.json>
-// Lê { "excecoes": [...], "cenas": [{ "id", "tela", "fala" }] } e grava "fala_tts" em cada cena.
-// Sai com código 2 enquanto sobrar termo suspeito de ser inglês na fala.
+// Lê { "excecoes": [...], "pronuncias": {...}, "cenas": [{ "id", "tela", "fala" }] } e grava "fala_tts".
+// NÃO traduz: o termo em inglês do cliente continua na fala; só ganha a grafia em português que a voz pt-BR
+// lê com a mesma melodia da frase (sem "encaixe" de outra língua no meio). Sai com código 2 enquanto sobrar
+// termo em inglês sem pronúncia.
 import fs from "node:fs";
 
 const arquivo = process.argv[2];
 const roteiro = JSON.parse(fs.readFileSync(arquivo, "utf8"));
 const excecoes = new Set((roteiro.excecoes || []).map((s) => s.toLowerCase()));
 
-// Rede de segurança: a fala já deve ser escrita em português. O que sobrar aqui troca por um
-// equivalente em português SÓ quando mantém gênero e número ("o login" -> "o acesso"); nos demais
-// casos vira grafia fonética, que a voz pt-BR lê de forma natural e sem trocar de ritmo.
-const DICIONARIO = {
-  "login": "acesso", "log in": "acesso", "sign in": "acesso", "logout": "saída do sistema",
-  "dashboard": "painel", "download": "dáunlôude", "upload": "envio",
-  "e-mail": "imêiu", "email": "imêiu", "click": "clique", "app": "aplicativo",
-  "feedback": "retorno", "input": "campo", "button": "botão", "checkout": "fechamento do pedido",
-  "offline": "ófilaine", "online": "ônlaine", "backup": "békape", "template": "modelo",
-  "status": "estado", "mobile": "móvel", "user": "usuário", "password": "péssuórdi",
-  "username": "nome de usuário", "settings": "configurações", "profile": "perfil",
-  "search": "busca", "filter": "filtro", "report": "relatório", "scroll": "rolagem",
-  "software": "sistema", "shopping": "xópim", "wi-fi": "uai-fai", "link": "linque",
+// Semente de pronúncias comuns (termo em inglês -> grafia que a voz pt-BR lê de forma natural). O roteiro
+// pode acrescentar ou sobrescrever em "pronuncias". Não é lista de traduções: o termo continua sendo o mesmo.
+const SEMENTE = {
+  "briefing": "brífim", "login": "lóguin", "log in": "lóguin", "logout": "lóguiaute", "sign in": "sáin ín",
+  "dashboard": "déchibórdi", "download": "dáunlôude", "upload": "âplôude", "e-mail": "imêiu", "email": "imêiu",
+  "feedback": "fídbéqui", "checkout": "tchékiaute", "backup": "békape", "offline": "ófilaine", "online": "ônlaine",
+  "app": "épe", "mobile": "môbaile", "template": "témplêite", "status": "estátus", "password": "péssuórdi",
+  "username": "iuzerneime", "settings": "sétins", "profile": "prôfaile", "scroll": "escrôu", "wi-fi": "uai-fai",
+  "link": "linque", "software": "sófiuer", "shopping": "xópim", "site": "saite", "marketing": "márquetim",
+  "designer": "dizáiner", "design": "dizáin", "layout": "lêiaute", "deadline": "dédilaine", "kickoff": "quiqueófi",
   "pdf": "pê dê éfe", "api": "á pê i", "sql": "ésse quiu éle", "url": "u érre éle",
   "cpf": "cê pê éfe", "cnpj": "cê ene pê jota", "id": "i dê",
 };
+const DICIONARIO = { ...SEMENTE };
+for (const [termo, pron] of Object.entries(roteiro.pronuncias || {})) DICIONARIO[termo.toLowerCase()] = pron;
 
 const LETRAS = {
   a: "á", b: "bê", c: "cê", d: "dê", e: "é", f: "éfe", g: "gê", h: "agá", i: "i", j: "jota",
@@ -6880,6 +6887,12 @@ function suspeito(palavra) {
 const pendencias = [];
 for (const cena of roteiro.cenas) {
   let fala = String(cena.fala || "");
+  // O que sobra depois de tirar os termos que já têm pronúncia e ainda parece inglês é pendência. A checagem
+  // é feita ANTES da troca, senão a própria grafia de pronúncia (ex.: "tchékiaute") seria apontada.
+  const semCobertos = fala.replace(reDicionario, " ");
+  for (const token of semCobertos.match(/\p{L}+(?:-\p{L}+)*/gu) || []) {
+    if (suspeito(token)) pendencias.push({ cena: cena.id, termo: token });
+  }
   fala = fala.replace(reDicionario, (m) => DICIONARIO[m.toLowerCase()]);
   // Siglas em maiúsculas (2 a 5 letras) fora do dicionário: soletrar, senão a voz tropeça.
   fala = fala.replace(reSigla, (m) =>
@@ -6888,18 +6901,15 @@ for (const cena of roteiro.cenas) {
       : m.toLowerCase().split("").map((c) => LETRAS[c] || c).join(" ")
   );
   cena.fala_tts = fala;
-  for (const token of fala.match(/\p{L}+(?:-\p{L}+)*/gu) || []) {
-    if (suspeito(token)) pendencias.push({ cena: cena.id, termo: token });
-  }
 }
 
 fs.writeFileSync(arquivo, JSON.stringify(roteiro, null, 2));
 if (pendencias.length) {
-  console.log("TERMOS SUSPEITOS DE SEREM INGLÊS (reescreva a fala; se for mesmo português ou nome próprio, ponha em excecoes):");
+  console.log("TERMOS EM INGLÊS SEM PRONÚNCIA (acrescente em \"pronuncias\" a grafia em português, ex.: \"checkout\": \"tchékiaute\"; se for nome próprio ou palavra em português, ponha em \"excecoes\"):");
   for (const p of pendencias) console.log("  cena " + p.cena + ": " + p.termo);
   process.exit(2);
 }
-console.log("OK: nenhuma palavra em inglês crua na fala (" + roteiro.cenas.length + " cenas).");
+console.log("OK: todo termo em inglês tem pronúncia (" + roteiro.cenas.length + " cenas).");
 ```
 
 ## Passo 4 — Voz (uma só, pt-BR, velocidade fixa)
@@ -6911,7 +6921,7 @@ console.log("OK: nenhuma palavra em inglês crua na fala (" + roteiro.cenas.leng
    causa mais provável de a voz mudar de tom e de ritmo em palavras estrangeiras. Se `--help` mostrar opção de
    idioma, use `pt-BR`; se mostrar opção de velocidade, fixe **o mesmo valor** em todas as cenas. Se a lista não
    tiver nenhuma voz em português, **pare** e diga isso ao usuário — não gere com voz em inglês.
-3. Gere **um arquivo por cena**, sempre com a mesma voz e as mesmas opções, a partir do campo `fala_tts`:
+3. Gere **um arquivo por cena**, sempre com a mesma voz e as mesmas opções, a partir do campo `fala_tts`. **Sintetize a frase inteira de uma vez**: nunca o termo em inglês separado do resto, nem palavra por palavra, senão a melodia quebra no ponto da emenda:
 
    ```bash
    npx hyperframes tts "<fala_tts da cena>" --voice <voz-pt-BR> --output "$WORK/voz/cena-<id>.wav"
@@ -9117,7 +9127,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.0**
+**Projeto criado com Claude SDD v7.0.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

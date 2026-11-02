@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.1.0
+# 🚀 Criar Template Claude SDD v7.2.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.1.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.2.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1989,8 +1989,9 @@ backend, um por um — não por amostragem.
 privadas e credenciais padrão embutidos no código, configs, `docker-compose`, charts, CI, scripts e
 documentação. Atenção especial a defaults públicos que viram segredo real se ninguém sobrescrever (ex.:
 `${VAR:-valor-default}`) e à ausência de validação de startup que rejeite esses defaults. Valor fictício de
-desenvolvimento em `.env.example`, usado só pelos containers locais presos a `127.0.0.1`, **não** é achado; senha
-escrita no `docker-compose.yml`, porta de serviço sem `127.0.0.1` ou segredo real no `.env.example` são. Verifique também o
+desenvolvimento em `.env.development.example`, usado só pelos containers locais presos a `127.0.0.1`, **não** é
+achado; senha escrita no `docker-compose.yml`, porta de serviço sem `127.0.0.1`, valor preenchido em
+`.env.production.example` ou qualquer `.env` real em `git ls-files` (achado 🔴 Crítico) são. Verifique também o
 histórico do Git (`git log -p -S` nos padrões suspeitos, `git log --diff-filter=D` em arquivos `.env`) e o
 bundle do frontend por chaves embutidas.
 
@@ -6192,7 +6193,8 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   para resolver: fora os gates técnicos, é a única interrupção depois da aprovação. Sem dependência externa, registre
   isso e siga. Na segunda frente, reaproveite o que já existe e só acrescente o que faltar.
 - **Validação local (sem subagente, depois do 06)**: siga o modo `validar` do mesmo comando. ❌ REPROVADO é gate
-  técnico: pare, sem push. Nada no ambiente real é criado nesta rodada (rule `ambiente-local-primeiro.md`).
+  técnico: pare, sem push. A rodada inteira usa `.env.development`: nada no ambiente real é criado nem acessado
+  (rule `ambiente-local-primeiro.md`).
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `04-reviewer-sdd`
   (❌ REPROVADO), `05-test-engineer` (❌ FAILED), `06-security-scan-sdd` (❌ REPROVADO) ou a validação local
   (❌ REPROVADO) reportar falha,
@@ -6209,7 +6211,7 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   |---|---|---|
   | 01 Analyst (depois da sua aprovação) | `docs/SPEC.md`, `knowledge/` e o `output/token-report.md` da rodada anterior | `docs(spec):` |
   | 02 Architect | `knowledge/` (arquitetura, ADRs, planejamento) | `docs(arquitetura):` |
-  | Ambiente local | `docker-compose.yml`, `.env.example` e `docs/ambiente/README.md` (nunca o `.env`) | `chore(ambiente):` |
+  | Ambiente local | `docker-compose.yml`, os dois `.env.*.example` e `docs/ambiente/README.md` (nunca `.env.development` nem `.env.production`) | `chore(ambiente):` |
   | 03 Specialist | código em `src/` + notas do vault — **um commit por unidade lógica** (com plano paralelo: um por unidade do plano, mais a fundação e a costura, só depois que a costura passar o build) | `feat(...)` |
   | 04 Reviewer | correções que ele aplicou, se houver | `fix:` / `refactor:` |
   | 05 Test Engineer | testes (e `docs/api/`, se gerou) | `test(...)` |
@@ -6686,7 +6688,11 @@ mensagem, e nenhum commit sai sem eles.
     git diff --cached -U0 | grep -nEi 'AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY|xox[baprs]-[0-9A-Za-z-]{10,}|gh[pousr]_[0-9A-Za-z]{20,}|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(pass(word|wd)?|secret|token|api[_-]?key|client[_-]?secret|connection ?string|accountkey)["'"'"']? *[:=] *["'"'"']?[^"'"'"' ,;<>]{8,}'
     ```
 
-    Olhe também os **nomes** dos arquivos do stage: `.env`, `.env.*` (menos `.env.example`), `*.pem`,
+    **Pare sempre, sem triagem,** se `.env`, `.env.development`, `.env.production` ou outro `.env.*` real estiver no
+    stage: só `.env.example` e `.env.*.example` podem ser versionados. Valor preenchido em
+    `.env.production.example` também para o commit.
+
+    Olhe também os **nomes** dos arquivos do stage: `*.pem`,
     `*.key`, `*.pfx`, `*.p12`, `id_rsa`, `credentials`, `secrets.json`, `appsettings.*.json` e
     `*.publishsettings` quase nunca deveriam ser versionados.
 
@@ -8656,8 +8662,7 @@ tem custo: tudo roda e é testado em Docker na máquina do usuário antes de exi
    catálogo de imagens fica nele.
 2. **Nada no ambiente real sem pedido explícito.** Não crie recurso em cloud ou hospedagem, não rode deploy nem
    `terraform apply`/`az`/`aws` que altere algo, não use credencial real do cliente nem aponte o código para
-   serviço real ou pago. Isso só acontece quando o usuário pedir, e aí o caminho é o `/subir-no-cliente`, que
-   orienta passo a passo depois da validação local.
+   serviço real ou pago. Para criar o ambiente real, o caminho é o `/subir-no-cliente`, que orienta passo a passo.
 3. **Mesmo código nos dois ambientes; só a configuração muda.** Tudo que difere (conexão, host, porta, chave) vem
    de variável de ambiente. Nada de `if (ambiente == local)` nem de implementação falsa em código de produção. O
    adaptador da camada de infraestrutura é o mesmo no local e no real.
@@ -8667,7 +8672,81 @@ tem custo: tudo roda e é testado em Docker na máquina do usuário antes de exi
 5. **Pronto é validado local.** Uma entrega só está pronta depois que o `/ambiente-local validar` passar, com a
    aplicação rodando contra os containers. Se o Docker estiver parado, peça ao usuário para abrir; nunca finja que
    testou nem troque silenciosamente por um serviço real.
+6. **Dois arquivos de ambiente, com os mesmos nomes de variável.** `.env.development` aponta para os containers e é
+   o padrão de tudo: rodar, testar e validar. `.env.production` aponta para o ambiente real do cliente. Todo comando
+   que precisa de variável passa por `node .claude/scripts/com-ambiente.cjs development <comando>`.
+7. **Produção só a pedido.** Teste no ambiente do cliente apenas se o usuário pedir isso na conversa, de forma
+   explícita. O pedido vale só para aquele teste: diga antes o que vai rodar, use
+   `node .claude/scripts/com-ambiente.cjs production <comando>` e volte para `development` em seguida. Confirme antes
+   de qualquer gravação, migration, envio real ou ação com custo. O `/inicia-orquestracao` nunca usa produção.
+8. **Credencial do cliente nunca vaza, em nenhuma hipótese.** Nunca leia, imprima, copie ou grave os valores de
+   `.env.production`: nem em commit, log, relatório, `knowledge/`, `docs/` ou PDF, nem dentro de um comando. Quem
+   preenche o arquivo é o usuário, no editor. Se um segredo for colado na conversa, não o grave em lugar nenhum e
+   recomende trocá-lo. No Git só entram `.env.development.example` e `.env.production.example`, este só com nomes.
 SDDPARTAMBRULEEOF
+cat > "$PROJECT_DIR/.claude/scripts/com-ambiente.cjs" << 'SDDPARTCOMAMBEOF'
+#!/usr/bin/env node
+// Roda um comando com as variáveis de .env.development ou .env.production, sem nunca imprimir os valores.
+// Uso: node .claude/scripts/com-ambiente.cjs <development|production> <comando...>
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+function falhar(msg) {
+  console.error('[com-ambiente] ' + msg);
+  process.exit(1);
+}
+
+const [ambiente, ...comando] = process.argv.slice(2);
+if (!['development', 'production'].includes(ambiente) || comando.length === 0) {
+  falhar('uso: node .claude/scripts/com-ambiente.cjs <development|production> <comando...>');
+}
+
+const arquivo = path.join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), '.env.' + ambiente);
+if (!fs.existsSync(arquivo)) {
+  falhar('.env.' + ambiente + ' não existe. Crie a partir de .env.' + ambiente + '.example.');
+}
+
+if (ambiente === 'production') {
+  // Comandos que exibem variáveis ou tratam dos containers locais não têm por que ver credencial real.
+  const programa = path.basename(comando[0]).toLowerCase().replace(/\.(exe|cmd)$/, '');
+  const exibe = ['env', 'printenv', 'set', 'cat', 'type', 'echo', 'cmd', 'powershell', 'pwsh', 'bash', 'sh'];
+  const codigoSolto = programa === 'node' && comando.some((a) => /^(-e|-p|-pe|--eval|--print)(=|$)/.test(a));
+  if (exibe.includes(programa) || codigoSolto) {
+    falhar('comando bloqueado em production: ele poderia exibir credenciais.');
+  }
+  if (programa === 'docker' || programa === 'docker-compose') {
+    falhar('Docker é o ambiente local e usa só development.');
+  }
+}
+
+const variaveis = {};
+for (const linha of fs.readFileSync(arquivo, 'utf8').split(/\r?\n/)) {
+  const m = linha.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+  if (!m) continue;
+  let valor = m[2];
+  if (/^(['"]).*\1$/.test(valor)) valor = valor.slice(1, -1);
+  else valor = valor.replace(/\s+#.*$/, '');
+  variaveis[m[1]] = valor;
+}
+
+if (ambiente === 'production') {
+  const vazias = Object.keys(variaveis).filter((nome) => variaveis[nome] === '');
+  if (vazias.length > 0) falhar('preencha em .env.production: ' + vazias.join(', '));
+  console.error('[com-ambiente] ATENÇÃO: usando o ambiente REAL do cliente.');
+}
+
+const env = { ...process.env, ...variaveis };
+let r = spawnSync(comando[0], comando.slice(1), { stdio: 'inherit', env });
+// No Windows, npm e afins são atalhos .cmd, que só rodam pelo shell. Lá, & | e cia. virariam um segundo comando.
+if (r.error && r.error.code === 'ENOENT' && process.platform === 'win32') {
+  if (comando.some((a) => /[&|<>^%!"\r\n]/.test(a))) falhar('caractere especial não permitido neste comando.');
+  r = spawnSync(comando.map((a) => (/\s/.test(a) ? '"' + a + '"' : a)).join(' '), { stdio: 'inherit', env, shell: true });
+}
+if (r.error) falhar('não consegui rodar ' + comando[0] + ': ' + r.error.code);
+process.exit(r.status === null ? 1 : r.status);
+SDDPARTCOMAMBEOF
 echo -e "${GREEN}✅ Princípios de implementação, ambiente local primeiro, modelo único de documentos e gerar-pdf.cjs criados${NC}"
 
 # Princípios de implementação nos agentes (arquitetura sem atalho, custo do mais barato ao mais caro)
@@ -8703,8 +8782,10 @@ Siga `.claude/rules/principios-de-implementacao.md`. Nunca contorne a arquitetur
 Se só uma gambiarra resolver, **pare e reporte** o conflito no relatório em vez de implementá-la.
 
 **Ambiente local primeiro** (`.claude/rules/ambiente-local-primeiro.md`): rode e teste contra os containers do
-`docker-compose.yml`, lendo tudo de variável de ambiente (nomes em `.env.example`). Nunca aponte para serviço real.
-Precisou de serviço novo? Acrescente-o ao `docker-compose.yml` e ao `.env.example` pelo catálogo de
+`docker-compose.yml`, com `node .claude/scripts/com-ambiente.cjs development <comando>`, lendo tudo de variável de
+ambiente (nomes nos `.env.*.example`). Nunca aponte para serviço real. Variável com prefixo público do front
+(`VITE_*`, `NG_APP_*`) vai para o bundle: segredo nunca. Precisou de serviço novo? Acrescente-o ao
+`docker-compose.yml` e aos dois `.env.*.example` pelo catálogo de
 `.claude/commands/ambiente-local.md`.
 
 SDDPARTSNIPSPECIALISTEOF
@@ -8828,7 +8909,7 @@ cat > "$PROJECT_DIR/.claude/commands/ambiente-local.md" << 'SDDPARTAMBLOCEOF'
 ---
 description: Cria e sobe em Docker todos os ambientes que a arquitetura precisa (banco, e-mail, arquivos, fila, cache, login, integrações), sem custo. Modos - subir (padrão), status, parar e validar.
 argument-hint: [subir|status|parar|validar]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(docker:*), Bash(cp .env.example .env), Bash(git rev-parse:*), Bash(ls:*), Bash(mkdir:*), Bash(curl:*), Bash(node:*), Bash(dotnet:*), Bash(npm:*)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(docker info:*), Bash(docker image inspect:*), Bash(node .claude/scripts/com-ambiente.cjs development:*), Bash(cp .env.development.example .env.development), Bash(git rev-parse:*), Bash(ls:*), Bash(mkdir:*), Bash(curl:*), Bash(dotnet:*), Bash(npm:*)
 ---
 
 # /ambiente-local — Tudo em Docker antes do ambiente real
@@ -8836,11 +8917,12 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(docker:*), Bash(cp .env.examp
 Modo pedido: $ARGUMENTS (vazio = `subir`). Siga `.claude/rules/ambiente-local-primeiro.md`. Este comando **nunca**
 cria nada fora da máquina.
 
-Primeiro rode `docker info`. Se não responder, peça ao usuário para abrir o Docker Desktop e pare.
+Primeiro rode `docker info`. Se não responder, peça ao usuário para abrir o Docker Desktop e pare. Abaixo, `ENV` é
+`node .claude/scripts/com-ambiente.cjs development`: todo `docker compose`, build, teste e execução passa por ele.
 
-- **`status`**: rode `docker compose ps` e mostre serviço, situação e URL. Fim.
-- **`parar`**: rode `docker compose stop`, que mantém os dados. Fim. Apagar dados (`docker compose down -v`) só com
-  pedido explícito do usuário.
+- **`status`**: rode `ENV docker compose ps` e mostre serviço, situação e URL. Fim.
+- **`parar`**: rode `ENV docker compose stop`, que mantém os dados. Fim. Apagar dados (`ENV docker compose down -v`)
+  só com pedido explícito do usuário.
 - **`validar`**: vá direto para a seção "Validar".
 
 ## 1. Levantar o que a arquitetura precisa
@@ -8884,12 +8966,18 @@ registre a diferença. Não use `minio/minio` (projeto arquivado, sem imagem ofi
 - Toda porta presa à máquina e configurável: `"127.0.0.1:${DB_PORT:-5432}:5432"`.
 - Senha só por variável obrigatória, **sem valor padrão**: `${DB_PASSWORD:?}`.
 - `healthcheck` em todo serviço que tiver um no catálogo e volume nomeado em todo serviço que guarda dados.
-- Versão fixa no arquivo final: depois do `docker compose pull`, troque tag sem número pelo digest de
+- Versão fixa no arquivo final: depois do `ENV docker compose pull`, troque tag sem número pelo digest de
   `docker image inspect --format '{{index .RepoDigests 0}}' <imagem>`.
 
-**`.env.example`** com todas as variáveis, valores fictícios e o comentário `# Só para os containers locais`. A senha
-do SQL Server precisa de maiúscula, minúscula, número e símbolo. Crie o `.env` com `cp .env.example .env` só se ele
-não existir; nunca o sobrescreva e nunca o commite.
+**`.env.development.example`** com todas as variáveis, valores fictícios e o comentário `# Só para os containers
+locais`. A senha do SQL Server precisa de maiúscula, minúscula, número e símbolo.
+
+**`.env.production.example`** com **os mesmos nomes e todos os valores vazios**, mais o comentário `# Preencha em
+.env.production, nunca aqui`.
+
+Crie o `.env.development` com `cp .env.development.example .env.development` só se ele não existir. Nunca o
+sobrescreva. O `.env.production` é criado e preenchido pelo usuário; você nunca o abre. Só os dois `.example` vão
+para o Git. Se o projeto já tiver um `.env`, não o apague: leve as variáveis locais para o `.env.development`.
 
 **`docs/ambiente/README.md`**: tabela com serviço, URL, login local e o serviço real equivalente, mais o que está
 simulado e não foi coberto.
@@ -8897,15 +8985,15 @@ simulado e não foi coberto.
 ## 4. Subir e conferir
 
 ```bash
-docker compose config -q
-docker compose up -d --wait --wait-timeout 300
-docker compose ps
+ENV docker compose config -q
+ENV docker compose up -d --wait --wait-timeout 300
+ENV docker compose ps
 ```
 
-Porta ocupada: troque a variável no `.env` e no `.env.example`. Serviço que não subir: leia `docker compose logs
-<serviço>`, corrija e tente até 3 vezes. Em seguida confira a resposta real de cada serviço (consulta no banco, `curl`
-nas telas). Por fim, ligue a aplicação: pelas variáveis, sem mudar lógica e sem senha em arquivo versionado; em
-.NET, `dotnet user-secrets` no desenvolvimento.
+Porta ocupada: troque a variável no `.env.development` e no `.env.development.example`. Serviço que não subir: leia
+`ENV docker compose logs <serviço>`, corrija e tente até 3 vezes. Em seguida confira a resposta real de cada serviço (consulta no banco, `curl`
+nas telas). Por fim, ligue a aplicação pelas variáveis, sem mudar lógica e sem senha em arquivo versionado: ela roda
+com `ENV dotnet run ...` ou `ENV npm run dev`.
 
 Reporte em poucas linhas: o que subiu, as URLs e o que ficou simulado.
 
@@ -8913,8 +9001,8 @@ Reporte em poucas linhas: o que subiu, as URLs e o que ficou simulado.
 
 Prova que o sistema funciona **de ponta a ponta nos containers**:
 
-1. `docker compose up -d --wait`, e build mais testes da stack (integração incluída).
-2. Suba a aplicação a partir do código, apontando para os containers, e confira que ela responde.
+1. `ENV docker compose up -d --wait`, e build mais testes da stack (integração incluída), tudo com `ENV`.
+2. Suba a aplicação a partir do código com `ENV`, apontando para os containers, e confira que ela responde.
 3. Exercite **um fluxo real por dependência**, pela aplicação: gravar e ler no banco, ver o e-mail chegar na API do
    Mailpit (`/api/v1/messages`), enviar e baixar um arquivo, publicar e consumir uma mensagem, fazer login. Com
    frontend, percorra o fluxo principal pela tela. Frontend sem backend pronto usa WireMock.
@@ -8966,8 +9054,10 @@ Grave `docs/ambiente/implantacao-cliente.md`, para alguém seguir sem conhecer o
 2. **Antes de começar**: contas, acessos e dados que o cliente precisa fornecer.
 3. **Passo a passo**: passos numerados e curtos, na ordem certa de dependência, cada um com o que fazer, o comando
    ou a tela, e como conferir que deu certo.
-4. **Variáveis**: uma tabela com cada variável do `.env.example` e de onde vem o valor real. Só nomes, **nunca
-   valores**; segredo fica no cofre do provedor (Key Vault, Secrets Manager) ou no painel da hospedagem.
+4. **Variáveis**: uma tabela com cada variável do `.env.production.example` e de onde vem o valor real. Só nomes,
+   **nunca valores**. Para testar da máquina, o usuário copia o modelo para `.env.production` e preenche no editor,
+   nunca na conversa. No servidor, segredo fica no cofre do provedor (Key Vault, Secrets Manager) ou no painel da
+   hospedagem.
 5. **Migrar dados e publicar**: migrations, backup antes de qualquer alteração em banco existente, publicação.
 6. **Conferência final**: os mesmos fluxos de `docs/ambiente/validacao-local.md`, agora no ambiente real.
 7. **Se der errado**: como voltar atrás.
@@ -9317,7 +9407,11 @@ Tudo roda em Docker na sua máquina, sem custo, antes de existir qualquer coisa 
 \`\`\`
 
 O \`/inicia-orquestracao\` já sobe o ambiente depois da arquitetura e valida antes do push. Nada é criado no
-cliente sem você pedir. Os e-mails ficam presos no Mailpit e as senhas locais ficam no \`.env\`, fora do Git.
+cliente sem você pedir. Os e-mails ficam presos no Mailpit.
+
+São dois arquivos com os mesmos nomes de variável: \`.env.development\` (Docker, o padrão de tudo) e
+\`.env.production\` (cliente, que só você preenche e só é usado quando você pedir). Os dois ficam fora do Git; só os
+\`.example\` são versionados.
 
 ## ✅ Passo 4 — Depois de executar
 
@@ -9428,7 +9522,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.1.0**
+**Projeto criado com Claude SDD v7.2.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -10119,25 +10213,40 @@ const generic = [
   "Bash(node .claude/scripts/limpar-output.cjs)",
   // auditoria de segurança (06): leitura do histórico do Git atrás de segredos
   "Bash(git log*)",
-  // ambiente local: sem "docker compose down", que com -v apaga os dados e deve pedir confirmação
+  // ambiente local: desenvolvimento liberado; "down" fica de fora porque, com -v, apaga os dados
   "Edit(docker-compose.yml)",
-  "Edit(.env.example)",
-  "Bash(cp .env.example .env)",
+  "Edit(.env.development)",
+  "Edit(.env.development.example)",
+  "Edit(.env.production.example)",
+  "Bash(cp .env.development.example .env.development)",
   "Bash(docker info*)",
   "Bash(docker image inspect*)",
-  "Bash(docker compose config*)",
-  "Bash(docker compose pull*)",
-  "Bash(docker compose up*)",
-  "Bash(docker compose ps*)",
-  "Bash(docker compose logs*)",
-  "Bash(docker compose stop*)",
-  "Bash(docker compose exec*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose config*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose pull*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose up*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose ps*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose logs*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose stop*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development docker compose exec*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development dotnet*)",
+  "Bash(node .claude/scripts/com-ambiente.cjs development npm*)",
 ];
 // Remove regras "Write(...)" de rodadas antigas deste script (não batem com nada no sistema de
 // permissões — só "Edit(path)" cobre as ferramentas de escrita, Write incluída; ver aviso do
 // próprio Claude Code ao carregar um settings.json com regra Write()). Idempotente: não mexe em
 // nenhuma outra regra que o usuário tenha adicionado por fora deste script.
 settings.permissions.allow = settings.permissions.allow.filter((r) => !/^Write\(/.test(r));
+// Regras da v7.1.0, do arquivo único: o Docker agora só roda por com-ambiente.cjs.
+settings.permissions.allow = settings.permissions.allow.filter((r) => !/^(Edit\(\.env\.example\)|Bash\(cp \.env\.example \.env\)|Bash\(docker compose (config|pull|up|ps|logs|stop|exec)\*\))$/.test(r));
+// Credencial real: o conteúdo nunca entra na conversa, e usar produção sempre pede confirmação.
+settings.permissions.deny = Array.isArray(settings.permissions.deny) ? settings.permissions.deny : [];
+settings.permissions.ask = Array.isArray(settings.permissions.ask) ? settings.permissions.ask : [];
+for (const rule of ["Read(./.env.production)", "Read(**/.env.production)", "Edit(./.env.production)", "Edit(**/.env.production)", "Bash(cat .env.production*)"]) {
+  if (!settings.permissions.deny.includes(rule)) settings.permissions.deny.push(rule);
+}
+for (const rule of ["Bash(node .claude/scripts/com-ambiente.cjs production*)"]) {
+  if (!settings.permissions.ask.includes(rule)) settings.permissions.ask.push(rule);
+}
 for (const rule of [...generic, ...editRules, ...stackBash]) {
   if (!settings.permissions.allow.includes(rule)) settings.permissions.allow.push(rule);
 }
@@ -10306,14 +10415,16 @@ docs/entregaveis/*.mp4
         GI_REPORT="${GI_REPORT}docs/entregaveis/*.mp4 "
     fi
 
-    # Ambiente local (v7.1.0): o .env tem as senhas locais e nunca sobe; o .env.example vai versionado.
-    if ! grep -qxF '.env' "$GI" 2>/dev/null; then
+    # Ambiente (v7.2.0): nenhum .env real sobe, nem de subpasta; só os modelos .example vão versionados.
+    if ! grep -qxF '.env.*' "$GI" 2>/dev/null; then
         GI_APPEND="${GI_APPEND}
-# Ambiente local: o .env nunca sobe; o .env.example vai versionado
+# Ambiente: nenhum .env real sobe (credencial do cliente nunca vai para o Git); só os modelos .example
 .env
+.env.*
 !.env.example
+!.env.*.example
 "
-        GI_REPORT="${GI_REPORT}.env "
+        GI_REPORT="${GI_REPORT}.env.* "
     fi
 
     if [ -n "$GI_APPEND" ]; then
@@ -10391,10 +10502,11 @@ Thumbs.db
 # Logs
 *.log
 
-# Ambiente
+# Ambiente: nenhum .env real sobe (credencial do cliente nunca vai para o Git); só os modelos .example
 .env
-.env.local
+.env.*
 !.env.example
+!.env.*.example
 GITIGNOREEOF
 
 echo -e "${GREEN}✅ .gitignore criado${NC}"

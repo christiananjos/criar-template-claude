@@ -143,13 +143,19 @@ pedido explícito, e exige o mesmo código nos dois ambientes: só a configuraç
 
 | Comando | O que faz |
 |---|---|
-| `/ambiente-local` | Lê a arquitetura, gera `docker-compose.yml`, `.env.example` e `docs/ambiente/README.md` e sobe tudo: banco (PostgreSQL, SQL Server, MySQL), e-mail (Mailpit), arquivos (Azurite, SeaweedFS), fila (RabbitMQ, ElasticMQ), cache (Redis), NoSQL (DynamoDB Local), login (Keycloak), observabilidade e APIs externas simuladas (WireMock). Modos: `status`, `parar`, `validar`. |
+| `/ambiente-local` | Lê a arquitetura, gera `docker-compose.yml`, `.env.development.example`, `.env.production.example` e `docs/ambiente/README.md` e sobe tudo: banco (PostgreSQL, SQL Server, MySQL), e-mail (Mailpit), arquivos (Azurite, SeaweedFS), fila (RabbitMQ, ElasticMQ), cache (Redis), NoSQL (DynamoDB Local), login (Keycloak), observabilidade e APIs externas simuladas (WireMock). Modos: `status`, `parar`, `validar`. |
 | `/ambiente-local validar` | Roda os testes, sobe a aplicação contra os containers e exercita um fluxo real por dependência. Grava `docs/ambiente/validacao-local.md`. |
 | `/subir-no-cliente` | Só quando você pedir, com a validação aprovada: pergunta o que falta e gera `docs/ambiente/implantacao-cliente.md`, um guia simples com serviço real, custo do mais barato ao mais caro, passo a passo e conferência final. Orienta; não executa nada no cliente. |
 
 No `/inicia-orquestracao`, o ambiente sobe depois do `02-architect-sdd` e a validação roda depois do
 `06-security-scan-sdd`, antes do push. O `02` registra o equivalente local de cada serviço, o `/amostra-arquitetura`
 mostra essa tabela ao cliente, e o `04` reprova `if` por ambiente e credencial real na configuração local.
+
+**Dois ambientes, mesmas variáveis (v7.2.0).** `.env.development` aponta para os containers e é o padrão de tudo.
+`.env.production` aponta para o cliente, é preenchido só por você e só é usado quando você pedir na conversa. Tudo roda
+por `node .claude/scripts/com-ambiente.cjs <development|production> <comando>`, que nunca imprime valores e recusa
+Docker e comandos de exibição em produção. Os dois arquivos ficam fora do Git, inclusive em subpastas, e o `/commit`
+para se algum for ao stage. As permissões negam a leitura do `.env.production` e pedem confirmação para usar produção.
 
 MinIO (arquivado) e LocalStack (exige conta e token desde 2026) ficaram de fora do padrão gratuito. Azure Service Bus,
 Event Hubs e Cosmos DB usam o emulador oficial, consultado na hora, por ser pesado.

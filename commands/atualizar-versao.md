@@ -141,9 +141,9 @@ O modo `existente` do script é o que garante isso — não invente flags nem ap
   O script só garante que a pasta exista; **nunca grava nada dentro dela**.
 - `src/` (ou `backend/` e `frontend/`, no monorepo) e todo o código do projeto.
 - `docs/SPEC.md`, `CLAUDE.md`, `README.md`, `.mcp.json` — mantidos se já existirem.
-- `docker-compose.yml`, `.env`, `.env.example` e `docs/ambiente/` — o script não mexe neles.
+- `docker-compose.yml`, `.env`, `.env.development`, `.env.production`, os `.env.*.example` e `docs/ambiente/` — o script não mexe neles.
 - `.gitignore` — se já existir, só ganha as regras do pipeline que faltarem, conferidas **uma a uma**
-  (`!output/token-report.md`, `.claude/`, `!knowledge/`, `.env`). As linhas `.claude/` e `output/` de versões
+  (`!output/token-report.md`, `.claude/`, `!knowledge/`, `.env.*`). As linhas `.claude/` e `output/` de versões
   antigas são removidas: `.claude/` vai versionada, e de `output/` só o `token-report.md` vai. Isso importa em projeto antigo: até a v3.17.0 o script olhava só
   para o comentário `# Pipeline SDD (criar-template-claude)` e, achando-o, pulava o bloco inteiro — então
   regra nova nunca chegava em projeto já existente. A negação `!knowledge/` é o que garante que a memória

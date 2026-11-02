@@ -106,7 +106,8 @@ E então:
    - Editar `docs/backend/SPEC.md` e/ou `docs/frontend/SPEC.md` com a especificação mínima (no modo `existente`, descrevendo o que falta implementar/mudar)
    - (Cliente ainda decidindo) Mostrar antes de codar: `/amostra-arquitetura` (PDF da arquitetura completa sugerida), `/identidade-visual` (identidade do cliente a partir do site/logo) e `/amostra-telas` (apresentação de design, sem projeto de código)
    - (Se alguma frente estiver pendente) Rodar `/definir-stack` — ele pergunta a linguagem e instala o specialist — e reabrir o Claude Code (`claude --continue`)
-   - Rodar `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend` (uma frente por rodada), dentro do projeto aberto pela raiz
+   - Rodar `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend` (uma frente por rodada), dentro do projeto aberto pela raiz, com o Docker aberto: o pipeline sobe os ambientes locais e valida neles antes do push
+   - Só quando quiser ir para o cliente: `/subir-no-cliente`, que gera um guia simples a partir do que foi validado
 
 ## Resultado Esperado
 
@@ -125,9 +126,9 @@ NOME_DO_PROJETO/
 ├── .claude/             agentes, comandos, rules, skills, hooks, scripts, settings — UM, compartilhado
 │   ├── stack.json         a linguagem de cada frente ("pendente" até o /definir-stack)
 │   ├── commands/          inicia-orquestracao, definir-stack, amostra-arquitetura, identidade-visual,
-│   │                      amostra-telas, commit, raio-x-*, video-lancamento
+│   │                      amostra-telas, ambiente-local, subir-no-cliente, commit, raio-x-*, video-lancamento
 │   ├── agents/            01, 02, 04, 05 e 06 (o 03, specialist da stack, entra no /definir-stack)
-│   └── rules/             princípios de implementação, padrão de documentos, paralelismo, vault, frontend-*
+│   └── rules/             princípios de implementação, ambiente local primeiro, padrão de documentos, paralelismo, vault, frontend-*
 ├── knowledge/           UM vault para as duas frentes (vazio até o 01-analyst-sdd rodar)
 ├── docs/
 │   ├── backend/SPEC.md, docs/frontend/SPEC.md    uma spec por frente
@@ -169,4 +170,4 @@ Todo projeto criado já sai com um hook `Stop` configurado (`.claude/settings.js
 
 ## Observação
 
-Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/inicia-orquestracao`. O `/inicia-orquestracao`, por sua vez, tem **uma única pausa manual**, logo após `01-analyst-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd`) reportar falha. Cada etapa aprovada vira um commit local, feito na conversa principal pelo fluxo do `/commit` (sem subagente), e o push acontece uma vez só, no fim. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.
+Este comando apenas cria a estrutura do projeto. Ele **não** executa o pipeline SDD — isso é feito depois, de dentro do projeto criado, com `/inicia-orquestracao`. O `/inicia-orquestracao`, por sua vez, tem **uma única pausa manual**, logo após `01-analyst-sdd` validar a especificação: ele mostra o relatório completo (status, requisitos, regras de negócio, lacunas) e pergunta se o usuário aprova seguir — mesmo se o status já for ✅ APROVADO. Só depois dessa aprovação explícita o `02-architect-sdd` e o resto da cascata rodam, de forma 100% automática, sem pedir mais nenhuma confirmação; a partir daí só interrompe de novo se um gate técnico (`04-reviewer-sdd`, `05-test-engineer` ou `06-security-scan-sdd`) reportar falha ou se o ambiente local falhar. O ambiente local sobe entre o `02` e o `03` e a validação local roda depois do `06`; Docker parado ou validação reprovada também interrompem. Cada etapa aprovada vira um commit local, feito na conversa principal pelo fluxo do `/commit` (sem subagente), e o push acontece uma vez só, no fim. Se o usuário não aprovar na pausa inicial, o pipeline para ali mesmo.

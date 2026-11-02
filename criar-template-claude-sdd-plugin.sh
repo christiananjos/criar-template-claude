@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.0.6
+# 🚀 Criar Template Claude SDD v7.1.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.0.6${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.1.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -1988,7 +1988,9 @@ backend, um por um — não por amostragem.
 **4. CHAVES EXPOSTAS (hardcode)** — API keys, tokens, senhas, segredos de assinatura (JWT, webhooks), chaves
 privadas e credenciais padrão embutidos no código, configs, `docker-compose`, charts, CI, scripts e
 documentação. Atenção especial a defaults públicos que viram segredo real se ninguém sobrescrever (ex.:
-`${VAR:-valor-default}`) e à ausência de validação de startup que rejeite esses defaults. Verifique também o
+`${VAR:-valor-default}`) e à ausência de validação de startup que rejeite esses defaults. Valor fictício de
+desenvolvimento em `.env.example`, usado só pelos containers locais presos a `127.0.0.1`, **não** é achado; senha
+escrita no `docker-compose.yml`, porta de serviço sem `127.0.0.1` ou segredo real no `.env.example` são. Verifique também o
 histórico do Git (`git log -p -S` nos padrões suspeitos, `git log --diff-filter=D` em arquivos `.env`) e o
 bundle do frontend por chaves embutidas.
 
@@ -6137,6 +6139,8 @@ docs/raw/ (opcional) + docs/SPEC.md
     ↓ (só continua se você aprovar)
 🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade + plano de execução em ondas
     ↓
+🐳 Ambiente local      → Sobe em Docker tudo que a arquitetura precisa (banco, e-mail, arquivos, fila...)
+    ↓
 __ORCH_SPECIALIST_LINE__
     ↳ com plano PARALELO: fundação → ondas de unidades ao mesmo tempo (até 6 por vez) → costura (build único)
     ↓
@@ -6145,6 +6149,8 @@ __ORCH_SPECIALIST_LINE__
 __ORCH_TEST_LINE__
     ↓
 🛡️ 06 Security Scan    → Auditoria de segurança (5 categorias) + relatório HTML
+    ↓
+🧪 Validação local     → Aplicação rodando contra os containers, um fluxo real por dependência
     ↓
 🚀 Push               → Sobe os commits de todas as etapas (só se todos os gates passaram)
     ↓
@@ -6172,7 +6178,7 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   `token-report.md` — assim nenhum agente lê por engano um relatório velho.
 - **Etapas em ordem, paralelismo só onde não há dependência.** Cada agente lê o relatório do anterior em
   `output/` — não repasse o conteúdo dos relatórios no prompt de invocação, só aponte o arquivo. As etapas
-  01 → 02 → 03 → (04 ‖ 05) → 06 seguem em ordem; o paralelismo acontece **dentro** do 03 (ver "Execução
+  01 → 02 → ambiente local → 03 → (04 ‖ 05) → 06 → validação local seguem em ordem; o paralelismo acontece **dentro** do 03 (ver "Execução
   paralela" abaixo) e entre o 04 e o 05. Nunca paralelize duas coisas em que uma depende do resultado da outra.
 - **Modelo por tarefa (economia sem perder qualidade)**: cada agente tem seu modelo padrão no frontmatter,
   sempre por apelido de família (`opus` ou `sonnet`), que resolve sozinho para a versão mais recente — nunca
@@ -6181,8 +6187,15 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   sem regra de negócio nova, integração, autenticação/autorização nem migração de dados), invoque-os com
   `model: "sonnet"`. Qualquer sinal de complexidade mantém `opus`. Na dúvida, `opus`. Nunca rebaixe o `02`,
   o `04` nem o `06`. Diga no relatório final qual modelo usou em cada etapa e por quê.
+- **Ambiente local (sem subagente, entre o 02 e o 03)**: aqui mesmo, na conversa principal, siga o modo `subir` de
+  `.claude/commands/ambiente-local.md`. Se o Docker não responder ou um serviço não subir, **pare** e peça ao usuário
+  para resolver: fora os gates técnicos, é a única interrupção depois da aprovação. Sem dependência externa, registre
+  isso e siga. Na segunda frente, reaproveite o que já existe e só acrescente o que faltar.
+- **Validação local (sem subagente, depois do 06)**: siga o modo `validar` do mesmo comando. ❌ REPROVADO é gate
+  técnico: pare, sem push. Nada no ambiente real é criado nesta rodada (rule `ambiente-local-primeiro.md`).
 - **Pare em qualquer gate técnico reprovado (depois da aprovação inicial)**: se `04-reviewer-sdd`
-  (❌ REPROVADO), `05-test-engineer` (❌ FAILED) ou `06-security-scan-sdd` (❌ REPROVADO) reportar falha,
+  (❌ REPROVADO), `05-test-engineer` (❌ FAILED), `06-security-scan-sdd` (❌ REPROVADO) ou a validação local
+  (❌ REPROVADO) reportar falha,
   interrompa o pipeline e reporte ao usuário o que precisa ser corrigido. Não gaste as etapas seguintes nem
   commite o trabalho da etapa reprovada — ele fica no working tree pra ser corrigido.
 - **Commit a cada etapa (sem subagente, sem push)**: assim que um agente terminar **e** o gate dele passar,
@@ -6196,10 +6209,12 @@ formatado (status da spec, base de conhecimento, requisitos, regras de negócio,
   |---|---|---|
   | 01 Analyst (depois da sua aprovação) | `docs/SPEC.md`, `knowledge/` e o `output/token-report.md` da rodada anterior | `docs(spec):` |
   | 02 Architect | `knowledge/` (arquitetura, ADRs, planejamento) | `docs(arquitetura):` |
+  | Ambiente local | `docker-compose.yml`, `.env.example` e `docs/ambiente/README.md` (nunca o `.env`) | `chore(ambiente):` |
   | 03 Specialist | código em `src/` + notas do vault — **um commit por unidade lógica** (com plano paralelo: um por unidade do plano, mais a fundação e a costura, só depois que a costura passar o build) | `feat(...)` |
   | 04 Reviewer | correções que ele aplicou, se houver | `fix:` / `refactor:` |
   | 05 Test Engineer | testes (e `docs/api/`, se gerou) | `test(...)` |
   | 06 Security Scan | correções de segurança + relatório HTML em `docs/security-audit/` | `fix(security):` / `docs(security):` |
+  | Validação local | `docs/ambiente/validacao-local.md` | `docs(ambiente):` |
 
   Exemplo de mensagens para a etapa do specialist:
 
@@ -6212,7 +6227,7 @@ __STACK_COMMIT_EXAMPLES__
   (dá pra ver e reverter o que cada agente fez), mas nada sobe para o remoto antes de passar pela revisão,
   pelos testes e pela auditoria de segurança. Se um gate reprovar, os commits das etapas anteriores ficam
   **locais** — avise o usuário disso no relatório.
-- **Push no fim**: depois do commit da etapa do `06-security-scan-sdd`, rode `git branch --show-current` e
+- **Push no fim**: depois do commit da validação local, rode `git branch --show-current` e
   `git push` nessa mesma branch (`git push -u origin <branch>` se não houver upstream). Não crie nem troque
   de branch por conta própria. Se o push falhar, reporte o erro — não force.
 - **Marque a rodada como concluída**: só depois do push, crie o arquivo vazio
@@ -6281,6 +6296,7 @@ viva do projeto. O relatório HTML da auditoria fica em `docs/security-audit/`.
 - ✅ `docs/SPEC.md` preenchida **ou** `docs/raw/` com documentação bruta
 - ✅ SDK da stack instalado (para build e testes rodarem de verdade — sem ele, o Test Engineer cai para revisão
   estática e avisa no relatório)
+- ✅ Docker aberto e rodando (o ambiente local sobe entre o Architect e o specialist)
 
 ## 🚀 Comece Agora
 
@@ -6386,11 +6402,13 @@ Projeto: **__STACK_LABEL__**
 | `05-test-engineer` | Escreve e roda os testes da frente (seções "Frente backend" e "Frente frontend") e mede cobertura |
 | `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML; o checklist de frontend só entra na frente `frontend` |
 
-O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd` e da validação local.
 
 ## 🧩 Comandos avulsos
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
+- `/ambiente-local` — sobe em Docker tudo que a arquitetura precisa, sem custo (`/ambiente-local validar` prova que funciona).
+- `/subir-no-cliente` — só quando você pedir, depois da validação local: guia simples para criar o ambiente real do cliente.
 - `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
 - `/video-lancamento` — opcional, com o frontend já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
@@ -6447,12 +6465,14 @@ Stack deste projeto: **.NET 10 (somente backend)**
 | `05-test-engineer` | Escreve e roda os testes (unit + integração), mede cobertura e gera o workflow de testes da API |
 | `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML |
 
-O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd` e da validação local.
 
 
 ## 🧩 Comandos avulsos
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
+- `/ambiente-local` — sobe em Docker tudo que a arquitetura precisa, sem custo (`/ambiente-local validar` prova que funciona).
+- `/subir-no-cliente` — só quando você pedir, depois da validação local: guia simples para criar o ambiente real do cliente.
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (arquitetura, banco de dados, interfaces, services, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
 
 ## ⏱️ Tempo
@@ -6517,12 +6537,14 @@ do pipeline .NET, o `05-test-engineer` escreve e roda os testes E2E dos fluxos p
 | `05-test-engineer` | Escreve e roda os testes (unit + E2E com invalidação de sessão) e mede cobertura |
 | `06-security-scan-sdd` | Audita 5 falhas de segurança e gera relatório HTML |
 
-O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd`.
+O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquestracao` commita localmente na conversa principal (fluxo do `/commit`, com gate de segredos) e só dá push no fim, depois do `06-security-scan-sdd` e da validação local.
 
 
 ## 🧩 Comandos avulsos
 
 - `/commit` — a qualquer momento, fora do pipeline: gera a mensagem de commit a partir do diff atual e faz push na branch atual (nunca cita Claude, Anthropic ou qualquer outra IA na mensagem).
+- `/ambiente-local` — sobe em Docker tudo que a arquitetura precisa, sem custo (`/ambiente-local validar` prova que funciona).
+- `/subir-no-cliente` — só quando você pedir, depois da validação local: guia simples para criar o ambiente real do cliente.
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
 - `/video-lancamento` — opcional, com o sistema já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
@@ -8071,8 +8093,10 @@ Em conflito, a ordem é: **regra de negócio > arquitetura > custo**.
 2. **Nunca saia da arquitetura pedida** (Clean Architecture, SOLID, clean code; back ou front). Nenhuma gambiarra:
    sem atalho que fure camada, sem dependência na direção errada, sem "depois eu arrumo". Se a arquitetura não
    comporta o pedido, aponte isso e proponha o ajuste da arquitetura; não contorne.
-3. **Custo mínimo primeiro.** Antes de propor infra, serviço ou ferramenta, liste as opções do **mais barato ao mais
-   caro** (gratuito, free tier, nativo da cloud já usada: Azure ou AWS) e escolha a mais barata que atenda.
+3. **Custo mínimo primeiro.** Durante o desenvolvimento o custo é zero: tudo roda em Docker na máquina (rule
+   `ambiente-local-primeiro.md`). Para o ambiente real, antes de propor infra, serviço ou ferramenta, liste as
+   opções do **mais barato ao mais caro** (gratuito, free tier, nativo da cloud já usada: Azure ou AWS) e escolha a
+   mais barata que atenda.
    Prefira o serviço nativo da plataforma a ferramenta externa paga. Só suba de nível com justificativa de um
    requisito que a opção barata não cumpre, registrada em ADR.
 4. Ao reportar, diga qual regra de negócio e qual decisão de arquitetura sustentam a entrega e, se houve escolha
@@ -8621,7 +8645,30 @@ que lê: texto longo atrapalha.
 5. Linguagem simples, sem jargão desnecessário: a resposta deve poder ser repassada a outra pessoa como está.
 6. Isto vale para o chat. Documento pedido (spec, ADR, PDF) segue o formato e o tamanho que ele pede.
 SDDPARTCURTASEOF
-echo -e "${GREEN}✅ Princípios de implementação, modelo único de documentos e gerar-pdf.cjs criados${NC}"
+cat > "$PROJECT_DIR/.claude/rules/ambiente-local-primeiro.md" << 'SDDPARTAMBRULEEOF'
+# Ambiente local primeiro
+
+Vale para **toda** implementação, decisão de infra e teste, dentro ou fora do `/inicia-orquestracao`. Local não
+tem custo: tudo roda e é testado em Docker na máquina do usuário antes de existir qualquer coisa no cliente.
+
+1. **Toda dependência da arquitetura sobe local primeiro**: banco, e-mail, arquivos, fila, cache, login,
+   observabilidade e integrações externas. O `/ambiente-local` gera o `docker-compose.yml` e sobe tudo; o
+   catálogo de imagens fica nele.
+2. **Nada no ambiente real sem pedido explícito.** Não crie recurso em cloud ou hospedagem, não rode deploy nem
+   `terraform apply`/`az`/`aws` que altere algo, não use credencial real do cliente nem aponte o código para
+   serviço real ou pago. Isso só acontece quando o usuário pedir, e aí o caminho é o `/subir-no-cliente`, que
+   orienta passo a passo depois da validação local.
+3. **Mesmo código nos dois ambientes; só a configuração muda.** Tudo que difere (conexão, host, porta, chave) vem
+   de variável de ambiente. Nada de `if (ambiente == local)` nem de implementação falsa em código de produção. O
+   adaptador da camada de infraestrutura é o mesmo no local e no real.
+4. **Fidelidade:** use o mesmo motor e a mesma versão principal do ambiente real (SQL Server real, SQL Server no
+   container; nunca banco em memória para fingir outro). Sem emulador fiel, simule com WireMock e registre o que
+   ficou sem cobertura em `docs/ambiente/README.md`.
+5. **Pronto é validado local.** Uma entrega só está pronta depois que o `/ambiente-local validar` passar, com a
+   aplicação rodando contra os containers. Se o Docker estiver parado, peça ao usuário para abrir; nunca finja que
+   testou nem troque silenciosamente por um serviço real.
+SDDPARTAMBRULEEOF
+echo -e "${GREEN}✅ Princípios de implementação, ambiente local primeiro, modelo único de documentos e gerar-pdf.cjs criados${NC}"
 
 # Princípios de implementação nos agentes (arquitetura sem atalho, custo do mais barato ao mais caro)
 SNIP=$(mktemp)
@@ -8633,14 +8680,20 @@ do **mais barato ao mais caro** (gratuito, free tier e nativo da cloud antes de 
 a escolha em ADR, justificando qualquer subida de nível por um requisito. O desenho não pode ter atalho que fure
 camada nem quebrar regra de negócio da spec.
 
+**Ambiente local primeiro** (`.claude/rules/ambiente-local-primeiro.md`): inclua em `TECHNICAL_SPECIFICATION.md` a
+seção **Ambiente local**, com uma linha por dependência (serviço real previsto | imagem local | variáveis de
+ambiente), usando o catálogo de `.claude/commands/ambiente-local.md`. O `/ambiente-local` gera tudo a partir dela.
+
 SDDPARTSNIPARCHITECTEOF
 insert_after_frontmatter "$PROJECT_DIR/.claude/agents/02-architect-sdd.md" "$SNIP"
 cat > "$SNIP" << 'SDDPARTSNIPREVIEWEREOF'
 ## Princípios de implementação
 
 Siga `.claude/rules/principios-de-implementacao.md`. Marque ❌ REPROVADO se houver: quebra de regra de negócio da
-spec, desvio de camada ou violação de SOLID, ou escolha de infra mais cara sem justificativa em ADR. Sempre cite
-arquivo e linha.
+spec, desvio de camada ou violação de SOLID, escolha de infra mais cara sem justificativa em ADR, ou quebra da rule
+`ambiente-local-primeiro.md` (`if` por ambiente, implementação falsa em código de produção, valor de conexão fixo
+no código, credencial ou endereço de serviço real na configuração local). Sempre cite arquivo e linha.
+
 SDDPARTSNIPREVIEWEREOF
 insert_after_frontmatter "$PROJECT_DIR/.claude/agents/04-reviewer-sdd.md" "$SNIP"
 cat > "$SNIP" << 'SDDPARTSNIPSPECIALISTEOF'
@@ -8649,8 +8702,23 @@ cat > "$SNIP" << 'SDDPARTSNIPSPECIALISTEOF'
 Siga `.claude/rules/principios-de-implementacao.md`. Nunca contorne a arquitetura nem a regra de negócio da spec.
 Se só uma gambiarra resolver, **pare e reporte** o conflito no relatório em vez de implementá-la.
 
+**Ambiente local primeiro** (`.claude/rules/ambiente-local-primeiro.md`): rode e teste contra os containers do
+`docker-compose.yml`, lendo tudo de variável de ambiente (nomes em `.env.example`). Nunca aponte para serviço real.
+Precisou de serviço novo? Acrescente-o ao `docker-compose.yml` e ao `.env.example` pelo catálogo de
+`.claude/commands/ambiente-local.md`.
+
 SDDPARTSNIPSPECIALISTEOF
 for agent_file in "$PROJECT_DIR"/.claude/agents/03-*-specialist.md; do [ -f "$agent_file" ] && insert_after_frontmatter "$agent_file" "$SNIP"; done
+cat > "$SNIP" << 'SDDPARTSNIPTESTEOF'
+## Ambiente local primeiro
+
+Siga `.claude/rules/ambiente-local-primeiro.md`. Teste de integração usa o mesmo motor e a mesma versão de imagem do
+`docker-compose.yml` e nunca toca serviço real. Antes de rodar, confira com `docker info` se o Docker responde. Se
+não responder, registre em destaque no relatório que a integração não foi executada: a entrega não fica pronta até
+o `/ambiente-local validar` passar.
+
+SDDPARTSNIPTESTEOF
+if [ -f "$PROJECT_DIR/.claude/agents/05-test-engineer.md" ]; then insert_after_frontmatter "$PROJECT_DIR/.claude/agents/05-test-engineer.md" "$SNIP"; fi
 rm -f "$SNIP"
 
 # Identidade do cliente antes de qualquer tela (rule de direção de arte)
@@ -8733,10 +8801,14 @@ Seções fixas, nesta ordem:
 4. **Decisões e trade-offs** — as duas alternativas lado a lado e por que a recomendada vence.
 5. **Stack sugerida** — uma linha por frente: `backend: .NET 10 (Clean Architecture)`, `frontend: React | Angular | Vue`
    com o motivo. Esta seção alimenta o `/definir-stack`.
-6. **Custo mensal estimado** — tabela do **mais barato para o mais caro**, priorizando gratuito, free tier e serviço
-   nativo da cloud (Azure/AWS) antes de ferramenta externa paga. Marque o que só entra por requisito e diga qual.
-   Valores são estimativas: informe a premissa de uso e peça para conferir o preço atual no site do provedor.
-7. **Riscos e perguntas em aberto para o cliente** — lacunas da spec que mudariam a arquitetura.
+6. **Ambiente local (custo zero)** — tabela com cada dependência da arquitetura, a imagem Docker que a simula
+   (catálogo de `.claude/commands/ambiente-local.md`) e o serviço real previsto. Deixe claro que tudo é desenvolvido
+   e validado em Docker antes de contratar qualquer coisa no cliente, e aponte o que não tem emulador fiel.
+7. **Custo mensal estimado** — o desenvolvimento local custa R$ 0; esta tabela é do ambiente real, do **mais barato
+   para o mais caro**, priorizando gratuito, free tier e serviço nativo da cloud (Azure/AWS) antes de ferramenta
+   externa paga. Marque o que só entra por requisito e diga qual. Valores são estimativas: informe a premissa de uso
+   e peça para conferir o preço atual no site do provedor.
+8. **Riscos e perguntas em aberto para o cliente** — lacunas da spec que mudariam a arquitetura.
 
 ## 4. Gerar o PDF
 
@@ -8752,6 +8824,160 @@ Se faltar Chrome ou Edge, diga qual instalar e mantenha o HTML (já abre no nave
 Diga o caminho do PDF, a arquitetura recomendada em duas linhas e as perguntas em aberto. Próximos passos
 possíveis: `/identidade-visual`, `/amostra-telas` e, com o cliente decidido, `/definir-stack`.
 SDDPARTAMARQEOF
+cat > "$PROJECT_DIR/.claude/commands/ambiente-local.md" << 'SDDPARTAMBLOCEOF'
+---
+description: Cria e sobe em Docker todos os ambientes que a arquitetura precisa (banco, e-mail, arquivos, fila, cache, login, integrações), sem custo. Modos - subir (padrão), status, parar e validar.
+argument-hint: [subir|status|parar|validar]
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(docker:*), Bash(cp .env.example .env), Bash(git rev-parse:*), Bash(ls:*), Bash(mkdir:*), Bash(curl:*), Bash(node:*), Bash(dotnet:*), Bash(npm:*)
+---
+
+# /ambiente-local — Tudo em Docker antes do ambiente real
+
+Modo pedido: $ARGUMENTS (vazio = `subir`). Siga `.claude/rules/ambiente-local-primeiro.md`. Este comando **nunca**
+cria nada fora da máquina.
+
+Primeiro rode `docker info`. Se não responder, peça ao usuário para abrir o Docker Desktop e pare.
+
+- **`status`**: rode `docker compose ps` e mostre serviço, situação e URL. Fim.
+- **`parar`**: rode `docker compose stop`, que mantém os dados. Fim. Apagar dados (`docker compose down -v`) só com
+  pedido explícito do usuário.
+- **`validar`**: vá direto para a seção "Validar".
+
+## 1. Levantar o que a arquitetura precisa
+
+Leia juntos, o que existir: a seção "Ambiente local" de `output/TECHNICAL_SPECIFICATION.md`,
+`knowledge/vault/06 - Arquitetura/`, `knowledge/vault/07 - Integrações/`, as specs, `docs/raw/infraestrutura.md`,
+`docs/ambiente/README.md`, `docker-compose.yml` e o código já escrito (pacotes e configuração revelam dependências).
+
+Liste **cada** dependência: banco, e-mail, arquivos, fila, cache, login, busca, observabilidade e cada API externa.
+Não acrescente serviço que a arquitetura não usa. Sem dependência nenhuma, diga isso e pare.
+
+## 2. Catálogo
+
+| Precisa de | Serviço real | Imagem local | Portas | Healthcheck |
+|---|---|---|---|---|
+| Banco | PostgreSQL | `postgres:17-alpine` | 5432 | `pg_isready -U postgres` |
+| Banco | SQL Server, Azure SQL | `mcr.microsoft.com/mssql/server:2022-latest` (`ACCEPT_EULA=Y`, `MSSQL_PID=Developer`) | 1433 | `/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q 'SELECT 1' -b` |
+| Banco | MySQL (ex.: Hostinger) | `mysql:8.4` | 3306 | `mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD"` |
+| Cache | Redis, Azure Cache | `redis:8-alpine` | 6379 | `redis-cli ping` |
+| E-mail | SendGrid, SES, SMTP | `axllent/mailpit` (a tela mostra todo e-mail e nada sai para a internet) | 1025 SMTP, 8025 tela | `/mailpit readyz` |
+| Arquivos | Azure Blob, fila e tabela do Storage | `mcr.microsoft.com/azure-storage/azurite` (`azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data`) | 10000, 10001, 10002 | `nc -z 127.0.0.1 10000` |
+| Arquivos | AWS S3 | `chrislusf/seaweedfs` (`server -dir=/data -s3 -s3.port=8333 -ip.bind=0.0.0.0`) | 8333 | `wget -q --spider http://127.0.0.1:9333/cluster/status` |
+| Fila | RabbitMQ, ou fila genérica | `rabbitmq:4-management-alpine` | 5672, 15672 tela | `rabbitmq-diagnostics -q ping` |
+| Fila | AWS SQS | `softwaremill/elasticmq-native` | 9324, 9325 tela | sem shell útil: confira por `curl` de fora |
+| NoSQL | AWS DynamoDB | `amazon/dynamodb-local` | 8000 | confira por `curl` de fora |
+| Login | Entra ID, Cognito, OIDC | `quay.io/keycloak/keycloak:26.0` (`start-dev`) | 8080 | confira por `curl` em `/realms/master/.well-known/openid-configuration`, repetindo por até 2 minutos: demora a responder |
+| Observabilidade | App Insights, CloudWatch | `grafana/otel-lgtm` (pesada: cerca de 4 GB de disco e 1 GB de memória; só se a arquitetura pedir) | 3000, 4317, 4318 | `curl -f http://localhost:3000/api/health` de fora |
+| API externa | Pagamento, SMS, WhatsApp, governo | `wiremock/wiremock` (respostas de exemplo em `infra/wiremock/mappings/`) | 8080 | `curl -f http://localhost:8080/__admin/health` |
+
+Se o código usa o SDK de um serviço **sem** linha acima (Azure Service Bus, Event Hubs, Cosmos DB), use o emulador
+oficial da Microsoft: leia a documentação atual antes, porque ele costuma exigir bastante memória e outro container.
+Se a máquina não aguentar, troque por RabbitMQ somente se o código passar por uma interface da Application, e
+registre a diferença. Não use `minio/minio` (projeto arquivado, sem imagem oficial nova) nem LocalStack como padrão
+(exige conta e token desde 2026). Banco não definido: PostgreSQL, por ser gratuito também no ambiente real.
+
+## 3. Gerar os arquivos
+
+**`docker-compose.yml`** na raiz. Se já existir, estenda sem remover nada do que o usuário fez.
+
+- `name:` com o nome do projeto, para não misturar com os containers de outros projetos.
+- Toda porta presa à máquina e configurável: `"127.0.0.1:${DB_PORT:-5432}:5432"`.
+- Senha só por variável obrigatória, **sem valor padrão**: `${DB_PASSWORD:?}`.
+- `healthcheck` em todo serviço que tiver um no catálogo e volume nomeado em todo serviço que guarda dados.
+- Versão fixa no arquivo final: depois do `docker compose pull`, troque tag sem número pelo digest de
+  `docker image inspect --format '{{index .RepoDigests 0}}' <imagem>`.
+
+**`.env.example`** com todas as variáveis, valores fictícios e o comentário `# Só para os containers locais`. A senha
+do SQL Server precisa de maiúscula, minúscula, número e símbolo. Crie o `.env` com `cp .env.example .env` só se ele
+não existir; nunca o sobrescreva e nunca o commite.
+
+**`docs/ambiente/README.md`**: tabela com serviço, URL, login local e o serviço real equivalente, mais o que está
+simulado e não foi coberto.
+
+## 4. Subir e conferir
+
+```bash
+docker compose config -q
+docker compose up -d --wait --wait-timeout 300
+docker compose ps
+```
+
+Porta ocupada: troque a variável no `.env` e no `.env.example`. Serviço que não subir: leia `docker compose logs
+<serviço>`, corrija e tente até 3 vezes. Em seguida confira a resposta real de cada serviço (consulta no banco, `curl`
+nas telas). Por fim, ligue a aplicação: pelas variáveis, sem mudar lógica e sem senha em arquivo versionado; em
+.NET, `dotnet user-secrets` no desenvolvimento.
+
+Reporte em poucas linhas: o que subiu, as URLs e o que ficou simulado.
+
+## Validar
+
+Prova que o sistema funciona **de ponta a ponta nos containers**:
+
+1. `docker compose up -d --wait`, e build mais testes da stack (integração incluída).
+2. Suba a aplicação a partir do código, apontando para os containers, e confira que ela responde.
+3. Exercite **um fluxo real por dependência**, pela aplicação: gravar e ler no banco, ver o e-mail chegar na API do
+   Mailpit (`/api/v1/messages`), enviar e baixar um arquivo, publicar e consumir uma mensagem, fazer login. Com
+   frontend, percorra o fluxo principal pela tela. Frontend sem backend pronto usa WireMock.
+4. Encerre a aplicação iniciada aqui e deixe os containers rodando.
+
+Grave `docs/ambiente/validacao-local.md`: data, commit (`git rev-parse HEAD`), serviços e imagens, uma linha por
+fluxo com ✅ ou ❌, o que ficou simulado e o status **✅ APROVADO** ou **❌ REPROVADO**. Qualquer ❌ reprova; nunca
+marque ✅ o que não foi executado. Aprovado, avise que o `/subir-no-cliente` já pode ser usado quando o usuário quiser.
+SDDPARTAMBLOCEOF
+cat > "$PROJECT_DIR/.claude/commands/subir-no-cliente.md" << 'SDDPARTSUBIREOF'
+---
+description: Só quando o usuário pedir, com a validação local aprovada - orienta de forma simples como criar no ambiente real do cliente os mesmos ambientes que rodam em Docker. Gera o guia; não executa nada no cliente.
+argument-hint: [azure|aws|hostinger|outro]
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git log:*), Bash(git rev-parse:*)
+---
+
+# /subir-no-cliente — Guia simples do ambiente real
+
+Destino informado: $ARGUMENTS. Este comando **orienta**: não cria recurso, não faz deploy e não usa credencial do
+cliente. Quem executa os passos é o usuário, ou você, depois de ele pedir cada ação de forma explícita.
+
+## 1. Conferir a validação local
+
+Leia `docs/ambiente/validacao-local.md`.
+
+- Não existe ou está ❌ REPROVADO: pare e diga para rodar `/ambiente-local validar`.
+- Aprovado: confira se o código mudou depois da validação, com
+  `git log <commit-da-validação>..HEAD --oneline -- src backend frontend tests docker-compose.yml`. Se mudou, avise
+  o que mudou e recomende validar de novo. Só siga sem revalidar se o usuário mandar.
+
+## 2. Perguntar só o que falta
+
+Leia `docs/ambiente/README.md`, a arquitetura em `knowledge/vault/06 - Arquitetura/` e os ADRs. Pergunte somente o que
+não estiver registrado: destino (Azure, AWS, Hostinger, servidor do cliente), região, domínio, quem paga a conta e o
+provedor de e-mail. Carregue a skill do destino (`azure-expert`, `aws-expert` ou `hostinger-expert`).
+
+## 3. Mapear cada ambiente local para o real
+
+Para cada serviço do `docker-compose.yml`, escolha o serviço real pela regra de custo de
+`.claude/rules/principios-de-implementacao.md`, do mais barato ao mais caro, e mantenha motor e versão principal do
+que foi validado. Serviço que no local era simulação (Mailpit, WireMock, Keycloak) precisa de conta ou contrato real
+do cliente: destaque isso. Confira nomes de planos e preços na documentação atual do provedor, nunca de memória.
+
+## 4. Gravar o guia
+
+Grave `docs/ambiente/implantacao-cliente.md`, para alguém seguir sem conhecer o projeto, nesta ordem:
+
+1. **Resumo**: uma tabela com ambiente local, serviço real e custo mensal estimado, com a premissa de uso.
+2. **Antes de começar**: contas, acessos e dados que o cliente precisa fornecer.
+3. **Passo a passo**: passos numerados e curtos, na ordem certa de dependência, cada um com o que fazer, o comando
+   ou a tela, e como conferir que deu certo.
+4. **Variáveis**: uma tabela com cada variável do `.env.example` e de onde vem o valor real. Só nomes, **nunca
+   valores**; segredo fica no cofre do provedor (Key Vault, Secrets Manager) ou no painel da hospedagem.
+5. **Migrar dados e publicar**: migrations, backup antes de qualquer alteração em banco existente, publicação.
+6. **Conferência final**: os mesmos fluxos de `docs/ambiente/validacao-local.md`, agora no ambiente real.
+7. **Se der errado**: como voltar atrás.
+
+## 5. Reportar
+
+Em poucas linhas: o caminho do guia, o custo mensal estimado, o que o cliente precisa providenciar e o primeiro
+passo. Ofereça executar os passos só se o usuário pedir, um de cada vez, sempre com confirmação antes de cada ação
+que crie custo ou altere o ambiente real.
+SDDPARTSUBIREOF
 if [ "$MONO" = 1 ]; then
 cat > "$PROJECT_DIR/.claude/commands/identidade-visual.md" << 'SDDPARTIDVISEOF'
 ---
@@ -9080,6 +9306,19 @@ $README_RUN_LINE
 Ele tem uma única pausa manual, logo após validar a spec — o resto roda automático (~15-25 min), só
 parando de novo se um gate de qualidade (reviewer, testes, security scan) falhar.
 
+## 🐳 Ambiente local primeiro
+
+Tudo roda em Docker na sua máquina, sem custo, antes de existir qualquer coisa no cliente. Com o Docker aberto:
+
+\`\`\`
+/ambiente-local            # sobe banco, e-mail, arquivos, fila... o que a arquitetura precisar
+/ambiente-local validar    # prova que o sistema funciona de ponta a ponta nos containers
+/subir-no-cliente          # só quando você quiser: guia simples para criar o ambiente real
+\`\`\`
+
+O \`/inicia-orquestracao\` já sobe o ambiente depois da arquitetura e valida antes do push. Nada é criado no
+cliente sem você pedir. Os e-mails ficam presos no Mailpit e as senhas locais ficam no \`.env\`, fora do Git.
+
 ## ✅ Passo 4 — Depois de executar
 
 Você terá $OUTPUTS_DESC. Arquitetura, decisões, regras, casos de teste e achados de segurança ficam em
@@ -9189,7 +9428,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.0.6**
+**Projeto criado com Claude SDD v7.1.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -9880,6 +10119,19 @@ const generic = [
   "Bash(node .claude/scripts/limpar-output.cjs)",
   // auditoria de segurança (06): leitura do histórico do Git atrás de segredos
   "Bash(git log*)",
+  // ambiente local: sem "docker compose down", que com -v apaga os dados e deve pedir confirmação
+  "Edit(docker-compose.yml)",
+  "Edit(.env.example)",
+  "Bash(cp .env.example .env)",
+  "Bash(docker info*)",
+  "Bash(docker image inspect*)",
+  "Bash(docker compose config*)",
+  "Bash(docker compose pull*)",
+  "Bash(docker compose up*)",
+  "Bash(docker compose ps*)",
+  "Bash(docker compose logs*)",
+  "Bash(docker compose stop*)",
+  "Bash(docker compose exec*)",
 ];
 // Remove regras "Write(...)" de rodadas antigas deste script (não batem com nada no sistema de
 // permissões — só "Edit(path)" cobre as ferramentas de escrita, Write incluída; ver aviso do
@@ -10054,6 +10306,16 @@ docs/entregaveis/*.mp4
         GI_REPORT="${GI_REPORT}docs/entregaveis/*.mp4 "
     fi
 
+    # Ambiente local (v7.1.0): o .env tem as senhas locais e nunca sobe; o .env.example vai versionado.
+    if ! grep -qxF '.env' "$GI" 2>/dev/null; then
+        GI_APPEND="${GI_APPEND}
+# Ambiente local: o .env nunca sobe; o .env.example vai versionado
+.env
+!.env.example
+"
+        GI_REPORT="${GI_REPORT}.env "
+    fi
+
     if [ -n "$GI_APPEND" ]; then
         printf '\n# Pipeline SDD (criar-template-claude)\n%s' "$GI_APPEND" >> "$GI"
         echo -e "${GREEN}✅ .gitignore já existia — acrescentadas só as regras que faltavam: ${GI_REPORT}${NC}"
@@ -10132,6 +10394,7 @@ Thumbs.db
 # Ambiente
 .env
 .env.local
+!.env.example
 GITIGNOREEOF
 
 echo -e "${GREEN}✅ .gitignore criado${NC}"
@@ -10194,6 +10457,7 @@ fi
 echo ""
 echo -e "${GREEN}Tudo pronto!${NC} 🚀"
 echo ""
+echo -e "${BLUE}Ambiente local:${NC} /ambiente-local sobe tudo em Docker, sem custo; /subir-no-cliente só quando você pedir"
 echo -e "${BLUE}Comandos disponíveis em:${NC} .claude/commands/"
 echo -e "${BLUE}Subagentes disponíveis em:${NC} .claude/agents/"
 echo -e "${BLUE}Documentação bruta (opcional):${NC} docs/raw/ — vira Base de Conhecimento em knowledge/ na primeira etapa do /inicia-orquestracao"

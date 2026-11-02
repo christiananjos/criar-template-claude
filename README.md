@@ -135,6 +135,25 @@ quebrar a regra de negócio da spec**, **nunca sair da arquitetura pedida** (Cle
 sem gambiarra) e **custo mínimo primeiro** (gratuito, free tier e serviço nativo da cloud antes de ferramenta
 externa paga, do mais barato ao mais caro). Em conflito: regra de negócio > arquitetura > custo.
 
+### Ambiente local primeiro (v7.1.0)
+
+Tudo é criado e testado em Docker na máquina, sem custo, antes de existir qualquer coisa no cliente. A rule global
+`ambiente-local-primeiro.md` proíbe criar recurso real, usar credencial do cliente ou apontar para serviço pago sem
+pedido explícito, e exige o mesmo código nos dois ambientes: só a configuração muda.
+
+| Comando | O que faz |
+|---|---|
+| `/ambiente-local` | Lê a arquitetura, gera `docker-compose.yml`, `.env.example` e `docs/ambiente/README.md` e sobe tudo: banco (PostgreSQL, SQL Server, MySQL), e-mail (Mailpit), arquivos (Azurite, SeaweedFS), fila (RabbitMQ, ElasticMQ), cache (Redis), NoSQL (DynamoDB Local), login (Keycloak), observabilidade e APIs externas simuladas (WireMock). Modos: `status`, `parar`, `validar`. |
+| `/ambiente-local validar` | Roda os testes, sobe a aplicação contra os containers e exercita um fluxo real por dependência. Grava `docs/ambiente/validacao-local.md`. |
+| `/subir-no-cliente` | Só quando você pedir, com a validação aprovada: pergunta o que falta e gera `docs/ambiente/implantacao-cliente.md`, um guia simples com serviço real, custo do mais barato ao mais caro, passo a passo e conferência final. Orienta; não executa nada no cliente. |
+
+No `/inicia-orquestracao`, o ambiente sobe depois do `02-architect-sdd` e a validação roda depois do
+`06-security-scan-sdd`, antes do push. O `02` registra o equivalente local de cada serviço, o `/amostra-arquitetura`
+mostra essa tabela ao cliente, e o `04` reprova `if` por ambiente e credencial real na configuração local.
+
+MinIO (arquivado) e LocalStack (exige conta e token desde 2026) ficaram de fora do padrão gratuito. Azure Service Bus,
+Event Hubs e Cosmos DB usam o emulador oficial, consultado na hora, por ser pesado.
+
 ### Monorepo (backend + frontend)
 
 ```
@@ -261,6 +280,7 @@ qualquer momento, fora de uma rodada do `/inicia-orquestracao`:
 | `/commit` | todas | Sincroniza `knowledge/` com o que mudou no código (incluindo o que ficou planejado em `14 - Planejamento/`), roda o rebuild do grafo, confere que o `.gitignore` não está engolindo a memória, **varre o que está no stage em busca de segredos expostos** (ver abaixo) e só então gera a mensagem a partir do diff e faz push na branch atual — memória e código no mesmo commit. Segue o estilo de commits já usado no repositório e nunca cita Claude, Anthropic ou qualquer outra IA na mensagem (sem `Co-Authored-By`, sem trailers e sem "gerado/testado por IA"). |
 | `/raio-x-projeto` | todas | Varredura técnica completa de um projeto legado sem documentação, gravada em `docs/raw/` (um arquivo por tema), pronta pra alimentar o `01-analyst-sdd` na próxima rodada do `/inicia-orquestracao`. **No fim ele chama o `/amostra-arquitetura`**, que gera o PDF da arquitetura atual do projeto (com evidência) e da evolução proposta. Útil ao acoplar o pipeline (modo "existente") a um código que já existe. No `.NET` investiga arquitetura, banco, interfaces, services e infraestrutura; no frontend, stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX e infraestrutura. |
 | `/video-lancamento` | frontend | Opcional, fora do pipeline: gera o vídeo **completo** de treinamento do sistema (nome e objetivo, login e todos os menus, narração em português do Brasil com uma voz só, mantendo os termos em inglês do cliente) e salva **o `.mp4` em `docs/entregaveis/`** (ignorado pelo Git, por ser pesado) — todo o resto vive numa pasta temporária apagada no fim. Usa o motor do plugin `brag` (HyperFrames); confere Node 22+ e FFmpeg. |
+| `/ambiente-local`, `/subir-no-cliente` | todas | Sobe em Docker tudo que a arquitetura precisa e, só quando pedido, orienta a criação do ambiente real (veja "Ambiente local primeiro"). |
 | `/amostra-arquitetura`, `/identidade-visual`, `/amostra-telas`, `/definir-stack` | monorepo | Amostras para mostrar ao cliente antes do código e escolha da stack de cada frente (veja "Antes do código"). |
 
 O `/raio-x-projeto` é gerado em toda stack, com o roteiro de investigação adaptado — a versão `.NET` procura

@@ -8,9 +8,9 @@ argument-hint: [nome-do-projeto]
 Monte a estrutura do projeto (agentes, comandos, knowledge/) usando o script de scaffolding deste plugin,
 seguindo as convenções oficiais de projeto do Claude Code.
 
-**Projeto novo não amarra a linguagem.** O projeto nasce como monorepo, com `backend/` e `frontend/` já prontos,
-e **sem perguntar a linguagem**: o cliente costuma não saber o que quer no começo. A linguagem de cada frente é
-escolhida depois, com `/definir-stack`, quando a decisão estiver tomada (o que costuma vir depois de
+**Projeto novo nasce vazio.** Monorepo com `backend/` e `frontend/` só com a casca. O `/comecar` pergunta a stack
+de cada frente, mas "ainda não sei / não vai ter" é sempre uma opção (o cliente costuma não saber o que quer no
+começo) e frente sem stack não ganha agente nem skill de stack. A decisão pode vir depois, com `/definir-stack` (o que costuma vir depois de
 `/amostra-arquitetura`, `/identidade-visual` e `/amostra-telas`).
 
 ## Fluxo de Confirmação
@@ -39,8 +39,23 @@ Guarde a resposta como `MODO`: `novo` ou `existente`.
 
 ### Pergunta 4 — Frente(s) e stack (SÓ no modo existente)
 
-- Se `MODO = novo`: **não pergunte nada sobre frentes ou linguagem.** Use
-  `STACKS_ESCOLHIDAS = backend-pendente frontend-pendente` e siga para "A Partir Daqui".
+- Se `MODO = novo`: o template nasce **vazio** (`backend/` e `frontend/` só com a casca) e nenhuma stack é
+  instalada sem o usuário escolher. Pergunte uma frente de cada vez, backend primeiro:
+
+  > "Qual stack de backend?
+  > 1. .NET (Clean Architecture)
+  > 2. Ainda não sei / não vai ter backend (a pasta fica vazia)"
+
+  > "Qual stack de frontend?
+  > 1. Angular
+  > 2. React
+  > 3. Vue
+  > 4. Ainda não sei / não vai ter frontend (a pasta fica vazia)"
+
+  Mapeie: `.NET` → `dotnet`; `Angular` → `angular`; `React` → `react`; `Vue` → `vue`; a última opção de cada
+  pergunta → `backend-pendente` / `frontend-pendente`. Frente pendente **não ganha** specialist nem skills de
+  stack; se a decisão vier depois, `/definir-stack` instala. Monte `STACKS_ESCOLHIDAS` (backend primeiro, ex.:
+  `dotnet frontend-pendente`) e siga para "A Partir Daqui".
 - Se `MODO = existente`: o código já existe e tem uma stack conhecida, então pergunte. Primeiro as frentes, como
   uma única escolha:
 
@@ -79,7 +94,7 @@ Depois das respostas, **não faça mais nenhuma pergunta**. Rode o script passan
 
 **Se `MODO = novo`** (cria `./NOME_DO_PROJETO` a partir do caminho informado):
 ```bash
-mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO backend-pendente frontend-pendente novo
+mkdir -p "CAMINHO_INFORMADO" && cd "CAMINHO_INFORMADO" && bash "${CLAUDE_PLUGIN_ROOT}/criar-template-claude-sdd-plugin.sh" NOME_DO_PROJETO STACKS_ESCOLHIDAS novo
 ```
 Se o caminho informado for o diretório atual (`.`), pule o `mkdir`/`cd` e rode o script direto.
 

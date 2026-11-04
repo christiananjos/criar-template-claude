@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.2.0
+# 🚀 Criar Template Claude SDD v7.2.1
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.2.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.2.1${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -4506,7 +4506,7 @@ Use este checklist antes de considerar uma arquitetura AWS pronta pra produção
 - [ ] Lifecycle rules configuradas no S3 pra dados que não precisam ficar em Standard indefinidamente.
 AWSEXPERTCHECKLISTMDEOF
 # ---- Skill de segurança específica de frontend (equivalente à dotnet-security-expert) ----
-if [ "$HAS_FRONT" = 1 ]; then
+if [ -n "$FRONT_STACK" ]; then
     mkdir -p "$PROJECT_DIR/.claude/skills/frontend-security-expert/references"
     cat > ""$PROJECT_DIR/.claude/skills/frontend-security-expert/SKILL.md"" << 'FESECSKILLEOF'
 ---
@@ -9522,7 +9522,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.2.0**
+**Projeto criado com Claude SDD v7.2.1**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

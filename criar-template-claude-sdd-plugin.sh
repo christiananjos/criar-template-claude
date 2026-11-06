@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.2.1
+# 🚀 Criar Template Claude SDD v7.3.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.2.1${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.3.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -6412,6 +6412,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 - `/ambiente-local` — sobe em Docker tudo que a arquitetura precisa, sem custo (`/ambiente-local validar` prova que funciona).
 - `/subir-no-cliente` — só quando você pedir, depois da validação local: guia simples para criar o ambiente real do cliente.
 - `/raio-x-backend` e `/raio-x-frontend` — em projeto legado sem documentação: varredura técnica completa da frente e documentação gravada em `docs/raw/`, separada por tema.
+- `/documentacao-tecnica` — com o sistema implementado: gera em PDF a Documentação Técnica e Funcional completa (menus, telas, fluxos, regras de negócio, segurança, arquitetura, modelo de dados, infraestrutura, acessos e endpoints), conferida no código, em `docs/entregaveis/`. Rodar de novo gera a próxima versão.
 - `/video-lancamento` — opcional, com o frontend já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
@@ -6548,6 +6549,7 @@ O commit não é um subagente: depois de cada etapa aprovada, o `/inicia-orquest
 - `/ambiente-local` — sobe em Docker tudo que a arquitetura precisa, sem custo (`/ambiente-local validar` prova que funciona).
 - `/subir-no-cliente` — só quando você pedir, depois da validação local: guia simples para criar o ambiente real do cliente.
 - `/raio-x-projeto` — em projeto legado sem documentação: faz uma varredura técnica completa (stack e build, arquitetura e roteamento, estado, camada de API, componentes/UX, infraestrutura) e grava tudo em `docs/raw/`, separado por tema.
+- `/documentacao-tecnica` — com o sistema implementado: gera em PDF a Documentação Técnica e Funcional completa (menus, telas, fluxos, regras de negócio, segurança, arquitetura, modelo de dados, infraestrutura, acessos e endpoints), conferida no código, em `docs/entregaveis/`. Rodar de novo gera a próxima versão.
 - `/video-lancamento` — opcional, com o sistema já entregue: gera o vídeo completo de treinamento (todos os menus, narração em português) e salva o `.mp4` em `docs/entregaveis/` (não faz parte do pipeline).
 
 ## ⏱️ Tempo
@@ -8130,6 +8132,9 @@ e tamanho diferentes do primeiro; isto existe para isso nunca mais acontecer.
 5. **Identidade do cliente entra só por `docs/modelo-documento/tokens.css`** (cores e fontes), via
    `/identidade-visual`. Nunca por estilo dentro do HTML do documento.
 6. Reuse a pasta `docs/entregaveis/`: HTML de origem e PDF final ficam lado a lado, com o mesmo nome.
+7. **Sumário nunca é numerado à mão:** `<ol class="sumario">` com o `.pg` vazio; o `gerar-pdf.cjs` preenche.
+8. **Papel timbrado** com o logo da empresa dona do sistema: `timbrado.css` + `logo-timbrado.svg` (gerado por
+   `.claude/scripts/preparar-timbrado.cjs`). Nunca ponha o logo no cabeçalho por outro meio.
 
 Antes de entregar, confira que o PDF novo tem o mesmo tamanho de página e o mesmo cabeçalho/rodapé dos
 anteriores do mesmo formato.
@@ -8253,6 +8258,22 @@ figure { margin: 4mm 0; text-align: center; break-inside: avoid; page-break-insi
 figure svg, figure img { max-width: 100%; height: auto; }
 figcaption { font-size: 8.5pt; color: var(--cor-secundaria); margin-top: 2mm; }
 svg text { font-family: var(--fonte-corpo); }
+
+/* Sumário: <ol class="sumario"><li class="n1"><a href="#h1"><span>1. Título</span><span class="pontos"></span><span class="pg"></span></a></li>…</ol>
+   O .pg fica vazio: o gerar-pdf.cjs descobre a página de cada título e preenche. */
+.sumario { list-style: none; padding: 0; margin: 0; }
+.sumario li { margin: 0; break-inside: avoid; page-break-inside: avoid; }
+.sumario a { display: flex; align-items: baseline; gap: 2mm; color: var(--cor-texto); text-decoration: none; }
+.sumario .n1 { margin-top: 2.2mm; font-weight: 600; }
+.sumario .n1 a { color: var(--cor-primaria); }
+.sumario .n2 { padding-left: 7mm; font-size: 9.5pt; }
+.sumario a span:first-child { flex: 0 1 auto; }
+.sumario a .pontos { flex: 1 1 auto; border-bottom: 0.6pt dotted var(--cor-secundaria); transform: translateY(-1mm); }
+.sumario a .pg { flex: 0 0 auto; min-width: 7mm; text-align: right; }
+
+/* Termo de recebimento: linhas de assinatura lado a lado */
+.assinaturas { display: flex; gap: 12mm; margin-top: 18mm; break-inside: avoid; page-break-inside: avoid; }
+.assinaturas > div { flex: 1; border-top: 0.6pt solid var(--cor-texto); padding-top: 2mm; font-size: 9pt; line-height: 1.5; }
 SDDPARTMODELOEOF
 cat > "$PROJECT_DIR/docs/modelo-documento/apresentacao.css" << 'SDDPARTAPRESEOF'
 /*
@@ -8535,6 +8556,16 @@ O PDF fica ao lado do HTML (`docs/entregaveis/<nome>.pdf`). O script usa o Chrom
 instalado (gratuito, sem dependências); se o seu estiver em outro lugar, aponte-o em `CHROME_PATH`.
 O tamanho da página vem do CSS, nunca de parâmetro.
 
+**Sumário com página:** use `<ol class="sumario">` (exemplo no comentário de `modelo.css`) com o `.pg`
+vazio. O script imprime, descobre em que página cada título caiu, grava os números no HTML e gera de novo.
+Nunca numere o sumário à mão. Para assinaturas lado a lado (termo de recebimento), use `div.assinaturas`.
+
+**Papel timbrado (logo da empresa dona do sistema):** prepare o logo uma vez com
+`node .claude/scripts/preparar-timbrado.cjs <logo.png|.jpg|.svg>` (gera `logo-timbrado.svg`, 10 mm de altura,
+com o logo embutido) e inclua `timbrado.css` depois de `modelo.css`. O logo vai para o canto superior direito
+de toda página menos a capa, e `--doc-rodape` vira a linha do rodapé à esquerda. Instruções no topo de
+`timbrado.css`. O Chrome não redimensiona imagem na margem da página: por isso o tamanho vem do SVG gerado.
+
 ## Regra
 
 **Nunca crie CSS próprio, tamanho de página ou template novo.** O que muda de um cliente para outro é só
@@ -8556,6 +8587,9 @@ cat > "$PROJECT_DIR/.claude/scripts/gerar-pdf.cjs" << 'SDDPARTGERARPDFEOF'
 // Uso: node .claude/scripts/gerar-pdf.cjs <arquivo.html> [saida.pdf]
 // Sem dependências. O tamanho da página vem SEMPRE do CSS (@page size) — nunca de parâmetro —,
 // é isso que mantém todos os documentos no mesmo padrão. Para mudar cor/fonte, edite só tokens.css.
+// Sumário: se o HTML tiver <ol class="sumario"> com <a href="#id">…<span class="pg"></span></a>, o script
+// descobre no próprio PDF em que página cada título caiu, grava os números no HTML e gera o PDF de novo.
+// Nunca numere o sumário à mão.
 'use strict';
 
 const fs = require('fs');
@@ -8609,33 +8643,218 @@ if (!navegador) {
   falhar('não achei Chrome, Edge nem Chromium instalado. Instale um deles (gratuito) ou aponte o executável na variável de ambiente CHROME_PATH.');
 }
 
-// Perfil temporário: evita conflito com um navegador já aberto e não deixa lixo no perfil do usuário.
-const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'gerar-pdf-'));
-if (fs.existsSync(saida)) fs.unlinkSync(saida);
-
-const args = [
-  '--headless=new',
-  '--disable-gpu',
-  '--no-sandbox',
-  '--no-first-run',
-  '--allow-file-access-from-files',
-  '--no-pdf-header-footer',
-  '--run-all-compositor-stages-before-draw',
-  '--virtual-time-budget=5000',
-  '--user-data-dir=' + perfil,
-  '--print-to-pdf=' + saida,
-  pathToFileURL(html).href,
-];
-
-const r = spawnSync(navegador, args, { stdio: 'pipe', timeout: 120000 });
-try { fs.rmSync(perfil, { recursive: true, force: true }); } catch (e) { /* ignora */ }
-
-if (!fs.existsSync(saida) || fs.statSync(saida).size === 0) {
-  const detalhe = ((r.stderr || '').toString().trim().split('\n').slice(-3).join(' | ')) || 'sem detalhe';
-  falhar('o PDF não foi gerado (' + path.basename(navegador) + '). Detalhe: ' + detalhe);
+function imprimir(destino) {
+  // Perfil temporário: evita conflito com um navegador já aberto e não deixa lixo no perfil do usuário.
+  const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'gerar-pdf-'));
+  if (fs.existsSync(destino)) fs.unlinkSync(destino);
+  const args = [
+    '--headless=new',
+    '--disable-gpu',
+    '--no-sandbox',
+    '--no-first-run',
+    '--allow-file-access-from-files',
+    '--no-pdf-header-footer',
+    '--run-all-compositor-stages-before-draw',
+    '--virtual-time-budget=5000',
+    '--user-data-dir=' + perfil,
+    '--print-to-pdf=' + destino,
+    pathToFileURL(html).href,
+  ];
+  const r = spawnSync(navegador, args, { stdio: 'pipe', timeout: 300000 });
+  try { fs.rmSync(perfil, { recursive: true, force: true }); } catch (e) { /* ignora */ }
+  if (!fs.existsSync(destino) || fs.statSync(destino).size === 0) {
+    const detalhe = ((r.stderr || '').toString().trim().split('\n').slice(-3).join(' | ')) || 'sem detalhe';
+    falhar('o PDF não foi gerado (' + path.basename(navegador) + '). Detalhe: ' + detalhe);
+  }
 }
-console.log('[gerar-pdf] PDF gerado: ' + saida);
+
+// Página de cada âncora interna, lida do PDF do Chrome (destinos nomeados + árvore de páginas).
+function paginasDasAncoras(pdfPath) {
+  const pdf = fs.readFileSync(pdfPath, 'latin1');
+  const objetos = new Map();
+  const reObj = /(?:^|[\r\n])(\d+) 0 obj\b/g;
+  let m;
+  const inicios = [];
+  while ((m = reObj.exec(pdf))) inicios.push([Number(m[1]), m.index + m[0].length]);
+  for (const [num, ini] of inicios) {
+    const fim = pdf.indexOf('endobj', ini);
+    const corpo = pdf.slice(ini, fim < 0 ? undefined : fim);
+    const s = corpo.indexOf('stream');
+    objetos.set(num, s < 0 ? corpo : corpo.slice(0, s));
+  }
+  const ref = (txt, chave) => { const r = new RegExp('/' + chave + '\\s+(\\d+) 0 R').exec(txt || ''); return r ? Number(r[1]) : null; };
+  const raiz = ref(pdf.slice(pdf.lastIndexOf('trailer')), 'Root') || ref(pdf, 'Root');
+  const catalogo = objetos.get(raiz);
+  const paginasRaiz = ref(catalogo, 'Pages');
+  if (!paginasRaiz) return null;
+
+  const ordem = new Map();
+  const visitar = (num) => {
+    const o = objetos.get(num) || '';
+    const kids = /\/Kids\s*\[([^\]]*)\]/.exec(o);
+    if (/\/Type\s*\/Pages\b/.test(o) && kids) {
+      for (const k of kids[1].match(/\d+ 0 R/g) || []) visitar(Number(k.split(' ')[0]));
+    } else {
+      ordem.set(num, ordem.size + 1);
+    }
+  };
+  visitar(paginasRaiz);
+
+  const decodificar = (nome) => Buffer.from(nome.replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16))), 'latin1').toString('utf8');
+  const destinos = new Map();
+  const blocos = [];
+  const dests = ref(catalogo, 'Dests');
+  if (dests) blocos.push(objetos.get(dests) || '');
+  for (const o of objetos.values()) if (/^\s*<<\s*\/Names\s*\[/.test(o) || /\/Limits/.test(o)) blocos.push(o);
+  for (const b of blocos) {
+    let d;
+    const reNome = /\/([^\s\/\[\]<>()]+)\s*\[\s*(\d+) 0 R/g;
+    while ((d = reNome.exec(b))) if (ordem.has(Number(d[2]))) destinos.set(decodificar(d[1]), ordem.get(Number(d[2])));
+    const reTexto = /\(([^)]*)\)\s*\[\s*(\d+) 0 R/g;
+    while ((d = reTexto.exec(b))) if (ordem.has(Number(d[2]))) destinos.set(d[1], ordem.get(Number(d[2])));
+  }
+  return destinos;
+}
+
+function paginas(pdfPath) {
+  const n = (fs.readFileSync(pdfPath, 'latin1').match(/\/Type\s*\/Page\b(?!s)/g) || []).length;
+  return n ? ' (' + n + ' páginas)' : '';
+}
+
+const reSumario = /<ol class="sumario"[\s\S]*?<\/ol>/;
+const reItem = /(<a href="#([^"]+)"[^>]*>[\s\S]*?<span class="pg">)([^<]*)(<\/span>)/g;
+
+if (!reSumario.test(fs.readFileSync(html, 'utf8'))) {
+  imprimir(saida);
+  console.log('[gerar-pdf] PDF gerado: ' + saida + paginas(saida));
+  process.exit(0);
+}
+
+// Com sumário: imprime, lê a página de cada título, grava no HTML e repete até estabilizar.
+let semPagina = [];
+for (let rodada = 1; rodada <= 4; rodada++) {
+  imprimir(saida);
+  if (rodada === 4) { console.warn('[gerar-pdf] aviso: o sumário não estabilizou; confira as páginas.'); break; }
+  const paginas = paginasDasAncoras(saida);
+  if (!paginas) { console.warn('[gerar-pdf] aviso: não consegui ler as páginas do PDF; sumário mantido como está.'); break; }
+  const fonte = fs.readFileSync(html, 'utf8');
+  semPagina = [];
+  const sumarioNovo = fonte.match(reSumario)[0].replace(reItem, (tudo, antes, id, atual, depois) => {
+    const p = paginas.get(id);
+    if (!p) { semPagina.push(id); return tudo; }
+    return antes + p + depois;
+  });
+  const novo = fonte.replace(reSumario, () => sumarioNovo);
+  if (novo === fonte) break;
+  fs.writeFileSync(html, novo, 'utf8');
+  console.log('[gerar-pdf] sumário numerado (rodada ' + rodada + ')');
+}
+if (semPagina.length) console.warn('[gerar-pdf] aviso: sem página no sumário (id inexistente no HTML?): ' + semPagina.join(', '));
+console.log('[gerar-pdf] PDF gerado: ' + saida + paginas(saida));
 SDDPARTGERARPDFEOF
+cat > "$PROJECT_DIR/docs/modelo-documento/timbrado.css" << 'SDDPARTTIMBRADOEOF'
+/*
+ * timbrado.css — papel timbrado: logo da empresa dona do sistema no canto superior direito de cada página
+ * e uma linha de rodapé à esquerda. Use DEPOIS de modelo.css, só quando existir logo-timbrado.svg:
+ *   <link rel="stylesheet" href="../modelo-documento/modelo.css">
+ *   <link rel="stylesheet" href="../modelo-documento/timbrado.css">
+ *   <style>:root { --doc-titulo: "…"; --doc-rodape: "Empresa · Responsável técnico: Nome"; }</style>
+ * logo-timbrado.svg é gerado por: node .claude/scripts/preparar-timbrado.cjs <logo>
+ * Na capa: <div class="logo"><img src="../modelo-documento/logo-timbrado.svg" alt="Logo da empresa"></div>
+ */
+@page {
+  margin-top: 26mm;
+  @top-right { content: url("logo-timbrado.svg"); vertical-align: middle; }
+  @bottom-left {
+    content: var(--doc-rodape, "");
+    font: 8.5pt var(--fonte-corpo);
+    color: var(--cor-secundaria);
+  }
+}
+@page :first {
+  margin: 0;
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+}
+
+/* Logo na capa, sobre fundo claro para não sumir na cor primária */
+.capa .logo { display: inline-block; background: #fff; padding: 3mm 4mm; border-radius: 2mm; margin-bottom: 8mm; }
+.capa .logo img { display: block; height: 14mm; width: auto; }
+SDDPARTTIMBRADOEOF
+cat > "$PROJECT_DIR/.claude/scripts/preparar-timbrado.cjs" << 'SDDPARTPREPTIMBEOF'
+#!/usr/bin/env node
+// preparar-timbrado.cjs — prepara o logo da empresa dona do sistema para o papel timbrado dos documentos.
+// Uso: node .claude/scripts/preparar-timbrado.cjs <logo.png|.jpg|.svg>
+// Gera docs/modelo-documento/logo-timbrado.svg: o logo embutido (sem depender de arquivo externo), com 10 mm de
+// altura e largura proporcional (no máximo 45 mm). É o tamanho que o timbrado.css põe no canto superior direito
+// de cada página. O Chrome não redimensiona imagem na margem da página; por isso o tamanho vem do próprio SVG.
+// Sem dependências.
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+function falhar(msg) {
+  console.error('[preparar-timbrado] ERRO: ' + msg);
+  process.exit(1);
+}
+
+const entrada = process.argv[2];
+if (!entrada || entrada === '-h' || entrada === '--help') {
+  console.log('Uso: node .claude/scripts/preparar-timbrado.cjs <logo.png|.jpg|.svg>');
+  process.exit(entrada ? 0 : 1);
+}
+const arquivo = path.resolve(entrada);
+if (!fs.existsSync(arquivo)) falhar('arquivo não encontrado: ' + arquivo);
+const dados = fs.readFileSync(arquivo);
+const ext = path.extname(arquivo).toLowerCase();
+
+function medidas() {
+  if (ext === '.png') {
+    if (dados.toString('latin1', 1, 4) !== 'PNG') falhar('o arquivo não é um PNG válido');
+    return { w: dados.readUInt32BE(16), h: dados.readUInt32BE(20), mime: 'image/png' };
+  }
+  if (ext === '.jpg' || ext === '.jpeg') {
+    let i = 2;
+    while (i < dados.length) {
+      if (dados[i] !== 0xff) { i++; continue; }
+      const marca = dados[i + 1];
+      const tam = dados.readUInt16BE(i + 2);
+      if (marca >= 0xc0 && marca <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marca)) {
+        return { w: dados.readUInt16BE(i + 7), h: dados.readUInt16BE(i + 5), mime: 'image/jpeg' };
+      }
+      i += 2 + tam;
+    }
+    falhar('não consegui ler o tamanho do JPG');
+  }
+  if (ext === '.svg') {
+    const txt = dados.toString('utf8');
+    const vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(txt);
+    if (vb) return { w: Number(vb[1]), h: Number(vb[2]), mime: 'image/svg+xml' };
+    const w = /<svg[^>]*\swidth\s*=\s*["']([\d.]+)/i.exec(txt);
+    const h = /<svg[^>]*\sheight\s*=\s*["']([\d.]+)/i.exec(txt);
+    if (w && h) return { w: Number(w[1]), h: Number(h[1]), mime: 'image/svg+xml' };
+    falhar('o SVG não tem viewBox nem width/height');
+  }
+  falhar('formato não suportado (' + (ext || 'sem extensão') + '). Use PNG, JPG ou SVG.');
+}
+
+const { w, h, mime } = medidas();
+if (!w || !h) falhar('o logo tem tamanho zero');
+let alturaMm = 10;
+let larguraMm = alturaMm * (w / h);
+if (larguraMm > 45) { larguraMm = 45; alturaMm = 45 * (h / w); }
+const fmt = (n) => Number(n.toFixed(2));
+
+const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + fmt(larguraMm) + 'mm" height="' + fmt(alturaMm) +
+  'mm" viewBox="0 0 ' + w + ' ' + h + '"><image width="' + w + '" height="' + h + '" href="data:' + mime +
+  ';base64,' + dados.toString('base64') + '"/></svg>\n';
+
+const destino = path.resolve('docs', 'modelo-documento', 'logo-timbrado.svg');
+fs.mkdirSync(path.dirname(destino), { recursive: true });
+fs.writeFileSync(destino, svg);
+console.log('[preparar-timbrado] logo do timbrado: ' + path.relative(process.cwd(), destino) + ' (' + fmt(larguraMm) + ' x ' + fmt(alturaMm) + ' mm)');
+SDDPARTPREPTIMBEOF
 cat > "$PROJECT_DIR/.claude/rules/respostas-curtas.md" << 'SDDPARTCURTASEOF'
 # Respostas curtas e objetivas
 
@@ -8905,6 +9124,201 @@ Se faltar Chrome ou Edge, diga qual instalar e mantenha o HTML (já abre no nave
 Diga o caminho do PDF, a arquitetura recomendada em duas linhas e as perguntas em aberto. Próximos passos
 possíveis: `/identidade-visual`, `/amostra-telas` e, com o cliente decidido, `/definir-stack`.
 SDDPARTAMARQEOF
+cat > "$PROJECT_DIR/.claude/commands/documentacao-tecnica.md" << 'SDDPARTDOCTECEOF'
+---
+description: Gera em PDF a Documentação Técnica e Funcional completa do que já foi implementado (backend e/ou frontend) — menus e telas, fluxos, regras de negócio, perfis e segurança, arquitetura, modelo de dados, integrações, infraestrutura, acessos, testes e catálogo de endpoints — conferida no código, para entregar ao cliente. Rodar de novo gera a próxima versão.
+allowed-tools: Read, Write, Edit, Glob, Grep, Agent, Bash(node .claude/scripts/gerar-pdf.cjs:*), Bash(node .claude/scripts/preparar-timbrado.cjs:*), Bash(git log:*), Bash(git ls-files:*), Bash(git config user.name), Bash(git rev-parse:*), Bash(ls:*), Bash(mkdir:*), Bash(cat:*), Bash(rm -rf output/documentacao-tecnica)
+---
+
+# /documentacao-tecnica — Documentação Técnica e Funcional do sistema entregue
+
+Gera **um documento único** (PDF, A4 retrato, no modelo de `docs/modelo-documento/`) que registra formalmente
+o que foi implementado: cada menu e cada tela, os fluxos, as regras de negócio, a segurança, a arquitetura, o
+modelo de dados, as integrações, a infraestrutura e os acessos. O padrão de referência tem cerca de 20 capítulos
+e 2 anexos, mais de 200 páginas num sistema médio. **Detalhe é a entrega**: não resuma o que dá para descrever.
+
+Princípio que manda em tudo: **só entra o que está no código.** Cada afirmação foi conferida no código-fonte
+atual. O que a spec ou o vault pedem mas o código não faz vai para "Limitações conhecidas", nunca para os
+capítulos funcionais. O que não deu para provar leva "(a confirmar)".
+
+Argumento opcional: `backend` ou `frontend` documenta só essa frente. Sem argumento, documenta todas as que
+existem.
+
+## 1. Levantar o projeto (em paralelo)
+
+Leia juntos:
+
+- O que existe de código: `backend/` e `frontend/` no monorepo, ou `src/` na frente única. Uma frente sem código
+  implementado fica fora do documento (diga isso no capítulo 1, em "Escopo e premissas").
+- As specs (`docs/backend/SPEC.md`, `docs/frontend/SPEC.md` ou `docs/SPEC.md`), `TECHNICAL_SPECIFICATION.md`,
+  os ADRs, `knowledge/index.json` e `knowledge/vault/` (regras de negócio, funcionalidades, decisões), e
+  `docs/raw/` se tiver saída do raio-x.
+- `docker-compose.yml`, `.env.*.example` (só os **nomes** das variáveis), `.github/workflows/` ou
+  `azure-pipelines*.yml`, infraestrutura como código (Bicep, Terraform) e o que estiver em `docs/`.
+- `docs/design/identidade.md` e `docs/modelo-documento/README.md` e `documento-modelo.html`.
+- `git config user.name` (autor padrão) e `git log --date=short --format='%ad %s'` (o que mudou e quando).
+
+**Identificação do documento.** Descubra no vault/spec o nome do produto e da empresa dona do sistema
+(contratante). Use como contratada o `git config user.name`. Classificação padrão: "Confidencial — uso restrito às
+partes".
+
+**Papel timbrado.** O documento sai no papel timbrado da **empresa dona do sistema**, com o logo dela. Procure o
+logo nesta ordem: `docs/modelo-documento/logo-timbrado.svg` (já preparado), `docs/design/logo/` (do
+`/identidade-visual`) e os arquivos de logo do próprio frontend (`public/`, `src/assets/`, `assets/`: nomes com
+`logo`, `brand` ou `marca`; favicon não serve). Prefira SVG ou PNG com fundo transparente.
+
+**Pergunte ao usuário, numa mensagem só, e espere a resposta antes de seguir:**
+
+1. **Qual o nome do responsável técnico** pelo sistema (sempre pergunte; em nova versão, mostre o nome da versão
+   anterior e pergunte se continua o mesmo).
+2. **Qual logo usar**: mostre o caminho do que você achou e peça confirmação, ou peça o caminho do arquivo se não
+   achou nada. Lembre que usar o logo exige autorização da empresa. Se o usuário não tiver logo, o documento sai
+   sem timbrado (só com o nome da empresa no rodapé).
+3. Só o que não achou: nome do produto, contratante, contratada.
+
+Com o logo confirmado, prepare o timbrado: `node .claude/scripts/preparar-timbrado.cjs <caminho-do-logo>`.
+
+**Nova versão.** Se já existir `docs/entregaveis/<produto>-documentacao-tecnica-funcional.html`, leia-o: a
+versão nova é a anterior + 0.1, o histórico de revisões é mantido e ganha uma linha com o que mudou desde a data
+da anterior (tire do `git log` desde aquela data, em linguagem de negócio). Primeira vez: versão 1.0, "Emissão
+inicial para entrega do produto". O nome do arquivo usa o produto em minúsculas com hífen (ex.:
+`sgq-alter-documentacao-tecnica-funcional`).
+
+## 2. Investigar o código (subagentes em paralelo)
+
+Num sistema real o código não cabe numa leitura só. Dispare **ao mesmo tempo**, numa única mensagem, um subagente
+`general-purpose` (modelo `opus`) por área abaixo que se aplique. Cada um lê o código de verdade (não só nomes de
+arquivo) e grava suas notas em `output/documentacao-tecnica/notas/<area>.md`, com o caminho do arquivo como
+evidência de cada item e "(a confirmar)" no que não provou. Eles **não** escrevem o documento.
+
+| Área | O que levantar |
+|---|---|
+| `telas` (frontend) | Barra lateral/menu na ordem exibida, com contadores e ícones; cada rota e tela: finalidade, quem vê, campos (rótulo exato, tipo, obrigatório, validação, máscara), botões e ações, filtros, ordenação, paginação, estados vazios, mensagens de sucesso e erro com o texto exato, confirmações, comportamento em tela estreita, impressão e exportação; login, primeiro acesso, recuperação de senha, sessão e saída; páginas públicas por link |
+| `fluxos` (back e front) | Cada processo de ponta a ponta: passo a passo numerado, quem faz cada passo (perfil), decisões, estados e transições (ciclo de vida de cada entidade), prazos, notificações e e-mails disparados, jobs agendados |
+| `regras` (backend, ou front sem back) | Toda regra de negócio aplicada no código (validações de domínio, invariantes, cálculos, prazos, bloqueios, exclusão lógica, retenção, anonimização), com o arquivo e a mensagem de erro; ligue cada uma à regra do vault/spec quando existir |
+| `seguranca` | Perfis e permissões (matriz completa perfil x ação, incluindo permissões configuráveis), escopo de visibilidade dos dados, autenticação (fluxo, tokens, expiração, bloqueio, política de senha), autorização no servidor, links públicos e como são protegidos, cabeçalhos e proteções web (CORS, CSP, rate limit, antifalsificação), LGPD, auditoria e trilha de alterações, gestão de segredos. **Nunca** copie valor de segredo: só onde ele fica guardado |
+| `api` (backend) | Todos os endpoints, agrupados por controller/módulo: método, rota, perfis autorizados, o que faz, entradas e respostas principais, códigos de erro |
+| `dados` (backend) | Cada entidade/tabela: campos (nome, tipo, nulo, padrão, descrição de negócio), chaves, relacionamentos e cardinalidade, enumerações e seus valores, índices relevantes, convenções (nomes, exclusão lógica, auditoria, concorrência), migrations |
+| `arquitetura` | Componentes, camadas e o que cada uma faz, padrões adotados (onde no código), organização do frontend, tecnologias e **versões exatas** (dos arquivos de projeto/pacotes), decisões de arquitetura (ADRs) |
+| `operacao` | Integrações externas (o que trocam, quando, autenticação, falhas e reprocessamento, webhooks), ambiente local (Docker), ambientes reais e onde estão hospedados, pipeline de CI/CD etapa por etapa, observabilidade, backup e recuperação, rotinas automáticas, custos, endereços, acessos e responsabilidades |
+| `testes` | Estratégia, **números reais** (conte projetos, arquivos e casos de teste; não estime), principais casos por funcionalidade, verificações automáticas do pipeline, cobertura se houver relatório |
+
+Frente única ou só uma frente pedida: dispare só as áreas dela. Projeto pequeno (poucos arquivos): faça você
+mesmo, sem subagentes. Espere todos terminarem e leia as notas.
+
+## 3. Escrever o documento
+
+Copie a estrutura de `docs/modelo-documento/documento-modelo.html` (sem CSS próprio, sem `<style>` além de
+`--doc-titulo` e `--doc-rodape`; rule `padrao-documentos.md`). Com logo, inclua
+`<link rel="stylesheet" href="../modelo-documento/timbrado.css">` logo depois de `modelo.css` e defina
+`--doc-rodape: "<contratante> · Responsável técnico: <nome>"` (sem logo, o rodapé fica igual e o `timbrado.css`
+não entra). Por ser grande, escreva **um arquivo por capítulo** em
+`output/documentacao-tecnica/partes/` com prefixo numérico (`00-capa.html`, `01-controle.html`,
+`02-sumario.html`, `03-cap01.html`...); o primeiro abre o `<html>` e o último o fecha. Se ajudar no prazo, divida
+os capítulos entre subagentes (`opus`) que recebem as notas e estas regras. Junte no fim:
+
+```bash
+cat output/documentacao-tecnica/partes/*.html > docs/entregaveis/<produto>-documentacao-tecnica-funcional.html
+```
+
+### Estrutura (nesta ordem; capítulo sem conteúdo real no projeto sai, e a numeração se ajusta)
+
+- **Capa** (`section.capa`): logo da empresa
+  (`<div class="logo"><img src="../modelo-documento/logo-timbrado.svg" alt="Logo da <contratante>"></div>`, antes
+  da marca), marca "Cliente · Produto", título "Documentação Técnica e Funcional do <produto>", subtítulo "Registro
+  formal da solução entregue: funcionalidades, menus, fluxos, regras de negócio, segurança, arquitetura,
+  infraestrutura e acessos", e meta com versão, data, elaborado por, **responsável técnico**, destinatário e
+  classificação.
+- **Controle do documento**: Identificação (tabela: produto, documento, versão, data de referência, contratada,
+  **responsável técnico**, contratante, classificação), Histórico de revisões (coluna "Responsável" com o
+  responsável técnico) e Termo de recebimento com `div.assinaturas` (uma coluna por parte; pela contratada, o nome
+  do responsável técnico já preenchido e o cargo "Responsável técnico"; pela contratante, nome, cargo e data em
+  branco).
+- **Sumário**: `<ol class="sumario">` com `<li class="n1">` por capítulo e `<li class="n2">` por seção, cada um
+  `<a href="#hN"><span>1.1 Título</span><span class="pontos"></span><span class="pg"></span></a>`. Deixe o
+  `.pg` vazio: o `gerar-pdf.cjs` preenche as páginas sozinho. Todo `hN` precisa existir como `id` do título.
+1. **Apresentação**: objetivo do documento (consulta e formalização do escopo entregue, conferido no código),
+   sobre o produto, público-alvo (tabela leitor x capítulos), organização do documento, convenções (nomes de tela
+   entre aspas, códigos `RN-001`, figuras e tabelas numeradas por capítulo, legenda dos fluxogramas), escopo e
+   premissas (o que não está descrito e por quê; o documento não traz senhas, chaves nem cadeias de conexão).
+2. **Visão geral da solução**: componentes do sistema, perfis de acesso (tabela), mapa de menus (figura SVG),
+   menus por perfil (tabela com notas), conceitos centrais do domínio.
+3. **Acesso ao sistema e navegação**: login, primeiro acesso, recuperação de senha, sessão e saída, estrutura da
+   tela, uso em telas estreitas e o que mais existir.
+4. **Um capítulo por menu, na ordem da barra lateral.** Em cada um: finalidade, quem acessa, cada tela (campos,
+   botões, filtros, mensagens com o texto exato), **passo a passo numerado** de cada processo com o
+   **fluxograma SVG** dele, ciclo de vida quando houver estados, e o código da regra (`RN-xxx`) no ponto em que ela
+   se aplica. Só backend: um capítulo por funcionalidade (módulo/caso de uso), com o fluxo do endpoint até a
+   persistência, no lugar das telas.
+5. **Regras de negócio**: catálogo único `RN-001`, `RN-002`... agrupado por assunto, cada uma com enunciado, onde
+   se aplica e o efeito quando violada.
+6. **Perfis, permissões e segurança**: perfis, **matriz de permissões** completa, escopo de visibilidade dos
+   dados, autenticação, autorização no servidor, links públicos, proteções da aplicação web, proteção de dados e
+   LGPD, auditoria e rastreabilidade, segredos e infraestrutura.
+7. **Arquitetura da solução**: diagrama de componentes (SVG), camadas do backend, padrões adotados, frontend,
+   tecnologias e versões (tabela), principais decisões de arquitetura.
+8. **Modelo de dados**: convenções, diagramas de relacionamento (SVG, um por domínio para caber em A4),
+   dicionário de dados por domínio (tabela por entidade: campo, tipo, obrigatório, descrição), índices relevantes.
+9. **Integrações**: uma seção por integração (e-mail, armazenamento, cofre de segredos, serviços externos,
+   páginas públicas).
+10. **Infraestrutura, ambientes e implantação**: ambiente local, ambiente(s) real(is) (diagrama), pipeline de
+    CI/CD, observabilidade, backup e recuperação, rotinas automáticas, custos.
+11. **Acessos e administração**: endereços do sistema, acesso dos usuários, acesso do cliente à nuvem, ao banco e
+    ao código-fonte, matriz de responsabilidades, transferência de titularidade. Nunca credenciais.
+12. **Qualidade e testes**: estratégia, números reais, casos de teste principais, verificações automáticas.
+13. **Limitações conhecidas e evolução**: escopo não contemplado (o que a spec/vault pede e o código não faz),
+    limitações operacionais, recomendações de evolução, decisões em aberto.
+- **Anexo A. Catálogo de endpoints da API**: convenções da coluna de perfis e uma tabela por controller/módulo
+  (método, rota, perfis autorizados, descrição). Só frontend: os endpoints que o front consome.
+- **Anexo B. Glossário**.
+
+### Regras de escrita
+
+- Português formal, impessoal, frases completas. Escreva para quem nunca viu o sistema: o usuário, o
+  administrador, a equipe de sustentação e o jurídico do cliente.
+- Nomes de menus, telas, botões, campos e mensagens **entre aspas e exatamente como aparecem** no sistema (copie
+  do código da tela, não parafraseie).
+- Cada capítulo é um `<section class="secao" id="cN">`; títulos `h1` (capítulo), `h2` (seção), `h3` (subseção),
+  com `id` único (`h1`, `h2`... na ordem do sumário).
+- Toda tabela tem `<thead>`; tabelas e figuras numeradas por capítulo ("Tabela 5.2 — ...", "Figura 5.1 — ..."
+  em `figcaption`) e citadas no texto antes de aparecerem.
+- Fluxogramas e diagramas em **SVG inline** dentro de `<figure>`, com `viewBox` de até 640 de largura, cores só
+  por `var(--cor-primaria)`, `var(--cor-secundaria)`, `var(--cor-destaque)`, `var(--cor-texto)` e
+  `var(--cor-borda)`, `role="img"` e `aria-label`. Retângulo = etapa, losango = decisão, elipse = início/fim,
+  raias horizontais com o nome do perfil quando mais de um perfil participa. Cada `marker` com `id` único no
+  documento. Texto de no mínimo 10 de fonte, sem sobrepor formas.
+- `div.nota` para observação e `div.alerta` para atenção (ex.: ação irreversível).
+- Nunca: senha, token, chave, cadeia de conexão, IP interno sensível, dado pessoal real, e-mail de pessoa real do
+  cliente (use o perfil). Massa de demonstração não é dado do cliente: deixe claro quando aparecer.
+
+## 4. Conferir antes do PDF
+
+Releia o HTML montado e corrija antes de gerar:
+
+- Todo `RN-xxx` citado existe no catálogo; todo item do sumário aponta para um `id` que existe; nenhum `id`
+  repetido (inclusive `marker` dos SVGs).
+- Nenhum trecho de modelo ou texto genérico sobrou; nenhum capítulo vazio.
+- Cada menu da barra lateral e cada controller/módulo do código aparece no documento (compare com as notas).
+- Busque por `password`, `secret`, `Server=`, `AccountKey`, `Bearer `, `-----BEGIN` e chaves longas: nada disso
+  pode estar no documento.
+
+## 5. Gerar o PDF e limpar
+
+```bash
+node .claude/scripts/gerar-pdf.cjs docs/entregaveis/<produto>-documentacao-tecnica-funcional.html
+rm -rf output/documentacao-tecnica
+```
+
+O script numera o sumário sozinho (pode imprimir duas ou três vezes; num documento grande leva cerca de um
+minuto). Se ele avisar de item sem página, corrija o `id` e gere de novo. Se faltar Chrome ou Edge, diga qual
+instalar e mantenha o HTML. As notas e partes em `output/documentacao-tecnica/` são temporárias e são apagadas
+no fim, também se der erro.
+
+## 6. Reportar
+
+Em poucas linhas: caminho do PDF, versão, responsável técnico, se saiu com timbrado (e qual logo), número de páginas (o rodapé da última página), capítulos gerados e a
+lista do que ficou "(a confirmar)" para o usuário validar antes de entregar ao cliente.
+SDDPARTDOCTECEOF
 cat > "$PROJECT_DIR/.claude/commands/ambiente-local.md" << 'SDDPARTAMBLOCEOF'
 ---
 description: Cria e sobe em Docker todos os ambientes que a arquitetura precisa (banco, e-mail, arquivos, fila, cache, login, integrações), sem custo. Modos - subir (padrão), status, parar e validar.
@@ -9116,6 +9530,8 @@ tipografia com personalidade, uma cor de destaque ousada com neutros coerentes e
 Crie `docs/design/identidade.md` com: paleta (hex e papel de cada cor: primária, destaque, fundo, texto, erro,
 sucesso), tipografia (família, pesos, escala), tom de voz, regras de uso do logo (área de respiro, versões, o que não
 fazer), espaçamento e forma (raio, bordas, sombras) e **o que evitar**. Guarde o logo em `docs/design/logo/`.
+Com o logo guardado, prepare o papel timbrado dos documentos:
+`node .claude/scripts/preparar-timbrado.cjs docs/design/logo/<arquivo>` (PNG, JPG ou SVG).
 
 Depois **atualize só as variáveis** de `docs/modelo-documento/tokens.css` (cores e fonte) para que todo documento
 gerado daqui em diante use a mesma identidade. Não altere `modelo.css` nem `apresentacao.css`.
@@ -9420,6 +9836,10 @@ Você terá $OUTPUTS_DESC. Arquitetura, decisões, regras, casos de teste e acha
 consultando conforme o projeto evolui. Em \`output/\` sobra só o \`token-report.md\`, com o custo em tokens
 de cada rodada.
 
+Para entregar ao cliente, \`/documentacao-tecnica\` gera em \`docs/entregaveis/\` o PDF da Documentação Técnica e
+Funcional do que foi implementado (menus, telas, fluxos, regras, segurança, arquitetura, dados, infraestrutura e
+endpoints), conferida no código. Rode de novo a cada entrega: ele gera a próxima versão do documento.
+
 ## 💾 Passo 5 — Commite
 
 \`\`\`
@@ -9522,7 +9942,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.2.1**
+**Projeto criado com Claude SDD v7.3.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"

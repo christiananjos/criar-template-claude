@@ -141,7 +141,8 @@ NOME_DO_PROJETO/
 ├── .claude/             agentes, comandos, rules, skills, hooks, scripts, settings — UM, compartilhado
 │   ├── stack.json         a linguagem de cada frente ("pendente" até o /definir-stack)
 │   ├── commands/          inicia-orquestracao, definir-stack, amostra-arquitetura, identidade-visual,
-│   │                      amostra-telas, ambiente-local, subir-no-cliente, commit, raio-x-*, video-lancamento
+│   │                      amostra-telas, ambiente-local, subir-no-cliente, commit, raio-x-*, video-lancamento,
+│   │                      documentacao-tecnica
 │   ├── agents/            01, 02, 04, 05 e 06 (o 03, specialist da stack, entra no /definir-stack)
 │   └── rules/             princípios de implementação, ambiente local primeiro, padrão de documentos, paralelismo, vault, frontend-*
 ├── knowledge/           UM vault para as duas frentes (vazio até o 01-analyst-sdd rodar)

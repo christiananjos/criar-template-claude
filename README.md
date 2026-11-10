@@ -175,9 +175,15 @@ Event Hubs e Cosmos DB usam o emulador oficial, consultado na hora, por ser pesa
 └── frontend/          só o código do front (+ CLAUDE.md curto e README.md)
 ```
 
-- **`/inicia-orquestracao <backend|frontend>`**: cada rodada trabalha uma frente (sem argumento, o orquestrador
-  pergunta). A spec da rodada é `docs/<frente>/SPEC.md`. Mudança que cruza as duas = duas rodadas, backend primeiro;
-  para rodar em paralelo, uma worktree por frente.
+- **`/inicia-orquestracao <backend|frontend|ambas>`**: a rodada trabalha uma frente ou as duas ao mesmo tempo. Sem
+  argumento, o orquestrador decide pela spec: se a mudança toca as duas frentes, roda `ambas`. A spec da rodada é
+  `docs/<frente>/SPEC.md`.
+- **Rodada dupla (`ambas`)**: o Analyst valida as duas specs numa invocação só e o Architect do backend fecha o
+  contrato da API (`output/contrato-api.md`). A partir daí cada frente anda no próprio ritmo: o frontend
+  implementa em cima do contrato (testes simulam a API) enquanto o backend implementa de verdade, numa fila
+  única de até 6 agentes. Cada frente faz a própria costura, revisão, testes e security scan sem esperar a
+  outra. Os relatórios ficam em `output/<frente>/`, e a validação local confere se o frontend chama exatamente
+  o que o backend expõe. O push só acontece se as duas frentes passaram.
 - Os agentes `01`, `02`, `04`, `05` e `06` são um só e reconhecem a frente; o `03` são dois (o especialista de cada
   stack). O `02` e o `05` têm uma seção por frente; os checklists de frontend do `04` e do `06` só valem na frente
   `frontend`. Os relatórios em `output/` têm os mesmos nomes de sempre.
@@ -228,7 +234,7 @@ prefixo — o nome do arquivo e o nome usado pra chamar o agente são sempre id�
 | Agente | Responsabilidade | Quando existe |
 |---|---|---|
 | `01-analyst-sdd` | **Parte A** (só se `docs/raw/` tiver arquivos): consolida a documentação bruta na Base de Conhecimento em `knowledge/`. **Parte B** (sempre): valida `docs/SPEC.md` e gera o relatório da pausa de aprovação | sempre |
-| `02-architect-sdd` | Gera arquitetura técnica, rastreabilidade e o plano de execução em ondas (`EXECUTION_PLAN.md`: unidades, dependências e dono de cada arquivo) | sempre |
+| `02-architect-sdd` | Gera arquitetura técnica, rastreabilidade e o plano de execução (`EXECUTION_PLAN.md`: unidades, dependências, caminho crítico e dono de cada arquivo; cada unidade começa assim que as dependências dela terminam, sem esperar ondas) | sempre |
 | `03-dotnet-specialist` | Implementa o backend .NET 10 direto em `src/` — só termina com `dotnet build` passando | só stack `dotnet` |
 | `03-react-specialist` / `03-angular-specialist` / `03-vue-specialist` | Implementa o frontend direto em `src/` — só termina com o build passando | só a stack correspondente |
 | `04-reviewer-sdd` | Numa leitura só: conformidade com a spec/matriz de rastreabilidade **e** qualidade do código (SOLID, clean code, performance; direção de arte e as 7 leis de UX no frontend) | sempre |
@@ -456,7 +462,7 @@ Todo projeto gerado já sai alinhado à estrutura de projeto recomendada pela do
 - **`.claude/rules/`** — convenções por caminho de arquivo (Clean Architecture no `.NET`; separação componente/estado, segurança, direção de design e as 7 leis de UX no frontend; convenções do Knowledge Vault), que só entram no contexto quando o Claude mexe num arquivo que bate o padrão.
 - **`.claude/hooks/`** e **`.claude/scripts/`** — o hook de relatório de tokens (`generate-token-report.cjs`), o hook `PostToolUse` `knowledge-sync.cjs` (toda escrita em `knowledge/vault/` reconstrói o grafo na hora; escrita em outro arquivo lembra o Claude de atualizar o vault no mesmo turno) e o script que reconstrói o grafo e os chunks do Knowledge Engine (`knowledge-engine-build.cjs`), além do `limpar-output.cjs`, que apaga os relatórios intermediários de `output/` no início de cada rodada e, se a rodada terminou, também no fim, sempre mantendo o `token-report.md`.
 - **`.claude/settings.json`** — já sai com um bloco `permissions` liberando leitura e as ações que o próprio pipeline precisa (escrita em `output/`, `docs/`, `knowledge/`, `src/`, build/test da stack), além do hook de tokens.
-- **Worktrees** — para tocar duas frentes em paralelo sem os agentes esbarrarem nos mesmos arquivos, use `claude --worktree nome-da-frente` dentro do projeto gerado.
+- **Worktrees** — backend e frontend da mesma mudança já rodam juntos com `/inicia-orquestracao ambas`. Para duas features independentes ao mesmo tempo, use `claude --worktree nome-da-feature` dentro do projeto gerado.
 
 ## Estrutura do plugin
 

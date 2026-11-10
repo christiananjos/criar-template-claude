@@ -161,9 +161,9 @@ Depois do `/definir-stack`, a pasta da frente ganha o esqueleto da stack (`backe
 Infrastructure|API|Tests` no .NET; `frontend/src/` no front) e o specialist, as skills e as rules daquela stack
 entram em `.claude/`.
 
-O pipeline roda **por frente**: `/inicia-orquestracao backend` ou `/inicia-orquestracao frontend` (sem argumento,
-ele pergunta; frente com stack pendente é bloqueada até o `/definir-stack`). Mudança que cruza as duas frentes são
-duas rodadas, backend primeiro; para rodar em paralelo, uma worktree por frente (`claude --worktree nome-da-frente`).
+O pipeline roda por frente ou nas duas ao mesmo tempo: `/inicia-orquestracao backend`, `frontend` ou `ambas` (sem
+argumento, ele decide pela spec; frente com stack pendente é bloqueada até o `/definir-stack`). Em `ambas`, o
+contrato da API fecha primeiro e depois backend e frontend são implementados juntos, cada um no próprio ritmo.
 
 ### Projeto de uma frente só (somente modo existente)
 

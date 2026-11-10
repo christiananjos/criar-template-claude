@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# 🚀 Criar Template Claude SDD v7.3.0
+# 🚀 Criar Template Claude SDD v7.4.0
 # ============================================================================
 # Cria estrutura completa de projeto com Pipeline SDD integrado.
 #
@@ -212,7 +212,7 @@ init_stack_globals
 # ============================================================================
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.3.0${NC}                    ${BLUE}║${NC}"
+echo -e "${BLUE}║${NC}     🚀 Criar Template Claude SDD v7.4.0${NC}                    ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 if [ "$MODE" = "existente" ]; then
@@ -739,8 +739,8 @@ echo -e "${GREEN}✅ .claude/scripts/knowledge-engine-build.cjs criado${NC}"
 cat > ""$PROJECT_DIR/.claude/scripts/limpar-output.cjs"" << 'LIMPAROUTEOF'
 #!/usr/bin/env node
 // Apaga os relatórios intermediários de output/, mantendo token-report.md e os vídeos .mp4 finais
-// (gerados pelo /video-lancamento). Não mexe em subpastas (backups do /atualizar-versao) nem nas cópias
-// COMECE-AQUI.removido-*.
+// (gerados pelo /video-lancamento). Das subpastas, só limpa output/backend/ e output/frontend/ (relatórios da
+// rodada dupla do monorepo); as outras (backups do /atualizar-versao) e as cópias COMECE-AQUI.removido-* ficam.
 // Nunca deve falhar o pipeline.
 
 const fs = require("fs");
@@ -763,6 +763,29 @@ function limparOutput(projectDir) {
       removidos.push(e.name);
     } catch {
       // arquivo preso/sem permissão — segue com os outros
+    }
+  }
+  for (const frente of ["backend", "frontend"]) {
+    const dir = path.join(outputDir, frente);
+    let arquivos = [];
+    try {
+      arquivos = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue; // sem rodada dupla, a pasta não existe
+    }
+    for (const e of arquivos) {
+      if (!e.isFile()) continue;
+      try {
+        fs.unlinkSync(path.join(dir, e.name));
+        removidos.push(`${frente}/${e.name}`);
+      } catch {
+        // arquivo preso/sem permissão — segue com os outros
+      }
+    }
+    try {
+      fs.rmdirSync(dir); // só some se ficou vazia
+    } catch {
+      // sobrou algo dentro — fica
     }
   }
   return removidos;
@@ -1196,14 +1219,19 @@ tem um id (`U01`, `U02`...), as unidades de que depende e a lista **fechada** do
 ## Modo: PARALELO / SERIAL
 [SERIAL quando houver menos de 3 unidades independentes no total — a coordenação não compensa. Diga o motivo.]
 
-## Fundação (Onda 0 — serial, uma execução só)
+## Fundação (F0 — serial, uma execução só)
 O que todas as unidades usam e que precisa existir antes: entidade/contrato base, autenticação, DbContext base,
 cliente HTTP, layout, design tokens, rota raiz. Liste os arquivos.
 
 ## Unidades
-| Id | Unidade | Onda | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
-|----|---------|------|------------|-------------------------------------------|------------|
-| U01 | Pedidos | 1 | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+| Id | Unidade | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
+|----|---------|------------|-------------------------------------------|------------|
+| U01 | Pedidos | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+| U02 | Faturamento | F0, U01 | src/Application/Faturamento/**, src/API/Controllers/FaturamentoController.cs | REQ-005..007 |
+
+## Caminho crítico
+A sequência de dependências mais longa (ex.: F0 → U01 → U02). É ela que define quanto a etapa demora; se
+der para encurtar movendo um contrato para a fundação, faça.
 
 ## Arquivos compartilhados (só a costura toca)
 Registro de DI/Program.cs, tabela de rotas, DbContext (DbSet), migrations, módulo/app raiz, menu de navegação,
@@ -1216,11 +1244,14 @@ Ordem em que as unidades viram commits (uma por unidade) depois da costura.
 Regras do plano:
 - **Cada arquivo pertence a uma unidade só.** Arquivo que duas unidades precisariam editar vai para "Arquivos
   compartilhados" — nunca fica com uma das duas.
-- A **Onda** de uma unidade é 1 + a maior onda das unidades de que ela depende (Onda 1 = depende só da fundação).
-  Unidades da mesma onda **não podem depender uma da outra** e rodam ao mesmo tempo; se duas dependem uma da
-  outra, junte-as numa unidade só.
-- Prefira unidades de tamanho parecido (nenhuma deve ser tão grande que sozinha atrase a onda) e que dependam
-  do contrato (DTO/interface/rota), não da implementação uma da outra.
+- **Não existe onda nem lote.** O orquestrador dispara cada unidade no instante em que as unidades da coluna
+  "Depende de" terminam, sem esperar as outras. Por isso a coluna lista **todas** as dependências reais e **só**
+  elas: dependência a mais segura a unidade à toa, dependência a menos quebra o build. `F0` = só a fundação.
+  Se duas unidades dependem uma da outra, junte-as numa unidade só.
+- **Dependa do contrato, não da implementação.** Se a U03 só precisa do DTO, da interface ou da rota da U01,
+  esse contrato vai para a fundação e a U03 depende de `F0`, não da `U01`. Quanto menos dependência, mais
+  coisa roda ao mesmo tempo.
+- Prefira unidades de tamanho parecido e divida a que for tão grande que atrase todas as que dependem dela.
 - Num projeto acoplado, arquivos já existentes que a unidade vai alterar também entram na lista dela.
 - Na dúvida entre paralelo e serial, escolha serial — plano errado custa mais do que tempo.
 
@@ -1319,14 +1350,19 @@ tem um id (`U01`, `U02`...), as unidades de que depende e a lista **fechada** do
 ## Modo: PARALELO / SERIAL
 [SERIAL quando houver menos de 3 unidades independentes no total — a coordenação não compensa. Diga o motivo.]
 
-## Fundação (Onda 0 — serial, uma execução só)
+## Fundação (F0 — serial, uma execução só)
 O que todas as unidades usam e que precisa existir antes: entidade/contrato base, autenticação, DbContext base,
 cliente HTTP, layout, design tokens, rota raiz. Liste os arquivos.
 
 ## Unidades
-| Id | Unidade | Onda | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
-|----|---------|------|------------|-------------------------------------------|------------|
-| U01 | Pedidos | 1 | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+| Id | Unidade | Depende de | Arquivos que possui (caminhos ou pastas) | Requisitos |
+|----|---------|------------|-------------------------------------------|------------|
+| U01 | Pedidos | F0 | src/Application/Pedidos/**, src/API/Controllers/PedidosController.cs | REQ-001..004 |
+| U02 | Faturamento | F0, U01 | src/Application/Faturamento/**, src/API/Controllers/FaturamentoController.cs | REQ-005..007 |
+
+## Caminho crítico
+A sequência de dependências mais longa (ex.: F0 → U01 → U02). É ela que define quanto a etapa demora; se
+der para encurtar movendo um contrato para a fundação, faça.
 
 ## Arquivos compartilhados (só a costura toca)
 Registro de DI/Program.cs, tabela de rotas, DbContext (DbSet), migrations, módulo/app raiz, menu de navegação,
@@ -1339,11 +1375,14 @@ Ordem em que as unidades viram commits (uma por unidade) depois da costura.
 Regras do plano:
 - **Cada arquivo pertence a uma unidade só.** Arquivo que duas unidades precisariam editar vai para "Arquivos
   compartilhados" — nunca fica com uma das duas.
-- A **Onda** de uma unidade é 1 + a maior onda das unidades de que ela depende (Onda 1 = depende só da fundação).
-  Unidades da mesma onda **não podem depender uma da outra** e rodam ao mesmo tempo; se duas dependem uma da
-  outra, junte-as numa unidade só.
-- Prefira unidades de tamanho parecido (nenhuma deve ser tão grande que sozinha atrase a onda) e que dependam
-  do contrato (DTO/interface/rota), não da implementação uma da outra.
+- **Não existe onda nem lote.** O orquestrador dispara cada unidade no instante em que as unidades da coluna
+  "Depende de" terminam, sem esperar as outras. Por isso a coluna lista **todas** as dependências reais e **só**
+  elas: dependência a mais segura a unidade à toa, dependência a menos quebra o build. `F0` = só a fundação.
+  Se duas unidades dependem uma da outra, junte-as numa unidade só.
+- **Dependa do contrato, não da implementação.** Se a U03 só precisa do DTO, da interface ou da rota da U01,
+  esse contrato vai para a fundação e a U03 depende de `F0`, não da `U01`. Quanto menos dependência, mais
+  coisa roda ao mesmo tempo.
+- Prefira unidades de tamanho parecido e divida a que for tão grande que atrase todas as que dependem dela.
 - Num projeto acoplado, arquivos já existentes que a unidade vai alterar também entram na lista dela.
 - Na dúvida entre paralelo e serial, escolha serial — plano errado custa mais do que tempo.
 
@@ -1381,7 +1420,8 @@ Você é o **Architect-SDD**, o arquiteto técnico do pipeline SDD, num **monore
 (`backend` ou `frontend`) e siga **só a seção dela** abaixo — ignore a outra.
 
 Os quatro documentos de saída têm os mesmos nomes de sempre (`output/TECHNICAL_SPECIFICATION.md`,
-`output/TRACEABILITY_MATRIX.md`, `output/TECHNICAL_DECISIONS.md`, `output/EXECUTION_PLAN.md`); não duplique por frente. Cada decisão
+`output/TRACEABILITY_MATRIX.md`, `output/TECHNICAL_DECISIONS.md`, `output/EXECUTION_PLAN.md`); não duplique por frente, exceto na rodada dupla, em que cada frente grava os
+dela em `output/<frente>/` (veja o aviso de monorepo no topo). Cada decisão
 relevante vira um ADR no vault compartilhado (`knowledge/vault/10 - ADR/`): no backend com a numeração
 `ADR-NNN`; no frontend com `ADR-FE-NNN`, desde o primeiro, para não haver numeração repetida.
 
@@ -1456,7 +1496,7 @@ proporia num projeto novo. Se `src/` estiver vazio, implemente normalmente do ze
 ## Modos de execução (o prompt de invocação diz qual)
 
 - **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
-- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação.
+- **`Fundação`** (F0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação.
   Roda o build como de costume e grava `output/3-dotnet-specialist-F0.md`.
 - **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
   Regras que valem só neste modo, e que prevalecem sobre o resto do arquivo:
@@ -5710,7 +5750,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 ## Modos de execução (o prompt de invocação diz qual)
 
 - **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
-- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+- **`Fundação`** (F0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
   (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
   relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
 - **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
@@ -5809,7 +5849,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 ## Modos de execução (o prompt de invocação diz qual)
 
 - **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
-- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+- **`Fundação`** (F0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
   (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
   relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
 - **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
@@ -5908,7 +5948,7 @@ do que você proporia num projeto novo. Se `src/` estiver vazio, implemente norm
 ## Modos de execução (o prompt de invocação diz qual)
 
 - **Sem unidade no prompt** — execução normal e completa, como descrito neste arquivo.
-- **`Fundação`** (Onda 0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
+- **`Fundação`** (F0 do `output/EXECUTION_PLAN.md`) — execução normal, mas restrita aos arquivos da fundação
   (layout, design tokens, cliente de API, autenticação, rota raiz). Roda o build como de costume e grava o
   relatório com o nome do relatório normal acrescido de `-F0` antes do `.md`.
 - **`Unidade <id>`** — você é um de **vários specialists rodando ao mesmo tempo**, cada um numa unidade do plano.
@@ -5986,6 +6026,14 @@ if [ "$MONO" = 1 ]; then
             03-*-specialist)       FRENTE_LINE="- **Sua frente é sempre \`frontend\`** (código em \`frontend/src/\`, spec em \`docs/frontend/SPEC.md\`)." ;;
             *)                     FRENTE_LINE="- **Frente da rodada:** vem no prompt de invocação (\`backend\` ou \`frontend\`). Onde este arquivo diz \`<frente>\`, leia essa pasta; a spec da rodada é \`docs/<frente>/SPEC.md\`." ;;
         esac
+        # O que cada agente faz com o contrato da API quando backend e frontend rodam ao mesmo tempo.
+        case "$agent_name" in
+            01-analyst-sdd)        DUPLA_LINE="- **Analyst na rodada dupla:** o prompt diz \`Frente: ambas\`. Consolide \`docs/raw/\` uma vez só e valide as duas specs, gravando um relatório por frente, no formato de sempre: \`output/backend/1-analyst.md\` e \`output/frontend/1-analyst.md\`. No do frontend, liste o que a tela espera que o backend exponha; no do backend, diga se a spec dele cobre isso (o que faltar é lacuna)." ;;
+            02-architect-sdd)      DUPLA_LINE="- **Contrato da API (rodada dupla):** na frente \`backend\`, além dos quatro documentos, grave \`output/contrato-api.md\` com todo endpoint que o frontend vai usar: método, rota, autenticação/permissão, request e response com campos e tipos, paginação, códigos de erro e formato do erro. O frontend é implementado em cima dele **ao mesmo tempo** que o backend, então ele precisa estar fechado. Na frente \`frontend\`, monte o cliente HTTP e os tipos a partir desse contrato e não invente endpoint fora dele (o que faltar vira lacuna no relatório)." ;;
+            03-dotnet-specialist)  DUPLA_LINE="- **Contrato (rodada dupla):** implemente \`output/contrato-api.md\` exatamente: o frontend está sendo escrito em cima dele agora. Se precisar mudar algo (rota, campo, tipo, código de erro), não mude em silêncio: registre em \`output/backend/divergencias-contrato.md\` o que mudou e por quê." ;;
+            03-*-specialist)       DUPLA_LINE="- **Contrato (rodada dupla):** o backend está sendo implementado ao mesmo tempo. Consuma exatamente \`output/contrato-api.md\` (rotas, campos, tipos, erros) e, nos testes, simule a API em cima dele; não espere nem chame o backend real. Se faltar no contrato algo de que a tela precisa, registre em \`output/frontend/divergencias-contrato.md\` e implemente o resto." ;;
+            *)                     DUPLA_LINE="- **Contrato (rodada dupla):** confira se o código da sua frente segue \`output/contrato-api.md\`. Divergência que não está registrada em \`output/<frente>/divergencias-contrato.md\` é achado." ;;
+        esac
         cat > "$MONO_NOTE_FILE" << MONONOTEEOF
 > ## Monorepo (backend/ + frontend/)
 >
@@ -5999,6 +6047,13 @@ if [ "$MONO" = 1 ]; then
 > - **ADR:** os do backend seguem \`ADR-NNN\`; os do frontend usam \`ADR-FE-NNN\`, desde o primeiro.
 > - **Build e testes** rodam dentro da pasta da frente (\`cd backend && ...\`, \`cd frontend && ...\`), nunca na raiz.
 > - Nunca crie \`knowledge/\`, \`docs/\` ou \`.claude/\` dentro de \`backend/\` ou \`frontend/\`.
+> - **Rodada dupla:** se o prompt disser \`rodada dupla\`, a outra frente está rodando **ao mesmo tempo**, com
+>   outros agentes. Então: todo \`output/<arquivo>\` citado neste documento passa a ser
+>   \`output/<frente>/<arquivo>\` (leitura e gravação; só \`output/contrato-api.md\` fica na raiz de \`output/\`);
+>   não toque em nada da pasta da outra frente; no vault, altere nota compartilhada (\`Index.md\`, nota das duas
+>   frentes) com edição pontual, nunca reescrevendo o arquivo inteiro; e não rode o rebuild do knowledge
+>   engine, porque o orquestrador roda antes de cada commit.
+> $DUPLA_LINE
 MONONOTEEOF
         insert_after_frontmatter "$agent_file" "$MONO_NOTE_FILE"
     done
@@ -6069,7 +6124,7 @@ done
 # CRIAR .claude/commands/inicia-orquestracao.md — conteúdo específico por stack
 # ============================================================================
 if [ "$MONO" = 1 ]; then
-    ORCH_STACK_NOTE=" Este projeto é um **monorepo** (backend + frontend): cada rodada trabalha **uma frente**, passada como argumento — \`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`."
+    ORCH_STACK_NOTE=" Este projeto é um **monorepo** (backend + frontend): a rodada trabalha uma frente ou as duas ao mesmo tempo — \`/inicia-orquestracao backend\`, \`/inicia-orquestracao frontend\` ou \`/inicia-orquestracao ambas\` (sem argumento, o orquestrador decide pela spec)."
     ORCH_SPEC_TIP=" A spec de cada rodada é \`docs/backend/SPEC.md\` ou \`docs/frontend/SPEC.md\`, conforme a frente."
     ORCH_TIME="~12-25 minutos (varia com a frente)"
     ORCH_SPECIALIST_LINE="🧩 03 Specialist da frente → $BACK_SPECIALIST (backend) ou $FRONT_SPECIALIST (frontend): implementa o código em <frente>/src/ (só termina com o build passando, rodado dentro da pasta da frente)"
@@ -6138,12 +6193,12 @@ docs/raw/ (opcional) + docs/SPEC.md
     ↓
 ⏸️ Pausa — você aprova seguir? (única pausa do pipeline)
     ↓ (só continua se você aprovar)
-🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade + plano de execução em ondas
+🏛️ 02 Architect        → Gera arquitetura + matriz de rastreabilidade + plano de execução (unidades e dependências)
     ↓
 🐳 Ambiente local      → Sobe em Docker tudo que a arquitetura precisa (banco, e-mail, arquivos, fila...)
     ↓
 __ORCH_SPECIALIST_LINE__
-    ↳ com plano PARALELO: fundação → ondas de unidades ao mesmo tempo (até 6 por vez) → costura (build único)
+    ↳ com plano PARALELO: fundação → cada unidade começa assim que as dependências dela terminam (até 6 rodando) → costura (build único)
     ↓
 🔍 04 Reviewer         → Conformidade com a spec + qualidade do código, numa leitura só
     ⇅ roda ao mesmo tempo que o 05 (o Reviewer só lê o código)
@@ -6241,23 +6296,33 @@ __STACK_COMMIT_EXAMPLES__
 
 Tempo é o recurso mais caro de uma rodada: o custo em tokens é praticamente o mesmo em série ou em paralelo,
 então tudo o que não depende de outra coisa roda **ao mesmo tempo**. Quem decide é o `output/EXECUTION_PLAN.md`
-que o `02-architect-sdd` gera (ondas, dependências e dono de cada arquivo).
+que o `02-architect-sdd` gera (unidades, dependências e dono de cada arquivo).
 
-**Etapa 03 — specialists em ondas**
+**Etapa 03 — cada unidade começa assim que pode**
+
+Não existe onda nem lote fechado: uma unidade começa **no instante** em que as unidades de que ela depende
+terminam, sem esperar as outras que ainda estão rodando. Se a U01 termina em 2 minutos e a U02 leva 15, quem
+dependia só da U01 começa no minuto 2.
 
 1. Leia `output/EXECUTION_PLAN.md`. Se o modo for **SERIAL** (ou se o arquivo não existir), invoque o
    specialist uma vez só, como sempre, e pule o resto desta seção.
-2. **Fundação (Onda 0)**: invoque o specialist uma vez, com `Fundação` no prompt. Espere terminar e passar o
+2. **Fundação (F0)**: invoque o specialist uma vez, com `Fundação` no prompt. Espere terminar e passar o
    build antes de seguir — tudo depende dela.
-3. **Cada onda seguinte**: invoque **um specialist por unidade da onda, todos na MESMA mensagem** (várias
-   chamadas do `Agent` de uma vez, é isso que as faz rodar simultaneamente), cada um com `Unidade <id>` no
-   prompt e o arquivo do plano apontado. No máximo **6 ao mesmo tempo**: se a onda tiver mais, divida em
-   lotes de 6. Só inicie a onda seguinte quando todas as unidades da atual terminarem.
-4. **Antes de seguir de uma onda para a outra**, rode `git status --porcelain` e confira que cada arquivo
-   alterado pertence a alguma unidade (ou aos compartilhados). Arquivo fora do dono vai para a costura revisar.
-   Se uma unidade ficou incompleta ou deu erro (inclusive limite de requisições), reinvoque **só ela**, depois
-   das outras — não refaça a onda.
-5. **Costura**: depois da última onda, invoque o specialist uma vez, com `Costura` no prompt. Ele aplica os
+3. **Primeiro disparo**: invoque, **todas na MESMA mensagem**, as unidades que dependem só de `F0`, cada uma
+   com `Unidade <id>` no prompt e o arquivo do plano apontado. Rode-as **em segundo plano**
+   (`run_in_background: true` no `Agent`, quando a ferramenta oferecer) para ser avisado de cada uma que
+   terminar, e não só quando todas terminarem. No máximo **6 rodando ao mesmo tempo**; as que sobrarem
+   esperam vaga.
+4. **A cada unidade que termina** (sem esperar as outras):
+   - rode `git status --porcelain` e confira que os arquivos que ela alterou são dela (ou estão nos
+     compartilhados); arquivo fora do dono vai para a costura revisar;
+   - se ela ficou incompleta ou deu erro (inclusive limite de requisições), reinvoque **só ela**, na hora; quem
+     depende dela continua esperando;
+   - se terminou bem, marque como concluída e **invoque na mesma hora** todas as unidades que acabaram de ficar
+     liberadas (todas as dependências concluídas), até ocupar de novo as 6 vagas.
+   Mantenha uma tabela de controle (pendente / rodando / concluída / falhou) e, a cada disparo, diga em uma
+   linha o que começou e o que liberou.
+5. **Costura**: quando a última unidade terminar, invoque o specialist uma vez, com `Costura` no prompt. Ele aplica os
    registros em arquivos compartilhados, resolve inconsistências, gera a migration única, roda o build
    e só termina com ele passando, e consolida o relatório que o Reviewer lê. Esse é o gate da etapa 03.
 6. Cada unidade usa o modelo pela mesma regra de "Modelo por tarefa" (avalie a complexidade **da unidade**).
@@ -6269,8 +6334,9 @@ Depois da costura, invoque o `04-reviewer-sdd` e o `05-test-engineer` **na mesma
 código; o Test Engineer escreve e roda os testes. Se qualquer um reprovar, o pipeline para (o trabalho do outro
 fica no working tree, sem commit). O `06-security-scan-sdd` continua depois, pois revalida os testes do 05.
 
-**Quando NÃO paralelizar**: plano em modo SERIAL, onda com uma unidade só (invoque normal), ou qualquer sinal de
-que duas unidades precisam editar o mesmo arquivo — nesse caso reagrupe numa unidade só e siga em série.
+**Quando NÃO paralelizar**: plano em modo SERIAL, uma unidade só liberada e nenhuma outra para liberar
+(invoque normal), ou qualquer sinal de que duas unidades precisam editar o mesmo arquivo — nesse caso reagrupe
+numa unidade só e siga em série.
 
 ## 📁 Resultados
 
@@ -6281,7 +6347,7 @@ Durante a rodada, `output/` é o canal de passagem entre os agentes:
 TECHNICAL_SPECIFICATION.md   (Arquitetura)
 TRACEABILITY_MATRIX.md       (Rastreabilidade)
 TECHNICAL_DECISIONS.md       (Decisões)
-EXECUTION_PLAN.md            (Plano de execução: ondas, unidades e dono de cada arquivo)
+EXECUTION_PLAN.md            (Plano de execução: unidades, dependências e dono de cada arquivo)
 costura-<id>.md              (Só no modo paralelo: o que cada unidade pede para registrar nos arquivos compartilhados)
 __ORCH_SPECIALIST_OUT__
 4-review.md                  (Conformidade + qualidade)
@@ -6315,20 +6381,67 @@ cat > "$ORCH_FRENTE_SRC" << 'ORCHFRENTEEOF'
 
 Argumento recebido: `$ARGUMENTS`
 
-- A rodada trabalha **uma frente**: `backend` ou `frontend`. Se o argumento estiver vazio ou for outra coisa,
-  **pergunte ao usuário qual frente** antes de qualquer outra ação — não escolha sozinho.
+- A rodada trabalha `backend`, `frontend` ou **`ambas`** (rodada dupla: as duas frentes ao mesmo tempo, veja a
+  seção abaixo).
+- **Sem argumento, decida sozinho**: leia as duas specs e o `.claude/stack.json`. Se as duas frentes têm stack
+  definida e a mudança toca as duas (uma pede algo que a outra precisa expor ou consumir, ou as duas têm
+  requisito novo), rode `ambas`. Se só uma tem o que fazer, rode essa. Só pergunte se não der para saber, e
+  diga em uma linha o que escolheu e por quê. Argumento diferente desses três: pergunte.
 - **Confira a stack da frente antes de tudo:** leia `.claude/stack.json`. Se a frente escolhida estiver
   `"pendente"`, **pare** e diga ao usuário para rodar `/definir-stack <frente>` (ele pergunta a linguagem e
   instala o specialist), reabrir o Claude Code e chamar `/inicia-orquestracao <frente>` de novo. Não rode
-  nenhum agente e não assuma uma stack.
+  nenhum agente e não assuma uma stack. Em `ambas`, se só uma estiver pendente, avise e rode a outra sozinha.
 - Chame de `<frente>` o valor escolhido. A spec da rodada é `docs/<frente>/SPEC.md`, o código vive em
   `<frente>/`, e o specialist é o `03-*` da stack dessa frente. Diga a frente no prompt de invocação de **todo**
   agente.
-- Os relatórios de `output/` mantêm os mesmos nomes (não duplique por frente), e o vault é um só:
-  `knowledge/` na raiz, para as duas frentes.
+- Os relatórios de `output/` mantêm os mesmos nomes (não duplique por frente; só na rodada dupla cada frente
+  usa `output/<frente>/`), e o vault é um só: `knowledge/` na raiz, para as duas frentes.
 - Build e testes rodam **dentro da pasta da frente** (`cd backend && ...`, `cd frontend && ...`), nunca na raiz.
-- Mudança que cruza as duas frentes = **duas rodadas**, backend primeiro. Para rodar as duas ao mesmo tempo,
-  use uma worktree por frente (`claude --worktree nome-da-frente`).
+
+## 🔀 Rodada dupla (`ambas`): backend e frontend ao mesmo tempo
+
+As frentes vivem em pastas separadas, então a única coisa que disputam é o **contrato da API** (o frontend chama
+o que o backend expõe). Por isso o contrato fecha primeiro e, a partir dele, cada frente anda no próprio ritmo,
+sem esperar a outra. Todo o resto deste documento continua valendo; aqui está só o que muda.
+
+1. **Relatórios por frente.** Toda invocação leva `Frente: <frente> — rodada dupla` no prompt. Nesse modo cada
+   agente lê e grava os relatórios dele em `output/<frente>/` (mesmos nomes de sempre). Só o contrato fica fora:
+   `output/contrato-api.md`, um só para as duas.
+2. **01 Analyst, uma invocação só**, com `Frente: ambas — rodada dupla`: ele consolida `docs/raw/` uma vez e
+   valida as duas specs, gravando `output/backend/1-analyst.md` e `output/frontend/1-analyst.md`. A pausa de
+   aprovação mostra os dois relatórios. Se o usuário aprovar só uma frente, a outra sai da rodada e a aprovada
+   segue sozinha.
+3. **02 Architect do backend primeiro.** Além dos quatro documentos, ele grava `output/contrato-api.md`. Esse é
+   o único ponto em que uma frente espera a outra.
+4. **Assim que o Architect do backend terminar, dispare juntos, em segundo plano:** o 02 Architect do frontend
+   (monta cliente HTTP e tipos a partir do contrato) e a fundação do backend. Enquanto rodam, suba aqui mesmo o
+   ambiente local (modo `subir`). Quando o Architect do frontend terminar, confira se ele pede algo a mais no
+   ambiente e acrescente. Se o ambiente local falhar, deixe terminar o que já está rodando e pare antes das
+   unidades.
+5. **03 numa fila só, com as duas frentes.** Junte os dois `EXECUTION_PLAN.md` numa tabela de controle única
+   (ids com o prefixo da frente: `B-F0`, `B-U01`, `F-F0`, `F-U01`). A regra de disparo é a mesma da execução
+   paralela: cada unidade começa assim que as dependências **da própria frente** terminam, com no máximo **6
+   rodando somando as duas frentes**. Unidade do frontend nunca depende de unidade do backend: ela consome o
+   contrato e os testes simulam a API. Não espere o backend ficar pronto.
+6. **Cada frente fecha sozinha.** Quando todas as unidades de uma frente terminarem, rode a costura dela; com o
+   build passando, dispare o 04 e o 05 dela juntos e depois o 06 dela, sem esperar a outra frente. Enquanto o
+   frontend ainda implementa, o backend já pode estar em revisão.
+7. **Divergência de contrato.** Se aparecer `output/backend/divergencias-contrato.md`, avise na conversa e passe a
+   divergência para a costura do frontend (ou, se o frontend já fechou, reinvoque o specialist do frontend só
+   para ajustar o cliente HTTP e os tipos). O que o frontend registrar em `output/frontend/divergencias-contrato.md`
+   vira lacuna no relatório final ou tarefa da costura do backend, se ele ainda não fechou.
+8. **Validação local com as duas juntas**, depois que as duas passaram pelo 06: além do modo `validar`, confira a
+   integração de verdade. Com o backend rodando contra os containers, cada chamada que o cliente HTTP do frontend
+   faz (método, rota, campos) precisa existir e responder no formato do contrato, e pelo menos um fluxo completo
+   vai da tela até o banco. Divergência é ❌ REPROVADO.
+9. **Commits e vault.** Os commits continuam aqui na conversa, por etapa e por frente, com `git add` só dos
+   caminhos daquela etapa (`<frente>/`, as notas de `knowledge/` que ela mexeu, os arquivos dela em `docs/`).
+   Nunca `git add -A` enquanto a outra frente está rodando. Antes de cada commit, rode
+   `node .claude/scripts/knowledge-engine-build.cjs` (na rodada dupla os agentes não rodam o rebuild, para não
+   gravarem o grafo ao mesmo tempo).
+10. **Gate reprovado numa frente** para só aquela frente. A outra termina as etapas dela e commita localmente, mas
+    o push só acontece se as duas passaram. No relatório final, diga o que ficou de cada lado.
+11. **Push e marcador** como na rodada simples, uma vez só, no fim.
 
 ORCHFRENTEEOF
 ORCH_FRENTE_FILE=$(mktemp)
@@ -6341,7 +6454,7 @@ inject_stack_block "$ORCH_FILE" "__ORCH_FRENTE_SECTION__" "$ORCH_FRENTE_FILE"
 rm -f "$ORCH_FRENTE_FILE"
 if [ "$MONO" = 1 ]; then
     mono_paths_sed "$ORCH_FILE" "<frente>"
-    sed -i 's#^\( *\)/inicia-orquestracao$#\1/inicia-orquestracao <backend|frontend>#' "$ORCH_FILE"
+    sed -i 's#^\( *\)/inicia-orquestracao$#\1/inicia-orquestracao <backend|frontend|ambas>#' "$ORCH_FILE"
 fi
 rm -f "$ORCH_FRENTE_SRC"
 rm -f "$COMMIT_EXAMPLES_FILE"
@@ -6377,10 +6490,10 @@ Projeto: **__STACK_LABEL__**
    /definir-stack                  # pergunta a linguagem de cada frente (só na primeira vez)
    /inicia-orquestracao backend
    /inicia-orquestracao frontend
+   /inicia-orquestracao ambas      # as duas ao mesmo tempo, com o contrato da API fechado primeiro
    ```
    Depois do `/definir-stack`, reabra o Claude Code (`claude --continue`) para carregar o specialist da stack.
-   Sem argumento, o orquestrador pergunta qual frente. Mudança que cruza as duas = duas rodadas (backend
-   primeiro). Para rodar as duas ao mesmo tempo, uma worktree por frente: `claude --worktree nome-da-frente`.
+   Sem argumento, o orquestrador decide pela spec: se a mudança toca as duas frentes, roda `ambas`.
 
 4. **Pronto!** Os subagentes (pasta `.claude/agents/`) rodam automaticamente em cascata — começando pelo
    `01-analyst-sdd`, que consolida `docs/raw/` (se tiver arquivos) e valida a spec da frente
@@ -7644,7 +7757,8 @@ Este projeto é um **monorepo** com duas frentes — \`backend/\` ($BACK_LABEL) 
 
 **Abra o projeto pela raiz.** Abrindo só \`backend/\` ou \`frontend/\`, os agentes, comandos e skills do pipeline podem
 não carregar; o \`CLAUDE.md\` dessas pastas existe só como aviso. Cada frente tem sua spec em
-\`docs/<frente>/SPEC.md\`. Mudança que cruza as duas frentes são duas rodadas (backend primeiro).
+\`docs/<frente>/SPEC.md\`. Mudança que cruza as duas frentes roda numa rodada dupla (\`/inicia-orquestracao ambas\`):
+o contrato da API fecha primeiro e depois backend e frontend são implementados ao mesmo tempo.
 "
 else
     CLAUDE_SPEC_LINE="\`docs/SPEC.md\` — a especificação que você escreve/edita"
@@ -7746,16 +7860,16 @@ reportar falha. São 6 subagentes; cada etapa aprovada vira um commit local na c
 ## Trabalhando em paralelo
 
 Dentro de uma rodada, o \`/inicia-orquestracao\` já paraleliza sozinho: o \`02-architect-sdd\` gera \`output/EXECUTION_PLAN.md\`
-(unidades, ondas e dono de cada arquivo), os specialists de cada onda rodam ao mesmo tempo (até 6), uma costura
-final faz o build único, e o Reviewer e o Test Engineer rodam juntos. Unidades que dependem uma da outra ficam em
-ondas diferentes; projeto pequeno (menos de 3 unidades independentes) segue em série.
+(unidades, dependências e dono de cada arquivo) e cada unidade começa **no instante** em que as dependências
+dela terminam, sem esperar as outras (até 6 rodando). Uma costura final faz o build único, e o Reviewer e o Test
+Engineer rodam juntos. Projeto pequeno (menos de 3 unidades independentes) segue em série.
 
 **Fora do pipeline vale a mesma regra.** Pedido avulso com várias tarefas (ex.: "esqueci de implementar tal
 coisa") também é paralelizado por padrão, sem o usuário precisar pedir — veja \`.claude/rules/paralelismo.md\`,
 que carrega em toda sessão.
 
-Para tocar duas frentes ao mesmo tempo (ex: duas specs diferentes) sem os agentes esbarrarem nos mesmos
-arquivos, rode cada uma em uma worktree: \`claude --worktree nome-da-frente\`.
+Duas features independentes ao mesmo tempo (duas specs diferentes, sem contrato em comum): uma worktree para
+cada uma, \`claude --worktree nome-da-feature\`, para os agentes não esbarrarem nos mesmos arquivos.
 
 ## Convenções deste projeto
 
@@ -7851,21 +7965,28 @@ coisa" feito no meio da conversa. O usuário **não precisa pedir**: paralelizar
 2. **Tarefas independentes rodam juntas.** São independentes quando uma não precisa do resultado da outra, não
    editam o mesmo arquivo e inverter a ordem não quebra regra de negócio. Dispare-as na **mesma mensagem**
    (várias chamadas de ferramenta, ou vários `Agent` de uma vez — é isso que as faz rodar simultaneamente),
-   em **no máximo 6 ao mesmo tempo**; se houver mais, divida em lotes e só comece o lote seguinte quando o
-   atual terminar. Ao delegar para subagente, diga a lista exata de arquivos que ele pode alterar.
-3. **Leituras e buscas independentes sempre juntas**: `Read`, `Grep`, `Glob` e comandos de consulta que não
+   em **no máximo 6 ao mesmo tempo**. Ao delegar para subagente, diga a lista exata de arquivos que ele pode
+   alterar.
+3. **Não espere o lote inteiro.** Rode os subagentes em segundo plano (`run_in_background: true`, quando a
+   ferramenta oferecer) e, a cada um que termina, dispare na hora o que ele liberou, até ocupar de novo as 6
+   vagas. Tarefa que não depende de nada que está rodando nunca fica parada esperando.
+4. **Backend e frontend juntos.** Quando o pedido toca as duas frentes, feche primeiro o contrato da API
+   (endpoints, DTOs, códigos de erro) e depois rode backend e frontend ao mesmo tempo, cada um só na sua pasta,
+   com o frontend consumindo o contrato (testes simulam a API). No fim, confira que o frontend chama
+   exatamente o que o backend expõe.
+5. **Leituras e buscas independentes sempre juntas**: `Read`, `Grep`, `Glob` e comandos de consulta que não
    dependem uns dos outros vão numa mensagem só, nunca um por turno.
-4. **Fica em série**: tarefa que depende do resultado de outra; duas tarefas no mesmo arquivo (reagrupe numa
+6. **Fica em série**: tarefa que depende do resultado de outra; duas tarefas no mesmo arquivo (reagrupe numa
    só); arquivos compartilhados que várias tarefas "registrariam" (DI, rotas, módulos, barrels, `package.json`,
    lockfile, migrations) — esses ficam para uma etapa final única, depois das tarefas paralelas.
-5. **Tarefa pequena não vale subagente.** Uma ou duas edições curtas, faça direto; subagente tem custo de
+7. **Tarefa pequena não vale subagente.** Uma ou duas edições curtas, faça direto; subagente tem custo de
    partida. Use subagente quando a tarefa for grande o bastante para compensar.
-6. **Ao juntar o paralelo**: rode `git status --porcelain` e confira que cada arquivo alterado pertence a
+8. **Ao juntar o paralelo**: rode `git status --porcelain` e confira que cada arquivo alterado pertence a
    alguma tarefa; rode build e testes **uma vez só**, no fim, não por tarefa; se uma tarefa falhou (inclusive
    limite de requisições), reinvoque **só ela**, sem refazer as outras.
-7. **Não pergunte se pode paralelizar.** Faça, e diga em uma linha o que rodou junto e o que ficou em série e
+9. **Não pergunte se pode paralelizar.** Faça, e diga em uma linha o que rodou junto e o que ficou em série e
    por quê. Commits e atualização do vault continuam sendo feitos na conversa principal, por unidade lógica.
-8. **Limpe o que criou.** Worktree, branch auxiliar e arquivo temporário existem só enquanto a tarefa dura. Ao
+10. **Limpe o que criou.** Worktree, branch auxiliar e arquivo temporário existem só enquanto a tarefa dura. Ao
    terminar (e depois de mergear o que precisa): `git worktree remove <caminho>`, `git branch -d <branch>` (só
    se já foi mergeada) e `git worktree prune`. Não deixe cópia do repositório em `.claude/worktrees/`. Arquivo
    temporário nasce fora do projeto (`mktemp -d`) ou em `output/` e é apagado no fim, mesmo em caso de erro.
@@ -9708,8 +9829,8 @@ if [ "$MONO" = 1 ]; then
 | \`.github/workflows/\` | Um workflow por deploy, com \`paths:\` por pasta (\`backend/**\`, \`frontend/**\`) |
 
 **Abra o projeto pela raiz.** Cada rodada do \`/inicia-orquestracao\` trabalha uma frente
-(\`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`); mudança que cruza as duas são duas
-rodadas, backend primeiro. Para rodar as duas ao mesmo tempo, uma worktree por frente.
+(\`/inicia-orquestracao backend\` ou \`/inicia-orquestracao frontend\`) ou as duas ao mesmo tempo
+(\`/inicia-orquestracao ambas\`): o contrato da API fecha primeiro e as duas frentes são implementadas juntas.
 
 ## 🎯 Antes do código: mostrar ao cliente e definir a linguagem
 
@@ -9919,7 +10040,8 @@ Este projeto já sai alinhado à estrutura recomendada pela documentação ofici
   \`/inicia-orquestracao\` não ficar parando pra pedir aceite o tempo todo. Aprovações extras que você conceder
   durante a sessão ("don't ask again") caem em \`.claude/settings.local.json\`, que também vai versionado.
 
-**Trabalhar em duas frentes ao mesmo tempo?** Rode \`claude --worktree nome-da-frente\` — cada sessão trabalha
+**Backend e frontend da mesma mudança?** \`/inicia-orquestracao ambas\` já roda os dois ao mesmo tempo.
+**Duas features independentes ao mesmo tempo?** Rode \`claude --worktree nome-da-feature\` — cada sessão trabalha
 num checkout isolado do Git, então duas rodadas de \`/inicia-orquestracao\` (ex: duas features diferentes) não
 esbarram nos mesmos arquivos.
 
@@ -9942,7 +10064,7 @@ $README_RUN_LINE
 
 ---
 
-**Projeto criado com Claude SDD v7.3.0**
+**Projeto criado com Claude SDD v7.4.0**
 READMEEOF
 
 echo -e "${GREEN}✅ README.md criado (guia de início + estrutura, num arquivo só)${NC}"
@@ -10959,7 +11081,7 @@ if [ "$MODE" = "existente" ]; then
     if [ "$MONO" = 1 ]; then echo "     nano docs/backend/SPEC.md   (ou docs/frontend/SPEC.md)"; else echo "     nano docs/SPEC.md"; fi
     echo ""
     echo "  2️⃣  Executar orchestrador (no Claude Code)"
-    if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
+    if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend, ou ambas)"; else echo "     /inicia-orquestracao"; fi
     echo ""
     echo -e "${YELLOW}Nada do seu código existente foi tocado ou sobrescrito${NC} — só foram acrescentadas as"
     echo "pastas e arquivos do pipeline (.claude/commands/, .claude/agents/, knowledge/). Os agentes de arquitetura"
@@ -10980,10 +11102,10 @@ else
         echo ""
         echo "  5️⃣  Definir a linguagem de cada frente e executar o orchestrador (no Claude Code)"
         echo "     /definir-stack"
-        echo "     /inicia-orquestracao backend   (ou frontend)"
+        echo "     /inicia-orquestracao backend   (ou frontend, ou ambas)"
     else
         echo "  4️⃣  Executar orchestrador (no Claude Code)"
-        if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend)"; else echo "     /inicia-orquestracao"; fi
+        if [ "$MONO" = 1 ]; then echo "     /inicia-orquestracao backend   (ou frontend, ou ambas)"; else echo "     /inicia-orquestracao"; fi
     fi
 fi
 echo ""
